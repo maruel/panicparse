@@ -58,6 +58,42 @@ func (r *Goroutine) Eq(l *Goroutine) bool {
 	return true
 }
 
+func (r *Goroutine) Less(l *Goroutine) bool {
+	if r.State < l.State {
+		return true
+	}
+	if r.State > l.State {
+		return false
+	}
+	if len(r.Stack) < len(l.Stack) {
+		return true
+	}
+	if len(r.Stack) > len(l.Stack) {
+		return false
+	}
+	for x := range r.Stack {
+		if r.Stack[x].FuncName < l.Stack[x].FuncName {
+			return true
+		}
+		if r.Stack[x].FuncName > l.Stack[x].FuncName {
+			return true
+		}
+		if r.Stack[x].Base < l.Stack[x].Base {
+			return true
+		}
+		if r.Stack[x].Base > l.Stack[x].Base {
+			return true
+		}
+		if r.Stack[x].Line < l.Stack[x].Line {
+			return true
+		}
+		if r.Stack[x].Line > l.Stack[x].Line {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Goroutine) PrettyStack() string {
 	out := []string{}
 	for _, line := range r.Stack {
@@ -96,6 +132,16 @@ type Bucket struct {
 	Count int
 }
 
+func (b *Bucket) Less(l *Bucket) bool {
+	if b.Count < l.Count {
+		return true
+	}
+	if b.Count > l.Count {
+		return false
+	}
+	return b.Goroutine.Less(&l.Goroutine)
+}
+
 type Buckets []Bucket
 
 func (b Buckets) Len() int {
@@ -103,7 +149,7 @@ func (b Buckets) Len() int {
 }
 
 func (b Buckets) Less(i, j int) bool {
-	return b[i].Count < b[j].Count
+	return b[i].Less(&b[j])
 }
 
 func (b Buckets) Swap(i, j int) {
