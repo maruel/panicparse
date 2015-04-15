@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -218,6 +219,14 @@ func ParseDump(r io.Reader) (string, []Goroutine, error) {
 }
 
 func mainImpl() error {
+	c := make(chan os.Signal)
+	go func() {
+		for {
+			<-c
+		}
+	}()
+	signal.Notify(c, os.Interrupt)
+
 	flag.Parse()
 	var in *os.File
 	switch name := flag.Arg(0); {
