@@ -13,6 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -39,11 +40,26 @@ var (
 
 // Call is an item in the stack trace.
 type Call struct {
-	Base     string // Base file name of the source file
 	Path     string // Full path name of the source file
 	Line     int    // Line number
-	FuncName string // Function name
+	Func     string // Fully qualified function name
+	Args     string // Call arguments
 	IsStdlib bool   // true if it is a Go standard library function
+}
+
+// Base file name of the source file.
+func (c *Call) Base() string {
+	return filepath.Base(c.Path)
+}
+
+// PkgBase is one directory plus the file name of the source file.
+func (c *Call) PkgBase() string {
+	return filepath.Join(filepath.Base(filepath.Dir(c.Path)), c.Base())
+}
+
+// FuncName is the naked function name.
+func (c *Call) FuncName() string {
+	return filepath.Base(c.Func)
 }
 
 // Goroutine represents the state of one goroutine.
@@ -80,16 +96,16 @@ func (r *Goroutine) Less(l *Goroutine) bool {
 		return false
 	}
 	for x := range r.Stack {
-		if r.Stack[x].FuncName < l.Stack[x].FuncName {
+		if r.Stack[x].Func < l.Stack[x].Func {
 			return true
 		}
-		if r.Stack[x].FuncName > l.Stack[x].FuncName {
+		if r.Stack[x].Func > l.Stack[x].Func {
 			return true
 		}
-		if r.Stack[x].Base < l.Stack[x].Base {
+		if r.Stack[x].PkgBase() < l.Stack[x].PkgBase() {
 			return true
 		}
-		if r.Stack[x].Base > l.Stack[x].Base {
+		if r.Stack[x].PkgBase() > l.Stack[x].PkgBase() {
 			return true
 		}
 		if r.Stack[x].Line < l.Stack[x].Line {
@@ -109,7 +125,7 @@ func (r *Goroutine) PrettyStack() string {
 		if line.IsStdlib {
 			c = ansi.Green
 		}
-		out = append(out, fmt.Sprintf("  %s:%d: %s%s%s", line.Base, line.Line, c, line.FuncName, ansi.Reset))
+		out = append(out, fmt.Sprintf("  %s:%d: %s%s(%s)%s", line.Base(), line.Line, c, line.FuncName(), line.Args, ansi.Reset))
 	}
 	return strings.Join(out, "\n")
 }
@@ -220,14 +236,15 @@ func ParseDump(r io.Reader) (string, []Goroutine, error) {
 			}
 			i := len(goroutine.Stack) - 1
 			p := match[1]
-			goroutine.Stack[i].Base = filepath.Base(p)
 			goroutine.Stack[i].Path = p
 			goroutine.Stack[i].Line = num
 			goroutine.Stack[i].IsStdlib = strings.HasPrefix(p, goroot)
 		} else if match := reCreated.FindStringSubmatch(line); match != nil {
-			goroutine.Stack = append(goroutine.Stack, Call{FuncName: filepath.Base(match[1])})
+			f, _ := url.QueryUnescape(match[1])
+			goroutine.Stack = append(goroutine.Stack, Call{Func: f, Args: match[2]})
 		} else if match := reFunc.FindStringSubmatch(line); match != nil {
-			goroutine.Stack = append(goroutine.Stack, Call{FuncName: filepath.Base(match[1])})
+			f, _ := url.QueryUnescape(match[1])
+			goroutine.Stack = append(goroutine.Stack, Call{Func: f, Args: match[2]})
 		} else {
 			header += line + "\n"
 			goroutine = nil
