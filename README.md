@@ -10,9 +10,14 @@ Also usable as a library: [![GoDoc](https://godoc.org/github.com/maruel/panicpar
 Screenshots
 -----------
 
+### Deep stack
+
 ![Screenshot](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot.png "Screenshot")
 
+### Multiple goroutines
+
 ![Screenshot 2](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot2.png "Screenshot 2")
+
 
 Usage
 -----
