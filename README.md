@@ -7,8 +7,12 @@ process.
 
 Also usable as a library: [![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
 
+Screenshots
+-----------
+
 ![Screenshot](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot.png "Screenshot")
 
+![Screenshot 2](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot2.png "Screenshot 2")
 
 Usage
 -----
