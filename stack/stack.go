@@ -263,13 +263,12 @@ func SortBuckets(buckets map[*Signature][]Goroutine) Buckets {
 // ParseDump processes the output from runtime.Stack().
 //
 // It supports piping from another command and assumes there is junk before the
-// actual stack trace.
-func ParseDump(r io.Reader) (string, []Goroutine, error) {
+// actual stack trace. The junk is streamed to out.
+func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	goroutines := make([]Goroutine, 0, 16)
 	var goroutine *Goroutine
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
-	header := ""
 	// TODO(maruel): Use a formal state machine. Patterns follows:
 	// Repeat:
 	// - reFunc
@@ -283,7 +282,7 @@ func ParseDump(r io.Reader) (string, []Goroutine, error) {
 		line := scanner.Text()
 		if len(line) == 0 {
 			if goroutine == nil {
-				header += line + "\n"
+				io.WriteString(out, line+"\n")
 			}
 			goroutine = nil
 			continue
@@ -301,7 +300,7 @@ func ParseDump(r io.Reader) (string, []Goroutine, error) {
 					continue
 				}
 			}
-			header += line + "\n"
+			io.WriteString(out, line+"\n")
 			continue
 		}
 
@@ -309,7 +308,7 @@ func ParseDump(r io.Reader) (string, []Goroutine, error) {
 			// Triggers after a reFunc or a reCreated.
 			num, err := strconv.Atoi(match[2])
 			if err != nil {
-				return header, goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
+				return goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
 			}
 			if created {
 				created = false
@@ -326,9 +325,9 @@ func ParseDump(r io.Reader) (string, []Goroutine, error) {
 		} else if match := reFunc.FindStringSubmatch(line); match != nil {
 			goroutine.Stack = append(goroutine.Stack, Call{Func: Function{match[1]}, Args: match[2]})
 		} else {
-			header += line + "\n"
+			io.WriteString(out, line+"\n")
 			goroutine = nil
 		}
 	}
-	return header, goroutines, scanner.Err()
+	return goroutines, scanner.Err()
 }

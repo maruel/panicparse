@@ -17,7 +17,7 @@
 package main
 
 import (
-	"flag"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -29,10 +29,6 @@ import (
 
 // BUG: Support Windows. https://github.com/shiena/ansicolor seems like a good
 // candidate.
-
-var (
-	all = flag.Bool("all", false, "print all output before the stack dump")
-)
 
 func CalcLengths(buckets stack.Buckets) (int, int) {
 	srcLen := 0
@@ -86,25 +82,23 @@ func mainImpl() error {
 	}()
 	signal.Notify(c, os.Interrupt)
 
-	flag.Parse()
 	var in *os.File
-	switch name := flag.Arg(0); {
-	case name == "":
+	if len(os.Args) == 1 {
 		in = os.Stdin
-	default:
+	} else if len(os.Args) == 2 {
 		var err error
+		name := os.Args[1]
 		if in, err = os.Open(name); err != nil {
-			return err
+			return fmt.Errorf("did you mean to specify a valid stack dump file name? %s", err)
 		}
 		defer in.Close()
+	} else {
+		return errors.New("pipe from stdin or specify a single file")
 	}
 
-	header, goroutines, err := stack.ParseDump(in)
+	goroutines, err := stack.ParseDump(in, os.Stdout)
 	if err != nil {
 		return err
-	}
-	if *all {
-		fmt.Printf("%s\n", header)
 	}
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines))
 	srcLen, pkgLen := CalcLengths(buckets)

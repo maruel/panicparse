@@ -26,18 +26,15 @@ Usage
 
 Run test and prints a concise stack trace upon deadlock in bash
 
-    go test -v |& panicparse -all
+    go test -v |& panicparse
 
 `|&` tells bash to redirect stderr to stdout, it's an alias for `2>&1 |`.
-panic() and Go's native deadlock detector always print to stderr.  Using `-all`
-tells panicparse to print the output that was printed before and after the stack
-trace, generally useful when piping `go test -v` in.
+panic() and Go's native deadlock detector always print to stderr.
 
-On Windows, a better trick can be used
+On Windows, a better trick can be used so that only stderr is piped to
+panicparse, leaving stdout alone:
 
     go test -v 2>&1 1>con: | panicparse
-
-`-all` is not needed because stdout is not piped in.
 
 
 ### Parsing from a file

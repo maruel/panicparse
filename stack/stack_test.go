@@ -26,9 +26,10 @@ func TestParseDump1(t *testing.T) {
 		"	/gopath/src/github.com/maruel/pre-commit-go/main.go:428 +0x27",
 		"",
 	}
-	extra, goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")))
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
 	ut.AssertEqual(t, nil, err)
-	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra)
+	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -78,7 +79,7 @@ func TestParseDumpSameBucket(t *testing.T) {
 		"	/gopath/src/github.com/maruel/panicparse/main.go:74 +0xeb",
 		"",
 	}
-	_, goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")))
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
 	ut.AssertEqual(t, nil, err)
 	expectedGR := []Goroutine{
 		{
@@ -135,7 +136,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 		"created by github.com/luci/luci-go/client/archiver.New",
 		"	/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go:113 +0x43b",
 	}
-	_, goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")))
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
 	ut.AssertEqual(t, nil, err)
 	expectedGR := []Goroutine{
 		{
