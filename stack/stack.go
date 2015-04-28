@@ -64,6 +64,16 @@ func (f Function) PkgName() string {
 	return s
 }
 
+// PkgDotName returns "<package>.<func>" format.
+func (f Function) PkgDotName() string {
+	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
+	s, _ := url.QueryUnescape(parts[0])
+	if s != "" || parts[1] != "" {
+		return s + "." + parts[1]
+	}
+	return ""
+}
+
 // IsExported returns true if the function is exported.
 func (f Function) IsExported() bool {
 	name := f.Name()
@@ -90,7 +100,7 @@ func (c *Call) SourceName() string {
 
 // SourceLine returns the source(line) format.
 func (c *Call) SourceLine() string {
-	return fmt.Sprintf("%s(%d)", c.SourceName(), c.Line)
+	return fmt.Sprintf("%s:%d", c.SourceName(), c.Line)
 }
 
 // PkgSource is one directory plus the file name of the source file.
@@ -112,7 +122,7 @@ func (c *Call) IsPkgMain() bool {
 type Signature struct {
 	State     string
 	Stack     []Call
-	CreatedBy Function // Which other goroutine which created this one.
+	CreatedBy Call // Which other goroutine which created this one.
 }
 
 func (l *Signature) Equal(r *Signature) bool {
@@ -297,20 +307,22 @@ func ParseDump(r io.Reader) (string, []Goroutine, error) {
 
 		if match := reFile.FindStringSubmatch(line); match != nil {
 			// Triggers after a reFunc or a reCreated.
+			num, err := strconv.Atoi(match[2])
+			if err != nil {
+				return header, goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
+			}
 			if created {
 				created = false
+				goroutine.CreatedBy.SourcePath = match[1]
+				goroutine.CreatedBy.Line = num
 			} else {
-				num, err := strconv.Atoi(match[2])
-				if err != nil {
-					return header, goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
-				}
 				i := len(goroutine.Stack) - 1
 				goroutine.Stack[i].SourcePath = match[1]
 				goroutine.Stack[i].Line = num
 			}
 		} else if match := reCreated.FindStringSubmatch(line); match != nil {
 			created = true
-			goroutine.CreatedBy.Raw = match[1]
+			goroutine.CreatedBy.Func.Raw = match[1]
 		} else if match := reFunc.FindStringSubmatch(line); match != nil {
 			goroutine.Stack = append(goroutine.Stack, Call{Func: Function{match[1]}, Args: match[2]})
 		} else {

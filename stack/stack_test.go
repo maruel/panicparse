@@ -34,9 +34,23 @@ func TestParseDump1(t *testing.T) {
 			Signature: Signature{
 				State: "running",
 				Stack: []Call{
-					{SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go", Line: 153, Func: Function{"gopkg.in/yaml%2ev2.handleErr"}, Args: "0xc208033b20"},
-					{SourcePath: goroot + "/src/reflect/value.go", Line: 2125, Func: Function{"reflect.Value.assignTo"}, Args: "0x570860, 0xc20803f3e0, 0x15"},
-					{SourcePath: "/gopath/src/github.com/maruel/pre-commit-go/main.go", Line: 428, Func: Function{"main.main"}, Args: ""},
+					{
+						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+						Line:       153,
+						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+						Args:       "0xc208033b20",
+					},
+					{
+						SourcePath: goroot + "/src/reflect/value.go",
+						Line:       2125,
+						Func:       Function{"reflect.Value.assignTo"},
+						Args:       "0x570860, 0xc20803f3e0, 0x15",
+					},
+					{
+						SourcePath: "/gopath/src/github.com/maruel/pre-commit-go/main.go",
+						Line:       428,
+						Func:       Function{"main.main"},
+					},
 				},
 			},
 			ID:    1,
@@ -71,9 +85,17 @@ func TestParseDumpSameBucket(t *testing.T) {
 			Signature: Signature{
 				State: "chan receive",
 				Stack: []Call{
-					{SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go", Line: 72, Func: Function{Raw: "main.func·001"}, Args: ""},
+					{
+						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						Line:       72,
+						Func:       Function{"main.func·001"},
+					},
 				},
-				CreatedBy: Function{Raw: "main.mainImpl"},
+				CreatedBy: Call{
+					SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+					Line:       74,
+					Func:       Function{"main.mainImpl"},
+				},
 			},
 			ID:    6,
 			First: true,
@@ -82,9 +104,17 @@ func TestParseDumpSameBucket(t *testing.T) {
 			Signature: Signature{
 				State: "chan receive",
 				Stack: []Call{
-					{SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go", Line: 72, Func: Function{Raw: "main.func·001"}, Args: ""},
+					{
+						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						Line:       72,
+						Func:       Function{"main.func·001"},
+					},
 				},
-				CreatedBy: Function{Raw: "main.mainImpl"},
+				CreatedBy: Call{
+					SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+					Line:       74,
+					Func:       Function{"main.mainImpl"},
+				},
 			},
 			ID:    7,
 			First: false,
@@ -112,9 +142,17 @@ func TestParseDumpNoOffset(t *testing.T) {
 			Signature: Signature{
 				State: "runnable",
 				Stack: []Call{
-					{SourcePath: "/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go", Line: 110, Func: Function{Raw: "github.com/luci/luci-go/client/archiver.func·002"}, Args: ""},
+					{
+						SourcePath: "/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go",
+						Line:       110,
+						Func:       Function{"github.com/luci/luci-go/client/archiver.func·002"},
+					},
 				},
-				CreatedBy: Function{Raw: "github.com/luci/luci-go/client/archiver.New"},
+				CreatedBy: Call{
+					SourcePath: "/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go",
+					Line:       113,
+					Func:       Function{"github.com/luci/luci-go/client/archiver.New"},
+				},
 			},
 			ID:    37,
 			First: true,
@@ -124,7 +162,12 @@ func TestParseDumpNoOffset(t *testing.T) {
 }
 
 func TestCallPkg1(t *testing.T) {
-	c := Call{SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go", Line: 153, Func: Function{"gopkg.in/yaml%2ev2.handleErr"}, Args: "0xc208033b20"}
+	c := Call{
+		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+		Line:       153,
+		Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+		Args:       "0xc208033b20",
+	}
 	ut.AssertEqual(t, "yaml.go", c.SourceName())
 	ut.AssertEqual(t, "yaml.v2/yaml.go", c.PkgSource())
 	ut.AssertEqual(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
@@ -137,7 +180,12 @@ func TestCallPkg1(t *testing.T) {
 }
 
 func TestCallPkg2(t *testing.T) {
-	c := Call{SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go", Line: 153, Func: Function{"gopkg.in/yaml%2ev2.(*decoder).unmarshal"}, Args: "0xc208033b20"}
+	c := Call{
+		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+		Line:       153,
+		Func:       Function{"gopkg.in/yaml%2ev2.(*decoder).unmarshal"},
+		Args:       "0xc208033b20",
+	}
 	ut.AssertEqual(t, "yaml.go", c.SourceName())
 	ut.AssertEqual(t, "yaml.v2/yaml.go", c.PkgSource())
 	ut.AssertEqual(t, "gopkg.in/yaml.v2.(*decoder).unmarshal", c.Func.String())
@@ -150,9 +198,14 @@ func TestCallPkg2(t *testing.T) {
 }
 
 func TestCallStdlib(t *testing.T) {
-	c := Call{SourcePath: goroot + "/src/reflect/value.go", Line: 2125, Func: Function{"reflect.Value.assignTo"}, Args: "0x570860, 0xc20803f3e0, 0x15"}
+	c := Call{
+		SourcePath: goroot + "/src/reflect/value.go",
+		Line:       2125,
+		Func:       Function{"reflect.Value.assignTo"},
+		Args:       "0x570860, 0xc20803f3e0, 0x15",
+	}
 	ut.AssertEqual(t, "value.go", c.SourceName())
-	ut.AssertEqual(t, "value.go(2125)", c.SourceLine())
+	ut.AssertEqual(t, "value.go:2125", c.SourceLine())
 	ut.AssertEqual(t, "reflect/value.go", c.PkgSource())
 	ut.AssertEqual(t, "reflect.Value.assignTo", c.Func.String())
 	ut.AssertEqual(t, "Value.assignTo", c.Func.Name())
@@ -163,9 +216,14 @@ func TestCallStdlib(t *testing.T) {
 }
 
 func TestCallMain(t *testing.T) {
-	c := Call{SourcePath: "/gopath/src/github.com/maruel/pre-commit-go/main.go", Line: 428, Func: Function{"main.main"}, Args: ""}
+	c := Call{
+		SourcePath: "/gopath/src/github.com/maruel/pre-commit-go/main.go",
+		Line:       428,
+		Func:       Function{"main.main"},
+		Args:       "",
+	}
 	ut.AssertEqual(t, "main.go", c.SourceName())
-	ut.AssertEqual(t, "main.go(428)", c.SourceLine())
+	ut.AssertEqual(t, "main.go:428", c.SourceLine())
 	ut.AssertEqual(t, "pre-commit-go/main.go", c.PkgSource())
 	ut.AssertEqual(t, "main.main", c.Func.String())
 	ut.AssertEqual(t, "main", c.Func.Name())

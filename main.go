@@ -34,20 +34,26 @@ var (
 	all = flag.Bool("all", false, "print all output before the stack dump")
 )
 
-func PrettyStack(r *stack.Signature) string {
-	out := []string{}
+func CalcLengths(buckets stack.Buckets) (int, int) {
 	srcLen := 0
 	pkgLen := 0
-	for _, line := range r.Stack {
-		l := len(line.SourceLine())
-		if l > srcLen {
-			srcLen = l
-		}
-		l = len(line.Func.PkgName())
-		if l > pkgLen {
-			pkgLen = l
+	for _, bucket := range buckets {
+		for _, line := range bucket.Signature.Stack {
+			l := len(line.SourceLine())
+			if l > srcLen {
+				srcLen = l
+			}
+			l = len(line.Func.PkgName())
+			if l > pkgLen {
+				pkgLen = l
+			}
 		}
 	}
+	return srcLen, pkgLen
+}
+
+func PrettyStack(r *stack.Signature, srcLen, pkgLen int) string {
+	out := []string{}
 	for _, line := range r.Stack {
 		c := ansi.Red
 		if line.IsStdlib() {
@@ -62,7 +68,7 @@ func PrettyStack(r *stack.Signature) string {
 			c = ansi.LightRed
 		}
 		s := fmt.Sprintf(
-			"  %s%-*s%s %-*s %s%s%s(%s)",
+			"    %s%-*s%s %-*s %s%s%s(%s)",
 			ansi.LightWhite, pkgLen, line.Func.PkgName(), ansi.Reset,
 			srcLen, line.SourceLine(),
 			c, line.Func.Name(), ansi.Reset, line.Args)
@@ -101,11 +107,15 @@ func mainImpl() error {
 		fmt.Printf("%s\n", header)
 	}
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines))
+	srcLen, pkgLen := CalcLengths(buckets)
 	for _, bucket := range buckets {
 		extra := ""
-		created := bucket.CreatedBy.String()
+		created := bucket.CreatedBy.Func.PkgDotName()
 		if created != "" {
-			extra += " [Created by " + created + "]"
+			if srcName := bucket.CreatedBy.SourceLine(); srcName != "" {
+				created += " @ " + srcName
+			}
+			extra += ansi.LightBlack + " [Created by " + created + "]"
 		}
 		c := ansi.White
 		if bucket.First() && len(buckets) > 1 {
@@ -113,7 +123,7 @@ func mainImpl() error {
 		}
 
 		fmt.Printf("%s%d: %s%s%s\n", c, len(bucket.Routines), bucket.State, extra, ansi.Reset)
-		fmt.Printf("%s\n", PrettyStack(&bucket.Signature))
+		fmt.Printf("%s\n", PrettyStack(&bucket.Signature, srcLen, pkgLen))
 	}
 	return err
 }
