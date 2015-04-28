@@ -13,6 +13,7 @@ import (
 )
 
 func TestParseDump1(t *testing.T) {
+	// One call from main, one from stdlib, one from third party.
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -45,23 +46,10 @@ func TestParseDump1(t *testing.T) {
 	ut.AssertEqual(t, expected, goroutines)
 }
 
-func TestParseDump2(t *testing.T) {
+func TestParseDumpSameBucket(t *testing.T) {
+	// 2 goroutines with the same signature
 	data := []string{
 		"panic: runtime error: index out of range",
-		"",
-		"goroutine 1 [running]:",
-		"github.com/maruel/panicparse/ParseDump(0x7f23b0aa5a20, 0xc208036000)",
-		"	/gopath/src/github.com/maruel/panicparse/stack.go:272 +0xb77",
-		"main.mainImpl(0x0, 0x0)",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:90 +0x20c",
-		"main.main()",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:110 +0x27",
-		"",
-		"goroutine 5 [syscall]:",
-		"os/signal.loop()",
-		"	" + goroot + "/src/os/signal/signal_unix.go:21 +0x1f",
-		"created by os/signal.init·1",
-		"	" + goroot + "/src/os/signal/signal_unix.go:27 +0x35",
 		"",
 		"goroutine 6 [chan receive]:",
 		"main.func·001()",
@@ -76,50 +64,25 @@ func TestParseDump2(t *testing.T) {
 		"	/gopath/src/github.com/maruel/panicparse/main.go:74 +0xeb",
 		"",
 	}
-	extra, goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")))
+	_, goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")))
 	ut.AssertEqual(t, nil, err)
-	ut.AssertEqual(t, "panic: runtime error: index out of range\n\n", extra)
 	expectedGR := []Goroutine{
-		{
-			Signature: Signature{
-				State: "running",
-				Stack: []Call{
-					{SourcePath: "/gopath/src/github.com/maruel/panicparse/stack.go", Line: 272, Func: Function{Raw: "github.com/maruel/panicparse/ParseDump"}, Args: "0x7f23b0aa5a20, 0xc208036000"},
-					{SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go", Line: 90, Func: Function{Raw: "main.mainImpl"}, Args: "0x0, 0x0"},
-					{SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go", Line: 110, Func: Function{Raw: "main.main"}, Args: ""},
-				},
-				CreatedBy: Function{Raw: ""},
-			},
-			ID:    1,
-			First: true,
-		},
-		{
-			Signature: Signature{
-				State: "syscall",
-				Stack: []Call{
-					{SourcePath: goroot + "/src/os/signal/signal_unix.go", Line: 27, Func: Function{Raw: "os/signal.loop"}, Args: ""},
-				},
-				CreatedBy: Function{Raw: "os/signal.init·1"},
-			},
-			ID:    5,
-			First: false,
-		},
 		{
 			Signature: Signature{
 				State: "chan receive",
 				Stack: []Call{
-					{SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go", Line: 74, Func: Function{Raw: "main.func·001"}, Args: ""},
+					{SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go", Line: 72, Func: Function{Raw: "main.func·001"}, Args: ""},
 				},
 				CreatedBy: Function{Raw: "main.mainImpl"},
 			},
 			ID:    6,
-			First: false,
+			First: true,
 		},
 		{
 			Signature: Signature{
 				State: "chan receive",
 				Stack: []Call{
-					{SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go", Line: 74, Func: Function{Raw: "main.func·001"}, Args: ""},
+					{SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go", Line: 72, Func: Function{Raw: "main.func·001"}, Args: ""},
 				},
 				CreatedBy: Function{Raw: "main.mainImpl"},
 			},
@@ -128,13 +91,36 @@ func TestParseDump2(t *testing.T) {
 		},
 	}
 	ut.AssertEqual(t, expectedGR, goroutines)
-	buckets := SortBuckets(Bucketize(goroutines))
-	expectedBuckets := Buckets{
-		{expectedGR[0].Signature, []Goroutine{expectedGR[0]}},
-		{expectedGR[2].Signature, []Goroutine{expectedGR[2], expectedGR[3]}},
-		{expectedGR[1].Signature, []Goroutine{expectedGR[1]}},
+	expectedBuckets := Buckets{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
+	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines)))
+}
+
+func TestParseDumpNoOffset(t *testing.T) {
+	data := []string{
+		"panic: runtime error: index out of range",
+		"",
+		"goroutine 37 [runnable]:",
+		"github.com/luci/luci-go/client/archiver.func·002()",
+		"	/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go:110",
+		"created by github.com/luci/luci-go/client/archiver.New",
+		"	/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go:113 +0x43b",
 	}
-	ut.AssertEqual(t, expectedBuckets, buckets)
+	_, goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")))
+	ut.AssertEqual(t, nil, err)
+	expectedGR := []Goroutine{
+		{
+			Signature: Signature{
+				State: "runnable",
+				Stack: []Call{
+					{SourcePath: "/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go", Line: 110, Func: Function{Raw: "github.com/luci/luci-go/client/archiver.func·002"}, Args: ""},
+				},
+				CreatedBy: Function{Raw: "github.com/luci/luci-go/client/archiver.New"},
+			},
+			ID:    37,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expectedGR, goroutines)
 }
 
 func TestCallPkg1(t *testing.T) {
