@@ -7,16 +7,13 @@ process.
 
 Also usable as a library: [![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
 
-Screenshots
------------
 
-### Deep stack
+Screenshot
+----------
 
-![Screenshot](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot.png "Screenshot")
+Converts this [hard to read stack dump](https://raw.githubusercontent.com/wiki/maruel/panicparse/sample3.txt) into something nicer:
 
-### Multiple goroutines
-
-![Screenshot 2](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot2.png "Screenshot 2")
+![Screenshot](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot3.png "Screenshot")
 
 
 Usage
