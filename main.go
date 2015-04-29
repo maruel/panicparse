@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/maruel/panicparse/stack"
 	"github.com/mgutz/ansi"
@@ -74,13 +75,13 @@ func PrettyStack(r *stack.Signature, srcLen, pkgLen int) string {
 }
 
 func mainImpl() error {
-	c := make(chan os.Signal)
+	signals := make(chan os.Signal)
 	go func() {
 		for {
-			<-c
+			<-signals
 		}
 	}()
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
 
 	var in *os.File
 	if len(os.Args) == 1 {
