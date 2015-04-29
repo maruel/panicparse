@@ -37,6 +37,12 @@ panicparse, leaving stdout alone:
     go test -v 2>&1 1>con: | panicparse
 
 
+### Investigate deadlock
+
+On POSIX, use `Ctrl-\` to send SIGQUIT to your process, panicparse will ignore
+the signal and will parse the stack trace.
+
+
 ### Parsing from a file
 
 To dump to a file then parse, pass the file path of a stack trace
