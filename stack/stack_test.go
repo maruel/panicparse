@@ -162,6 +162,77 @@ func TestParseDumpNoOffset(t *testing.T) {
 	ut.AssertEqual(t, expectedGR, goroutines)
 }
 
+func TestParseCCode(t *testing.T) {
+	data := []string{
+		"SIGQUIT: quit",
+		"PC=0x43f349",
+		"",
+		"goroutine 0 [idle]:",
+		"runtime.epollwait(0x4, 0x7fff671c7118, 0xffffffff00000080, 0x0, 0xffffffff0028c1be, 0x0, 0x0, 0x0, 0x0, 0x0, ...)",
+		"        " + goroot + "/src/runtime/sys_linux_amd64.s:400 +0x19",
+		"runtime.netpoll(0x901b01, 0x0)",
+		"        " + goroot + "/src/runtime/netpoll_epoll.go:68 +0xa3",
+		"findrunnable(0xc208012000)",
+		"        " + goroot + "/src/runtime/proc.c:1472 +0x485",
+		"schedule()",
+		"        " + goroot + "/src/runtime/proc.c:1575 +0x151",
+		"runtime.park_m(0xc2080017a0)",
+		"        " + goroot + "/src/runtime/proc.c:1654 +0x113",
+		"runtime.mcall(0x432684)",
+		"        " + goroot + "/src/runtime/asm_amd64.s:186 +0x5a",
+	}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	ut.AssertEqual(t, nil, err)
+	expectedGR := []Goroutine{
+		{
+			Signature: Signature{
+				State: "idle",
+				Stack: []Call{
+					{
+						SourcePath: goroot + "/src/runtime/sys_linux_amd64.s",
+						Line:       400,
+						Func:       Function{"runtime.epollwait"},
+						Args:       "0x4, 0x7fff671c7118, 0xffffffff00000080, 0x0, 0xffffffff0028c1be, 0x0, 0x0, 0x0, 0x0, 0x0, ...",
+					},
+					{
+						SourcePath: goroot + "/src/runtime/netpoll_epoll.go",
+						Line:       68,
+						Func:       Function{"runtime.netpoll"},
+						Args:       "0x901b01, 0x0",
+					},
+					{
+						SourcePath: goroot + "/src/runtime/proc.c",
+						Line:       1472,
+						Func:       Function{"findrunnable"},
+						Args:       "0xc208012000",
+					},
+					{
+						SourcePath: goroot + "/src/runtime/proc.c",
+						Line:       1575,
+						Func:       Function{"schedule"},
+						Args:       "",
+					},
+					{
+						SourcePath: goroot + "/src/runtime/proc.c",
+						Line:       1654,
+						Func:       Function{"runtime.park_m"},
+						Args:       "0xc2080017a0",
+					},
+					{
+						SourcePath: goroot + "/src/runtime/asm_amd64.s",
+						Line:       186,
+						Func:       Function{"runtime.mcall"},
+						Args:       "0x432684",
+					},
+				},
+			},
+			ID:    0,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expectedGR, goroutines)
+}
+
 func TestCallPkg1(t *testing.T) {
 	c := Call{
 		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
@@ -234,7 +305,25 @@ func TestCallMain(t *testing.T) {
 	ut.AssertEqual(t, true, c.IsPkgMain())
 }
 
-func TestFunction(t *testing.T) {
+func TestCallC(t *testing.T) {
+	c := Call{
+		SourcePath: goroot + "/src/runtime/proc.c",
+		Line:       1472,
+		Func:       Function{"findrunnable"},
+		Args:       "0xc208012000",
+	}
+	ut.AssertEqual(t, "proc.c", c.SourceName())
+	ut.AssertEqual(t, "proc.c:1472", c.SourceLine())
+	ut.AssertEqual(t, "runtime/proc.c", c.PkgSource())
+	ut.AssertEqual(t, "findrunnable", c.Func.String())
+	ut.AssertEqual(t, "findrunnable", c.Func.Name())
+	ut.AssertEqual(t, "", c.Func.PkgName())
+	ut.AssertEqual(t, false, c.Func.IsExported())
+	ut.AssertEqual(t, true, c.IsStdlib())
+	ut.AssertEqual(t, false, c.IsPkgMain())
+}
+
+func TestFunctionAnonymous(t *testing.T) {
 	f := Function{"main.func·001"}
 	ut.AssertEqual(t, "main.func·001", f.String())
 	ut.AssertEqual(t, "func·001", f.Name())
