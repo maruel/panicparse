@@ -22,10 +22,13 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"runtime"
+	"io"
 	"syscall"
 
 	"github.com/maruel/panicparse/stack"
 	"github.com/mgutz/ansi"
+	"github.com/shiena/ansicolor"
 )
 
 // BUG: Support Windows. https://github.com/shiena/ansicolor seems like a good
@@ -83,6 +86,10 @@ func mainImpl() error {
 	}()
 	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
 
+	var out io.Writer = os.Stdout
+	if runtime.GOOS == "windows" {
+	out = ansicolor.NewAnsiColorWriter(os.Stdout)
+	}
 	var in *os.File
 	if len(os.Args) == 1 {
 		in = os.Stdin
@@ -117,8 +124,8 @@ func mainImpl() error {
 			c = ansi.LightMagenta
 		}
 
-		fmt.Printf("%s%d: %s%s%s\n", c, len(bucket.Routines), bucket.State, extra, ansi.Reset)
-		fmt.Printf("%s\n", PrettyStack(&bucket.Signature, srcLen, pkgLen))
+		fmt.Fprintf(out, "%s%d: %s%s%s\n", c, len(bucket.Routines), bucket.State, extra, ansi.Reset)
+		fmt.Fprintf(out, "%s\n", PrettyStack(&bucket.Signature, srcLen, pkgLen))
 	}
 	return err
 }
