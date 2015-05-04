@@ -274,7 +274,9 @@ func TestCallPkg2(t *testing.T) {
 	}
 	ut.AssertEqual(t, "yaml.go", c.SourceName())
 	ut.AssertEqual(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
-	ut.AssertEqual(t, filepath.Join("gopkg.in", "yaml.v2.(*decoder).unmarshal"), c.Func.String())
+	// TODO(maruel): Using '/' for this function is inconsistent on Windows
+	// w.r.t. other functions.
+	ut.AssertEqual(t, "gopkg.in/yaml.v2.(*decoder).unmarshal", c.Func.String())
 	ut.AssertEqual(t, "(*decoder).unmarshal", c.Func.Name())
 	// This is due to directory name not matching the package name.
 	ut.AssertEqual(t, "yaml.v2", c.Func.PkgName())
