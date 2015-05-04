@@ -19,7 +19,6 @@ Features
    * Deduplicate redundant goroutine stacks. Useful for large server crashes.
    * Arguments as pointer IDs instead of raw pointer values.
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
-   * Deterministic output; given the same input, the output is always the same.
    * Usable as a library!
    * Works on Windows.
 
