@@ -119,7 +119,7 @@ type Args struct {
 	Elided bool // If set, it means there was a trailing ", ..."
 }
 
-func (a *Args) String() string {
+func (a Args) String() string {
 	v := make([]string, 0, len(a.Values))
 	for _, item := range a.Values {
 		v = append(v, item.String())
@@ -436,8 +436,9 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 
 	// Set a name for any pointer occuring more than once.
 	type object struct {
-		args []*Arg
-		id   int
+		args      []*Arg
+		inPrimary bool
+		id        int
 	}
 	objects := map[uint64]object{}
 	// Enumerate all the arguments.
@@ -447,7 +448,8 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 				arg := goroutines[i].Stack[j].Args.Values[k]
 				if arg.IsPtr() {
 					objects[arg.Value] = object{
-						args: append(objects[arg.Value].args, &goroutines[i].Stack[j].Args.Values[k]),
+						args:      append(objects[arg.Value].args, &goroutines[i].Stack[j].Args.Values[k]),
+						inPrimary: objects[arg.Value].inPrimary || i == 0,
 					}
 				}
 			}
@@ -456,7 +458,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	}
 	order := uint64Slice{}
 	for k, obj := range objects {
-		if len(obj.args) > 1 {
+		if len(obj.args) > 1 && obj.inPrimary {
 			order = append(order, k)
 		}
 	}
@@ -464,6 +466,17 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	nextID := 1
 	for _, k := range order {
 		for _, arg := range objects[k].args {
+			arg.Name = fmt.Sprintf("#%d", nextID)
+		}
+		nextID++
+	}
+	for _, obj := range objects {
+		// Zap out the remaining pointers, they were not referenced by primary
+		// thread.
+		if obj.inPrimary {
+			continue
+		}
+		for _, arg := range obj.args {
 			arg.Name = fmt.Sprintf("#%d", nextID)
 		}
 		nextID++

@@ -19,6 +19,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -71,31 +72,8 @@ func PrettyStack(r *stack.Signature, srcLen, pkgLen int) string {
 	return strings.Join(out, "\n")
 }
 
-func mainImpl() error {
-	signals := make(chan os.Signal)
-	go func() {
-		for {
-			<-signals
-		}
-	}()
-	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
-
-	out := getOut()
-	var in *os.File
-	if len(os.Args) == 1 {
-		in = os.Stdin
-	} else if len(os.Args) == 2 {
-		var err error
-		name := os.Args[1]
-		if in, err = os.Open(name); err != nil {
-			return fmt.Errorf("did you mean to specify a valid stack dump file name? %s", err)
-		}
-		defer in.Close()
-	} else {
-		return errors.New("pipe from stdin or specify a single file")
-	}
-
-	goroutines, err := stack.ParseDump(in, os.Stdout)
+func Process(in io.Reader, out io.Writer) error {
+	goroutines, err := stack.ParseDump(in, out)
 	if err != nil {
 		return err
 	}
@@ -119,6 +97,32 @@ func mainImpl() error {
 		fmt.Fprintf(out, "%s\n", PrettyStack(&bucket.Signature, srcLen, pkgLen))
 	}
 	return err
+}
+
+func mainImpl() error {
+	signals := make(chan os.Signal)
+	go func() {
+		for {
+			<-signals
+		}
+	}()
+	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
+
+	out := getOut()
+	var in *os.File
+	if len(os.Args) == 1 {
+		in = os.Stdin
+	} else if len(os.Args) == 2 {
+		var err error
+		name := os.Args[1]
+		if in, err = os.Open(name); err != nil {
+			return fmt.Errorf("did you mean to specify a valid stack dump file name? %s", err)
+		}
+		defer in.Close()
+	} else {
+		return errors.New("pipe from stdin or specify a single file")
+	}
+	return Process(in, out)
 }
 
 func main() {
