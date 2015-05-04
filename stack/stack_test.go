@@ -354,7 +354,7 @@ func TestArgs(t *testing.T) {
 		},
 		Elided: true,
 	}
-	ut.AssertEqual(t, "0x4, 0x7fff671c7118, 0xffffffff00000080, 0x0, 0xffffffff0028c1be, 0x0, 0x0, 0x0, 0x0, 0x0, ...", a.String())
+	ut.AssertEqual(t, "0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...", a.String())
 }
 
 func TestFunctionAnonymous(t *testing.T) {

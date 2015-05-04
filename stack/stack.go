@@ -110,6 +110,9 @@ func (a Arg) String() string {
 	if a.Name != "" {
 		return a.Name
 	}
+	if a.Value == 0 {
+		return "0"
+	}
 	return fmt.Sprintf("0x%x", a.Value)
 }
 
