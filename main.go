@@ -19,20 +19,14 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
-	"runtime"
 	"strings"
 	"syscall"
 
 	"github.com/maruel/panicparse/stack"
 	"github.com/mgutz/ansi"
-	"github.com/shiena/ansicolor"
 )
-
-// BUG: Support Windows. https://github.com/shiena/ansicolor seems like a good
-// candidate.
 
 func CalcLengths(buckets stack.Buckets) (int, int) {
 	srcLen := 0
@@ -86,10 +80,7 @@ func mainImpl() error {
 	}()
 	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
 
-	var out io.Writer = os.Stdout
-	if runtime.GOOS == "windows" {
-		out = ansicolor.NewAnsiColorWriter(os.Stdout)
-	}
+	out := getOut()
 	var in *os.File
 	if len(os.Args) == 1 {
 		in = os.Stdin
