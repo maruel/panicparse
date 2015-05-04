@@ -12,6 +12,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -92,12 +93,55 @@ func (f Function) IsExported() bool {
 	return f.PkgName() == "main" && name == "main"
 }
 
+// Arg is an argument on a Call.
+type Arg struct {
+	Value uint64 // Value is the raw value as found in the stack trace
+	Name  string // Name is a pseudo name given to the argument
+}
+
+// IsPtr returns true if we guess it's a pointer. It's only a guess, it can be
+// easily be confused by a bitmask.
+func (a *Arg) IsPtr() bool {
+	// Assumes all pointers are above 16Mb and positive.
+	return a.Value > 16*1024*1024 && a.Value < math.MaxInt64
+}
+
+func (a Arg) String() string {
+	if a.Name != "" {
+		return a.Name
+	}
+	return fmt.Sprintf("0x%x", a.Value)
+}
+
+// Args is a series of function call arguments.
+type Args []Arg
+
+func (a Args) String() string {
+	v := make([]string, 0, len(a))
+	for _, item := range a {
+		v = append(v, item.String())
+	}
+	return strings.Join(v, ", ")
+}
+
 // Call is an item in the stack trace.
 type Call struct {
 	SourcePath string   // Full path name of the source file
 	Line       int      // Line number
 	Func       Function // Fully qualified function name (encoded).
-	Args       string   // Call arguments
+	Args       Args     // Call arguments
+}
+
+func (c *Call) Equal(r *Call) bool {
+	if c.SourcePath != r.SourcePath || c.Line != r.Line || c.Func != r.Func || len(c.Args) != len(r.Args) {
+		return false
+	}
+	for i, l := range c.Args {
+		if l != r.Args[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // SourceName returns the file name of the source file.
@@ -139,11 +183,11 @@ type Signature struct {
 }
 
 func (l *Signature) Equal(r *Signature) bool {
-	if l.State != r.State || len(l.Stack) != len(r.Stack) || l.CreatedBy != r.CreatedBy {
+	if l.State != r.State || len(l.Stack) != len(r.Stack) || !l.CreatedBy.Equal(&r.CreatedBy) {
 		return false
 	}
 	for i := range l.Stack {
-		if l.Stack[i] != r.Stack[i] {
+		if !l.Stack[i].Equal(&r.Stack[i]) {
 			return false
 		}
 	}
@@ -314,7 +358,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 		line := scanner.Text()
 		if len(line) == 0 {
 			if goroutine == nil {
-				io.WriteString(out, line+"\n")
+				_, _ = io.WriteString(out, line+"\n")
 			}
 			goroutine = nil
 			continue
@@ -332,7 +376,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 					continue
 				}
 			}
-			io.WriteString(out, line+"\n")
+			_, _ = io.WriteString(out, line+"\n")
 			continue
 		}
 
@@ -355,11 +399,68 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 			created = true
 			goroutine.CreatedBy.Func.Raw = match[1]
 		} else if match := reFunc.FindStringSubmatch(line); match != nil {
-			goroutine.Stack = append(goroutine.Stack, Call{Func: Function{match[1]}, Args: match[2]})
+			var args []Arg
+			for _, a := range strings.Split(match[2], ", ") {
+				if a == "" || a == "..." {
+					// Remaining values were dropped.
+					break
+				}
+				v, err := strconv.ParseUint(a, 0, 64)
+				if err != nil {
+					// TODO(maruel): If this ever happens, it should be handled more
+					// gracefully.
+					return nil, err
+				}
+				args = append(args, Arg{Value: v})
+			}
+			goroutine.Stack = append(goroutine.Stack, Call{Func: Function{match[1]}, Args: args})
 		} else {
-			io.WriteString(out, line+"\n")
+			_, _ = io.WriteString(out, line+"\n")
 			goroutine = nil
 		}
 	}
+
+	// Set a name for any pointer occuring more than once.
+	type object struct {
+		args []*Arg
+		id   int
+	}
+	objects := map[uint64]object{}
+	// Enumerate all the arguments.
+	for i := range goroutines {
+		for j := range goroutines[i].Stack {
+			for k := range goroutines[i].Stack[j].Args {
+				arg := goroutines[i].Stack[j].Args[k]
+				if arg.IsPtr() {
+					objects[arg.Value] = object{
+						args: append(objects[arg.Value].args, &goroutines[i].Stack[j].Args[k]),
+					}
+				}
+			}
+		}
+		// CreatedBy.Args is never set.
+	}
+	order := uint64Slice{}
+	for k, obj := range objects {
+		if len(obj.args) > 1 {
+			order = append(order, k)
+		}
+	}
+	sort.Sort(order)
+	nextID := 1
+	for _, k := range order {
+		for _, arg := range objects[k].args {
+			arg.Name = fmt.Sprintf("#%d", nextID)
+		}
+		nextID++
+	}
 	return goroutines, scanner.Err()
 }
+
+// Private stuff.
+
+type uint64Slice []uint64
+
+func (a uint64Slice) Len() int           { return len(a) }
+func (a uint64Slice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a uint64Slice) Less(i, j int) bool { return a[i] < a[j] }

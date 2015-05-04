@@ -39,13 +39,13 @@ func TestParseDump1(t *testing.T) {
 						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 						Line:       153,
 						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-						Args:       "0xc208033b20",
+						Args:       Args{{Value: 0xc208033b20}},
 					},
 					{
 						SourcePath: goroot + "/src/reflect/value.go",
 						Line:       2125,
 						Func:       Function{"reflect.Value.assignTo"},
-						Args:       "0x570860, 0xc20803f3e0, 0x15",
+						Args:       Args{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}},
 					},
 					{
 						SourcePath: "/gopath/src/github.com/maruel/pre-commit-go/main.go",
@@ -192,37 +192,47 @@ func TestParseCCode(t *testing.T) {
 						SourcePath: goroot + "/src/runtime/sys_linux_amd64.s",
 						Line:       400,
 						Func:       Function{"runtime.epollwait"},
-						Args:       "0x4, 0x7fff671c7118, 0xffffffff00000080, 0x0, 0xffffffff0028c1be, 0x0, 0x0, 0x0, 0x0, 0x0, ...",
+						Args: Args{
+							{Value: 0x4},
+							{Value: 0x7fff671c7118},
+							{Value: 0xffffffff00000080},
+							{Value: 0x0},
+							{Value: 0xffffffff0028c1be},
+							{Value: 0x0},
+							{Value: 0x0},
+							{Value: 0x0},
+							{Value: 0x0},
+							{Value: 0x0},
+						},
 					},
 					{
 						SourcePath: goroot + "/src/runtime/netpoll_epoll.go",
 						Line:       68,
 						Func:       Function{"runtime.netpoll"},
-						Args:       "0x901b01, 0x0",
+						Args:       Args{{Value: 0x901b01}, {Value: 0x0}},
 					},
 					{
 						SourcePath: goroot + "/src/runtime/proc.c",
 						Line:       1472,
 						Func:       Function{"findrunnable"},
-						Args:       "0xc208012000",
+						Args:       Args{{Value: 0xc208012000}},
 					},
 					{
 						SourcePath: goroot + "/src/runtime/proc.c",
 						Line:       1575,
 						Func:       Function{"schedule"},
-						Args:       "",
 					},
 					{
 						SourcePath: goroot + "/src/runtime/proc.c",
 						Line:       1654,
 						Func:       Function{"runtime.park_m"},
-						Args:       "0xc2080017a0",
+						Args:       Args{{Value: 0xc2080017a0}},
 					},
 					{
 						SourcePath: goroot + "/src/runtime/asm_amd64.s",
 						Line:       186,
 						Func:       Function{"runtime.mcall"},
-						Args:       "0x432684",
+						Args:       Args{{Value: 0x432684}},
 					},
 				},
 			},
@@ -238,7 +248,7 @@ func TestCallPkg1(t *testing.T) {
 		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:       153,
 		Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-		Args:       "0xc208033b20",
+		Args:       Args{{Value: 0xc208033b20}},
 	}
 	ut.AssertEqual(t, "yaml.go", c.SourceName())
 	ut.AssertEqual(t, "yaml.v2/yaml.go", c.PkgSource())
@@ -256,7 +266,7 @@ func TestCallPkg2(t *testing.T) {
 		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:       153,
 		Func:       Function{"gopkg.in/yaml%2ev2.(*decoder).unmarshal"},
-		Args:       "0xc208033b20",
+		Args:       Args{{Value: 0xc208033b20}},
 	}
 	ut.AssertEqual(t, "yaml.go", c.SourceName())
 	ut.AssertEqual(t, "yaml.v2/yaml.go", c.PkgSource())
@@ -274,7 +284,7 @@ func TestCallStdlib(t *testing.T) {
 		SourcePath: goroot + "/src/reflect/value.go",
 		Line:       2125,
 		Func:       Function{"reflect.Value.assignTo"},
-		Args:       "0x570860, 0xc20803f3e0, 0x15",
+		Args:       Args{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}},
 	}
 	ut.AssertEqual(t, "value.go", c.SourceName())
 	ut.AssertEqual(t, "value.go:2125", c.SourceLine())
@@ -292,7 +302,6 @@ func TestCallMain(t *testing.T) {
 		SourcePath: "/gopath/src/github.com/maruel/pre-commit-go/main.go",
 		Line:       428,
 		Func:       Function{"main.main"},
-		Args:       "",
 	}
 	ut.AssertEqual(t, "main.go", c.SourceName())
 	ut.AssertEqual(t, "main.go:428", c.SourceLine())
@@ -310,7 +319,7 @@ func TestCallC(t *testing.T) {
 		SourcePath: goroot + "/src/runtime/proc.c",
 		Line:       1472,
 		Func:       Function{"findrunnable"},
-		Args:       "0xc208012000",
+		Args:       Args{{Value: 0xc208012000}},
 	}
 	ut.AssertEqual(t, "proc.c", c.SourceName())
 	ut.AssertEqual(t, "proc.c:1472", c.SourceLine())
