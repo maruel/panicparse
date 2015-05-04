@@ -19,11 +19,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
-	"strings"
 	"runtime"
-	"io"
+	"strings"
 	"syscall"
 
 	"github.com/maruel/panicparse/stack"
@@ -88,7 +88,7 @@ func mainImpl() error {
 
 	var out io.Writer = os.Stdout
 	if runtime.GOOS == "windows" {
-	out = ansicolor.NewAnsiColorWriter(os.Stdout)
+		out = ansicolor.NewAnsiColorWriter(os.Stdout)
 	}
 	var in *os.File
 	if len(os.Args) == 1 {

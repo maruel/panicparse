@@ -114,14 +114,32 @@ func (a Arg) String() string {
 }
 
 // Args is a series of function call arguments.
-type Args []Arg
+type Args struct {
+	Values []Arg
+	Elided bool // If set, it means there was a trailing ", ..."
+}
 
-func (a Args) String() string {
-	v := make([]string, 0, len(a))
-	for _, item := range a {
+func (a *Args) String() string {
+	v := make([]string, 0, len(a.Values))
+	for _, item := range a.Values {
 		v = append(v, item.String())
 	}
+	if a.Elided {
+		v = append(v, "...")
+	}
 	return strings.Join(v, ", ")
+}
+
+func (a *Args) Equal(r *Args) bool {
+	if a.Elided != r.Elided || len(a.Values) != len(r.Values) {
+		return false
+	}
+	for i, l := range a.Values {
+		if l != r.Values[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // Call is an item in the stack trace.
@@ -133,15 +151,7 @@ type Call struct {
 }
 
 func (c *Call) Equal(r *Call) bool {
-	if c.SourcePath != r.SourcePath || c.Line != r.Line || c.Func != r.Func || len(c.Args) != len(r.Args) {
-		return false
-	}
-	for i, l := range c.Args {
-		if l != r.Args[i] {
-			return false
-		}
-	}
-	return true
+	return c.SourcePath == r.SourcePath && c.Line == r.Line && c.Func == r.Func && c.Args.Equal(&r.Args)
 }
 
 // SourceName returns the file name of the source file.
@@ -399,9 +409,13 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 			created = true
 			goroutine.CreatedBy.Func.Raw = match[1]
 		} else if match := reFunc.FindStringSubmatch(line); match != nil {
-			var args []Arg
+			args := Args{}
 			for _, a := range strings.Split(match[2], ", ") {
-				if a == "" || a == "..." {
+				if a == "..." {
+					args.Elided = true
+					continue
+				}
+				if a == "" {
 					// Remaining values were dropped.
 					break
 				}
@@ -411,7 +425,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 					// gracefully.
 					return nil, err
 				}
-				args = append(args, Arg{Value: v})
+				args.Values = append(args.Values, Arg{Value: v})
 			}
 			goroutine.Stack = append(goroutine.Stack, Call{Func: Function{match[1]}, Args: args})
 		} else {
@@ -429,11 +443,11 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	// Enumerate all the arguments.
 	for i := range goroutines {
 		for j := range goroutines[i].Stack {
-			for k := range goroutines[i].Stack[j].Args {
-				arg := goroutines[i].Stack[j].Args[k]
+			for k := range goroutines[i].Stack[j].Args.Values {
+				arg := goroutines[i].Stack[j].Args.Values[k]
 				if arg.IsPtr() {
 					objects[arg.Value] = object{
-						args: append(objects[arg.Value].args, &goroutines[i].Stack[j].Args[k]),
+						args: append(objects[arg.Value].args, &goroutines[i].Stack[j].Args.Values[k]),
 					}
 				}
 			}
