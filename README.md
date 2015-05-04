@@ -5,11 +5,23 @@ Parses panic stack traces, densifies and deduplicates goroutines with similar
 stack traces. Helps debugging crashes and deadlocks in heavily parallelized
 process.
 
-Also usable as a library!
-
 [![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg?branch=master)](https://travis-ci.org/maruel/panicparse)
 [![Coverage Status](https://img.shields.io/coveralls/maruel/panicparse.svg)](https://coveralls.io/r/maruel/panicparse?branch=master)
+
+
+Features
+--------
+
+   * >50% more compact output than original stack dump yet more readable.
+   * Exported symbols are bold, private symbols are darker.
+   * Stdlib is green, main is yellow, rest is red.
+   * Deduplicate redundant goroutine stacks. Useful for large server crashes.
+   * Arguments as pointer IDs instead of raw pointer values.
+   * Pushes stdlib-only stacks at the bottom to help focus on important code.
+   * Deterministic output; given the same input, the output is always the same.
+   * Usable as a library!
+   * Works on Windows.
 
 
 Screenshot
