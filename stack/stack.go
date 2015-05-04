@@ -470,13 +470,20 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 		}
 		nextID++
 	}
-	for _, obj := range objects {
-		// Zap out the remaining pointers, they were not referenced by primary
-		// thread.
-		if obj.inPrimary {
+
+	// Now do the rest. This is done so the output is deterministic.
+	order = uint64Slice{}
+	for k := range objects {
+		order = append(order, k)
+	}
+	sort.Sort(order)
+	for _, k := range order {
+		// Process the remaining pointers, they were not referenced by primary
+		// thread so will have higher IDs.
+		if objects[k].inPrimary {
 			continue
 		}
-		for _, arg := range obj.args {
+		for _, arg := range objects[k].args {
 			arg.Name = fmt.Sprintf("#%d", nextID)
 		}
 		nextID++
