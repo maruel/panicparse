@@ -6,6 +6,7 @@ package stack
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -254,7 +255,7 @@ func TestCallPkg1(t *testing.T) {
 		Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
 	ut.AssertEqual(t, "yaml.go", c.SourceName())
-	ut.AssertEqual(t, "yaml.v2/yaml.go", c.PkgSource())
+	ut.AssertEqual(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
 	ut.AssertEqual(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
 	ut.AssertEqual(t, "handleErr", c.Func.Name())
 	// This is due to directory name not matching the package name.
@@ -272,8 +273,8 @@ func TestCallPkg2(t *testing.T) {
 		Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
 	ut.AssertEqual(t, "yaml.go", c.SourceName())
-	ut.AssertEqual(t, "yaml.v2/yaml.go", c.PkgSource())
-	ut.AssertEqual(t, "gopkg.in/yaml.v2.(*decoder).unmarshal", c.Func.String())
+	ut.AssertEqual(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
+	ut.AssertEqual(t, filepath.Join("gopkg.in", "yaml.v2.(*decoder).unmarshal"), c.Func.String())
 	ut.AssertEqual(t, "(*decoder).unmarshal", c.Func.Name())
 	// This is due to directory name not matching the package name.
 	ut.AssertEqual(t, "yaml.v2", c.Func.PkgName())
@@ -291,7 +292,7 @@ func TestCallStdlib(t *testing.T) {
 	}
 	ut.AssertEqual(t, "value.go", c.SourceName())
 	ut.AssertEqual(t, "value.go:2125", c.SourceLine())
-	ut.AssertEqual(t, "reflect/value.go", c.PkgSource())
+	ut.AssertEqual(t, filepath.Join("reflect", "value.go"), c.PkgSource())
 	ut.AssertEqual(t, "reflect.Value.assignTo", c.Func.String())
 	ut.AssertEqual(t, "Value.assignTo", c.Func.Name())
 	ut.AssertEqual(t, "reflect", c.Func.PkgName())
@@ -308,7 +309,7 @@ func TestCallMain(t *testing.T) {
 	}
 	ut.AssertEqual(t, "main.go", c.SourceName())
 	ut.AssertEqual(t, "main.go:428", c.SourceLine())
-	ut.AssertEqual(t, "pre-commit-go/main.go", c.PkgSource())
+	ut.AssertEqual(t, filepath.Join("pre-commit-go", "main.go"), c.PkgSource())
 	ut.AssertEqual(t, "main.main", c.Func.String())
 	ut.AssertEqual(t, "main", c.Func.Name())
 	ut.AssertEqual(t, "main", c.Func.PkgName())
@@ -326,7 +327,7 @@ func TestCallC(t *testing.T) {
 	}
 	ut.AssertEqual(t, "proc.c", c.SourceName())
 	ut.AssertEqual(t, "proc.c:1472", c.SourceLine())
-	ut.AssertEqual(t, "runtime/proc.c", c.PkgSource())
+	ut.AssertEqual(t, filepath.Join("runtime", "proc.c"), c.PkgSource())
 	ut.AssertEqual(t, "findrunnable", c.Func.String())
 	ut.AssertEqual(t, "findrunnable", c.Func.Name())
 	ut.AssertEqual(t, "", c.Func.PkgName())
