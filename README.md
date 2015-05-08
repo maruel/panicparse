@@ -31,11 +31,14 @@ Converts this [hard to read stack dump](https://raw.githubusercontent.com/wiki/m
 ![Screenshot](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot3.png "Screenshot")
 
 
-Usage
------
+Installation
+------------
 
     go get github.com/maruel/panicparse
 
+
+Usage
+-----
 
 ### Piping a stack trace from another process
 
