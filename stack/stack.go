@@ -145,6 +145,37 @@ func (a *Args) Equal(r *Args) bool {
 	return true
 }
 
+// Similar returns true if the two Args are equal or almost but not quite
+// equal.
+func (a *Args) Similar(r *Args) bool {
+	if a.Elided != r.Elided || len(a.Values) != len(r.Values) {
+		return false
+	}
+	for i, l := range a.Values {
+		if l.IsPtr() != r.Values[i].IsPtr() || (!l.IsPtr() && l != r.Values[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Merge merges two similar Args, zapping out differences.
+func (l *Args) Merge(r *Args) Args {
+	out := Args{
+		Values: make([]Arg, len(l.Values)),
+		Elided: l.Elided,
+	}
+	for i := range l.Values {
+		if l.Values[i] != r.Values[i] {
+			out.Values[i].Name = "*"
+			out.Values[i].Value = l.Values[i].Value
+		} else {
+			out.Values[i] = l.Values[i]
+		}
+	}
+	return out
+}
+
 // Call is an item in the stack trace.
 type Call struct {
 	SourcePath string   // Full path name of the source file
@@ -155,6 +186,22 @@ type Call struct {
 
 func (c *Call) Equal(r *Call) bool {
 	return c.SourcePath == r.SourcePath && c.Line == r.Line && c.Func == r.Func && c.Args.Equal(&r.Args)
+}
+
+// Similar returns true if the two Call are equal or almost but not quite
+// equal.
+func (c *Call) Similar(r *Call) bool {
+	return c.SourcePath == r.SourcePath && c.Line == r.Line && c.Func == r.Func && c.Args.Similar(&r.Args)
+}
+
+// Merge merges two similar Call, zapping out differences.
+func (l *Call) Merge(r *Call) Call {
+	return Call{
+		SourcePath: l.SourcePath,
+		Line:       l.Line,
+		Func:       l.Func,
+		Args:       l.Args.Merge(&r.Args),
+	}
 }
 
 // SourceName returns the file name of the source file.
@@ -205,6 +252,33 @@ func (l *Signature) Equal(r *Signature) bool {
 		}
 	}
 	return true
+}
+
+// Similar returns true if the two Signature are equal or almost but not quite
+// equal.
+func (l *Signature) Similar(r *Signature) bool {
+	if l.State != r.State || len(l.Stack) != len(r.Stack) || !l.CreatedBy.Similar(&r.CreatedBy) {
+		return false
+	}
+	for i := range l.Stack {
+		if !l.Stack[i].Similar(&r.Stack[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Merge merges two similar Signature, zapping out differences.
+func (l *Signature) Merge(r *Signature) *Signature {
+	out := &Signature{
+		State:     l.State,
+		Stack:     make([]Call, len(l.Stack)),
+		CreatedBy: l.CreatedBy,
+	}
+	for i := range l.Stack {
+		out.Stack[i] = l.Stack[i].Merge(&r.Stack[i])
+	}
+	return out
 }
 
 func (l *Signature) Less(r *Signature) bool {
@@ -270,17 +344,36 @@ type Goroutine struct {
 }
 
 // Bucketize returns the number of similar goroutines.
-func Bucketize(goroutines []Goroutine) map[*Signature][]Goroutine {
+//
+// It will aggressively deduplicate similar looking stack traces differing only
+// with pointer values if aggressive is true.
+func Bucketize(goroutines []Goroutine, aggressive bool) map[*Signature][]Goroutine {
 	out := map[*Signature][]Goroutine{}
 	// O(n²). Fix eventually.
 	for _, routine := range goroutines {
 		found := false
 		for key := range out {
-			if key.Equal(&routine.Signature) {
-				// This effectively drops the other ID.
-				out[key] = append(out[key], routine)
-				found = true
-				break
+			// When a match is found, this effectively drops the other goroutine ID.
+			if !aggressive {
+				if key.Equal(&routine.Signature) {
+					found = true
+					out[key] = append(out[key], routine)
+					break
+				}
+			} else {
+				if key.Similar(&routine.Signature) {
+					found = true
+					if !key.Equal(&routine.Signature) {
+						// Almost but not quite equal. There's different pointers passed
+						// around but the same values. Zap out the different values.
+						newKey := key.Merge(&routine.Signature)
+						out[newKey] = append(out[key], routine)
+						delete(out, key)
+					} else {
+						out[key] = append(out[key], routine)
+					}
+					break
+				}
 			}
 		}
 		if !found {

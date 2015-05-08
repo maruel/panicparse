@@ -77,7 +77,7 @@ func Process(in io.Reader, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	buckets := stack.SortBuckets(stack.Bucketize(goroutines))
+	buckets := stack.SortBuckets(stack.Bucketize(goroutines, true))
 	srcLen, pkgLen := CalcLengths(buckets)
 	for _, bucket := range buckets {
 		extra := ""

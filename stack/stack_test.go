@@ -118,13 +118,130 @@ func TestParseDumpSameBucket(t *testing.T) {
 					Func:       Function{"main.mainImpl"},
 				},
 			},
-			ID:    7,
-			First: false,
+			ID: 7,
 		},
 	}
 	ut.AssertEqual(t, expectedGR, goroutines)
 	expectedBuckets := Buckets{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
-	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines)))
+	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, false)))
+}
+
+func TestBucketizeNotAggressive(t *testing.T) {
+	// 2 goroutines with the same signature
+	data := []string{
+		"panic: runtime error: index out of range",
+		"",
+		"goroutine 6 [chan receive]:",
+		"main.func·001(0x11000000, 2)",
+		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"",
+		"goroutine 7 [chan receive]:",
+		"main.func·001(0x21000000, 2)",
+		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"",
+	}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	ut.AssertEqual(t, nil, err)
+	expectedGR := []Goroutine{
+		{
+			Signature: Signature{
+				State: "chan receive",
+				Stack: []Call{
+					{
+						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						Line:       72,
+						Func:       Function{"main.func·001"},
+						Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
+					},
+				},
+			},
+			ID:    6,
+			First: true,
+		},
+		{
+			Signature: Signature{
+				State: "chan receive",
+				Stack: []Call{
+					{
+						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						Line:       72,
+						Func:       Function{"main.func·001"},
+						Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+					},
+				},
+			},
+			ID: 7,
+		},
+	}
+	ut.AssertEqual(t, expectedGR, goroutines)
+	expectedBuckets := Buckets{
+		{expectedGR[0].Signature, []Goroutine{expectedGR[0]}},
+		{expectedGR[1].Signature, []Goroutine{expectedGR[1]}},
+	}
+	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, false)))
+}
+
+func TestBucketizeAggressive(t *testing.T) {
+	// 2 goroutines with the same signature
+	data := []string{
+		"panic: runtime error: index out of range",
+		"",
+		"goroutine 6 [chan receive]:",
+		"main.func·001(0x11000000, 2)",
+		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"",
+		"goroutine 7 [chan receive]:",
+		"main.func·001(0x21000000, 2)",
+		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"",
+	}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	ut.AssertEqual(t, nil, err)
+	expectedGR := []Goroutine{
+		{
+			Signature: Signature{
+				State: "chan receive",
+				Stack: []Call{
+					{
+						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						Line:       72,
+						Func:       Function{"main.func·001"},
+						Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
+					},
+				},
+			},
+			ID:    6,
+			First: true,
+		},
+		{
+			Signature: Signature{
+				State: "chan receive",
+				Stack: []Call{
+					{
+						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						Line:       72,
+						Func:       Function{"main.func·001"},
+						Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+					},
+				},
+			},
+			ID: 7,
+		},
+	}
+	ut.AssertEqual(t, expectedGR, goroutines)
+	signature := Signature{
+		State: "chan receive",
+		Stack: []Call{
+			{
+				SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+				Line:       72,
+				Func:       Function{"main.func·001"},
+				Args:       Args{Values: []Arg{{0x11000000, "*"}, {Value: 2}}},
+			},
+		},
+	}
+	expectedBuckets := Buckets{{signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
+	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, true)))
 }
 
 func TestParseDumpNoOffset(t *testing.T) {
