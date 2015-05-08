@@ -17,16 +17,16 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
+	"github.com/cosiner/gohper/termcolor"
 	"github.com/maruel/panicparse/stack"
-	"github.com/mgutz/ansi"
 )
 
 func CalcLengths(buckets stack.Buckets) (int, int) {
@@ -48,28 +48,27 @@ func CalcLengths(buckets stack.Buckets) (int, int) {
 }
 
 func PrettyStack(r *stack.Signature, srcLen, pkgLen int) string {
-	out := []string{}
+	buf := bytes.NewBuffer(make([]byte, 0, 2048))
 	for _, line := range r.Stack {
-		c := ansi.Red
+		c := termcolor.Red
 		if line.IsStdlib() {
 			if line.Func.IsExported() {
-				c = ansi.LightGreen
+				c = termcolor.LightGreen
 			} else {
-				c = ansi.Green
+				c = termcolor.Green
 			}
 		} else if line.IsPkgMain() {
-			c = ansi.LightYellow
+			c = termcolor.LightYellow
 		} else if line.Func.IsExported() {
-			c = ansi.LightRed
+			c = termcolor.LightRed
 		}
-		s := fmt.Sprintf(
-			"    %s%-*s%s %-*s %s%s%s(%s)",
-			ansi.LightWhite, pkgLen, line.Func.PkgName(), ansi.Reset,
-			srcLen, line.SourceLine(),
-			c, line.Func.Name(), ansi.Reset, line.Args)
-		out = append(out, s)
+
+		termcolor.LightWhite.Fprintf(buf, "    %-*s", pkgLen, line.Func.PkgName())
+		fmt.Fprintf(buf, " %-*s ", srcLen, line.SourceLine())
+		c.RenderTo(buf, line.Func.Name())
+		fmt.Fprintf(buf, "(%s)\n", line.Args)
 	}
-	return strings.Join(out, "\n")
+	return buf.String()
 }
 
 func Process(in io.Reader, out io.Writer) error {
@@ -86,14 +85,14 @@ func Process(in io.Reader, out io.Writer) error {
 			if srcName := bucket.CreatedBy.SourceLine(); srcName != "" {
 				created += " @ " + srcName
 			}
-			extra += ansi.LightBlack + " [Created by " + created + "]"
+			extra += " [Created by " + created + "]"
 		}
-		c := ansi.White
+		c := termcolor.White
 		if bucket.First() && len(buckets) > 1 {
-			c = ansi.LightMagenta
+			c = termcolor.LightMagenta
 		}
-
-		fmt.Fprintf(out, "%s%d: %s%s%s\n", c, len(bucket.Routines), bucket.State, extra, ansi.Reset)
+		c.Fprintf(out, "%d: %s", len(bucket.Routines), bucket.State)
+		termcolor.LightBlack.Fprintln(out, extra)
 		fmt.Fprintf(out, "%s\n", PrettyStack(&bucket.Signature, srcLen, pkgLen))
 	}
 	return err
@@ -108,7 +107,6 @@ func mainImpl() error {
 	}()
 	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
 
-	out := getOut()
 	var in *os.File
 	if len(os.Args) == 1 {
 		in = os.Stdin
@@ -122,7 +120,7 @@ func mainImpl() error {
 	} else {
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return Process(in, out)
+	return Process(in, termcolor.Stdout)
 }
 
 func main() {
