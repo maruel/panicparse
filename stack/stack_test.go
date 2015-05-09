@@ -62,6 +62,113 @@ func TestParseDump1(t *testing.T) {
 	ut.AssertEqual(t, expected, goroutines)
 }
 
+func TestParseDumpSysCall(t *testing.T) {
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 5 [syscall]:",
+		"runtime.notetsleepg(0x918100, 0xffffffffffffffff, 0x1)",
+		"\t" + goroot + "/src/runtime/lock_futex.go:201 +0x52 fp=0xc208018f68 sp=0xc208018f40",
+		"runtime.signal_recv(0x0)",
+		"\t" + goroot + "/src/runtime/sigqueue.go:109 +0x135 fp=0xc208018fa0 sp=0xc208018f68",
+		"os/signal.loop()",
+		"\t" + goroot + "/src/os/signal/signal_unix.go:21 +0x1f fp=0xc208018fe0 sp=0xc208018fa0",
+		"runtime.goexit()",
+		"\t" + goroot + "/src/runtime/asm_amd64.s:2232 +0x1 fp=0xc208018fe8 sp=0xc208018fe0",
+		"created by os/signal.init·1",
+		"\t" + goroot + "/src/os/signal/signal_unix.go:27 +0x35",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	ut.AssertEqual(t, nil, err)
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "syscall",
+				Stack: []Call{
+					{
+						SourcePath: goroot + "/src/runtime/lock_futex.go",
+						Line:       201,
+						Func:       Function{Raw: "runtime.notetsleepg"},
+						Args: Args{
+							Values: []Arg{
+								{Value: 0x918100},
+								{Value: 0xffffffffffffffff},
+								{Value: 0x1},
+							},
+						},
+					},
+					{
+						SourcePath: goroot + "/src/runtime/sigqueue.go",
+						Line:       109,
+						Func:       Function{Raw: "runtime.signal_recv"},
+						Args: Args{
+							Values: []Arg{{}},
+							Elided: false,
+						},
+					},
+					{
+						SourcePath: goroot + "/src/os/signal/signal_unix.go",
+						Line:       21,
+						Func:       Function{Raw: "os/signal.loop"},
+					},
+					{
+						SourcePath: goroot + "/src/runtime/asm_amd64.s",
+						Line:       2232,
+						Func:       Function{Raw: "runtime.goexit"},
+					},
+				},
+				CreatedBy: Call{
+					SourcePath: goroot + "/src/os/signal/signal_unix.go",
+					Line:       27,
+					Func:       Function{Raw: "os/signal.init·1"},
+				},
+			},
+			ID:    5,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expected, goroutines)
+	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+}
+
+func TestParseDumpUnavail(t *testing.T) {
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 24 [running]:",
+		"\tgoroutine running on other thread; stack unavailable",
+		"created by github.com/foo.New",
+		"\t/gopath/src/github.com/foo/bar.go:131 +0x381",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	ut.AssertEqual(t, nil, err)
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: []Call{
+					{
+						SourcePath: "<unavailable>",
+					},
+				},
+				CreatedBy: Call{
+					SourcePath: "/gopath/src/github.com/foo/bar.go",
+					Line:       131,
+					Func:       Function{Raw: "github.com/foo.New"},
+				},
+			},
+			ID:    24,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expected, goroutines)
+	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+}
+
 func TestParseDumpSameBucket(t *testing.T) {
 	// 2 goroutines with the same signature
 	data := []string{
@@ -249,10 +356,10 @@ func TestParseDumpNoOffset(t *testing.T) {
 		"panic: runtime error: index out of range",
 		"",
 		"goroutine 37 [runnable]:",
-		"github.com/luci/luci-go/client/archiver.func·002()",
-		"	/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go:110",
-		"created by github.com/luci/luci-go/client/archiver.New",
-		"	/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go:113 +0x43b",
+		"github.com/foo.func·002()",
+		"	/gopath/src/github.com/foo/bar.go:110",
+		"created by github.com/foo.New",
+		"	/gopath/src/github.com/foo/bar.go:113 +0x43b",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
 	ut.AssertEqual(t, nil, err)
@@ -262,15 +369,15 @@ func TestParseDumpNoOffset(t *testing.T) {
 				State: "runnable",
 				Stack: []Call{
 					{
-						SourcePath: "/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go",
+						SourcePath: "/gopath/src/github.com/foo/bar.go",
 						Line:       110,
-						Func:       Function{"github.com/luci/luci-go/client/archiver.func·002"},
+						Func:       Function{"github.com/foo.func·002"},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/luci/luci-go/client/archiver/archiver.go",
+					SourcePath: "/gopath/src/github.com/foo/bar.go",
 					Line:       113,
-					Func:       Function{"github.com/luci/luci-go/client/archiver.New"},
+					Func:       Function{"github.com/foo.New"},
 				},
 			},
 			ID:    37,
