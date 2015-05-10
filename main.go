@@ -69,6 +69,9 @@ func PrettyStack(r *stack.Signature, srcLen, pkgLen int) string {
 			c, line.Func.Name(), ansi.Reset, line.Args)
 		out = append(out, s)
 	}
+	if r.StackElided {
+		out = append(out, "    (...)")
+	}
 	return strings.Join(out, "\n")
 }
 
