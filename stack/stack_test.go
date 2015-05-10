@@ -62,6 +62,38 @@ func TestParseDump1(t *testing.T) {
 	ut.AssertEqual(t, expected, goroutines)
 }
 
+func TestParseDumpAsm(t *testing.T) {
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 16 [garbage collection]:",
+		"runtime.switchtoM()",
+		"\t" + goroot + "/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	ut.AssertEqual(t, nil, err)
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "garbage collection",
+				Stack: []Call{
+					{
+						SourcePath: "/home/maruel/src/golang/src/runtime/asm_amd64.s",
+						Line:       198,
+						Func:       Function{Raw: "runtime.switchtoM"},
+					},
+				},
+			},
+			ID:    16,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expected, goroutines)
+	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+}
+
 func TestParseDumpSysCall(t *testing.T) {
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -584,6 +616,7 @@ func TestArgs(t *testing.T) {
 func TestFunctionAnonymous(t *testing.T) {
 	f := Function{"main.func·001"}
 	ut.AssertEqual(t, "main.func·001", f.String())
+	ut.AssertEqual(t, "main.func·001", f.PkgDotName())
 	ut.AssertEqual(t, "func·001", f.Name())
 	ut.AssertEqual(t, "main", f.PkgName())
 	ut.AssertEqual(t, false, f.IsExported())
