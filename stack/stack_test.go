@@ -94,6 +94,56 @@ func TestParseDumpAsm(t *testing.T) {
 	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
+func TestParseDumpElided(t *testing.T) {
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 16 [garbage collection]:",
+		"github.com/foo/bar.recurseType(0x7f4fa9a3ec70, 0xc208062580, 0x7f4fa9a3e818, 0x50a820, 0xc20803a8a0)",
+		"\t/gopath/src/github.com/foo/bar/baz.go:53 +0x845 fp=0xc20cfc66d8 sp=0xc20cfc6470",
+		"...additional frames elided...",
+		"created by testing.RunTests",
+		"\t" + goroot + "/src/testing/testing.go:555 +0xa8b",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	ut.AssertEqual(t, nil, err)
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "garbage collection",
+				Stack: []Call{
+					{
+						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+						Line:       53,
+						Func:       Function{Raw: "github.com/foo/bar.recurseType"},
+						Args: Args{
+							Values: []Arg{
+								{Value: 0x7f4fa9a3ec70},
+								{Value: 0xc208062580},
+								{Value: 0x7f4fa9a3e818},
+								{Value: 0x50a820},
+								{Value: 0xc20803a8a0},
+							},
+						},
+					},
+				},
+				StackElided: true,
+				CreatedBy: Call{
+					SourcePath: "/home/maruel/src/golang/src/testing/testing.go",
+					Line:       555,
+					Func:       Function{Raw: "testing.RunTests"},
+				},
+			},
+			ID:    16,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expected, goroutines)
+	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+}
+
 func TestParseDumpSysCall(t *testing.T) {
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -619,5 +669,14 @@ func TestFunctionAnonymous(t *testing.T) {
 	ut.AssertEqual(t, "main.func·001", f.PkgDotName())
 	ut.AssertEqual(t, "func·001", f.Name())
 	ut.AssertEqual(t, "main", f.PkgName())
+	ut.AssertEqual(t, false, f.IsExported())
+}
+
+func TestFunctionGC(t *testing.T) {
+	f := Function{"gc"}
+	ut.AssertEqual(t, "gc", f.String())
+	ut.AssertEqual(t, "gc", f.PkgDotName())
+	ut.AssertEqual(t, "gc", f.Name())
+	ut.AssertEqual(t, "", f.PkgName())
 	ut.AssertEqual(t, false, f.IsExported())
 }

@@ -38,6 +38,7 @@ var (
 	// parenthood.
 	reCreated = regexp.MustCompile("^created by (.+)$")
 	reFunc    = regexp.MustCompile("^(.+)\\((.*)\\)$")
+	reElided  = regexp.MustCompile("^\\.\\.\\.additional frames elided\\.\\.\\.$")
 	goroot    = runtime.GOROOT()
 )
 
@@ -78,6 +79,9 @@ func (f Function) PkgName() string {
 func (f Function) PkgDotName() string {
 	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
 	s, _ := url.QueryUnescape(parts[0])
+	if len(parts) == 1 {
+		return parts[0]
+	}
 	if s != "" || parts[1] != "" {
 		return s + "." + parts[1]
 	}
@@ -240,9 +244,10 @@ func (c *Call) IsPkgMain() bool {
 
 // Goroutine represents the signature of one or multiple goroutines.
 type Signature struct {
-	State     string
-	Stack     []Call
-	CreatedBy Call // Which other goroutine which created this one.
+	State       string
+	Stack       []Call
+	StackElided bool // Happens when there's >100 items in Stack, currently hardcoded in package runtime.
+	CreatedBy   Call // Which other goroutine which created this one.
 }
 
 func (l *Signature) Equal(r *Signature) bool {
@@ -464,6 +469,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	//   Either:
 	//     - reUnavail
 	//     - reFunc + reFile in a loop
+	//     - reElided
 	//   Optionally ends with:
 	//     - reCreated + reFile
 	// Between each goroutine stack dump: an empty line
@@ -543,6 +549,8 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 				args.Values = append(args.Values, Arg{Value: v})
 			}
 			goroutine.Stack = append(goroutine.Stack, Call{Func: Function{match[1]}, Args: args})
+		} else if match := reElided.FindStringSubmatch(line); match != nil {
+			goroutine.StackElided = true
 		} else {
 			_, _ = io.WriteString(out, line+"\n")
 			goroutine = nil
