@@ -24,7 +24,7 @@ func TestParseDump1(t *testing.T) {
 		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
 		"	" + goroot + "/src/reflect/value.go:2125 +0x368",
 		"main.main()",
-		"	/gopath/src/github.com/maruel/pre-commit-go/main.go:428 +0x27",
+		"	/gopath/src/github.com/foo/bar/baz.go:428 +0x27",
 		"",
 	}
 	extra := &bytes.Buffer{}
@@ -49,7 +49,7 @@ func TestParseDump1(t *testing.T) {
 						Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 					},
 					{
-						SourcePath: "/gopath/src/github.com/maruel/pre-commit-go/main.go",
+						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 						Line:       428,
 						Func:       Function{"main.main"},
 					},
@@ -80,7 +80,7 @@ func TestParseDumpAsm(t *testing.T) {
 				State: "garbage collection",
 				Stack: []Call{
 					{
-						SourcePath: "/home/maruel/src/golang/src/runtime/asm_amd64.s",
+						SourcePath: goroot + "/src/runtime/asm_amd64.s",
 						Line:       198,
 						Func:       Function{Raw: "runtime.switchtoM"},
 					},
@@ -131,7 +131,7 @@ func TestParseDumpElided(t *testing.T) {
 				},
 				StackElided: true,
 				CreatedBy: Call{
-					SourcePath: "/home/maruel/src/golang/src/testing/testing.go",
+					SourcePath: goroot + "/src/testing/testing.go",
 					Line:       555,
 					Func:       Function{Raw: "testing.RunTests"},
 				},
@@ -258,15 +258,15 @@ func TestParseDumpSameBucket(t *testing.T) {
 		"",
 		"goroutine 6 [chan receive]:",
 		"main.func·001()",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
 		"created by main.mainImpl",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:74 +0xeb",
+		"	/gopath/src/github.com/foo/bar/baz.go:74 +0xeb",
 		"",
 		"goroutine 7 [chan receive]:",
 		"main.func·001()",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
 		"created by main.mainImpl",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:74 +0xeb",
+		"	/gopath/src/github.com/foo/bar/baz.go:74 +0xeb",
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
@@ -277,13 +277,13 @@ func TestParseDumpSameBucket(t *testing.T) {
 				State: "chan receive",
 				Stack: []Call{
 					{
-						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 						Line:       72,
 						Func:       Function{"main.func·001"},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+					SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 					Line:       74,
 					Func:       Function{"main.mainImpl"},
 				},
@@ -296,13 +296,13 @@ func TestParseDumpSameBucket(t *testing.T) {
 				State: "chan receive",
 				Stack: []Call{
 					{
-						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 						Line:       72,
 						Func:       Function{"main.func·001"},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+					SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 					Line:       74,
 					Func:       Function{"main.mainImpl"},
 				},
@@ -322,11 +322,11 @@ func TestBucketizeNotAggressive(t *testing.T) {
 		"",
 		"goroutine 6 [chan receive]:",
 		"main.func·001(0x11000000, 2)",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
 		"",
 		"goroutine 7 [chan receive]:",
 		"main.func·001(0x21000000, 2)",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
@@ -337,7 +337,7 @@ func TestBucketizeNotAggressive(t *testing.T) {
 				State: "chan receive",
 				Stack: []Call{
 					{
-						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 						Line:       72,
 						Func:       Function{"main.func·001"},
 						Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
@@ -352,7 +352,7 @@ func TestBucketizeNotAggressive(t *testing.T) {
 				State: "chan receive",
 				Stack: []Call{
 					{
-						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 						Line:       72,
 						Func:       Function{"main.func·001"},
 						Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
@@ -377,11 +377,11 @@ func TestBucketizeAggressive(t *testing.T) {
 		"",
 		"goroutine 6 [chan receive]:",
 		"main.func·001(0x11000000, 2)",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
 		"",
 		"goroutine 7 [chan receive]:",
 		"main.func·001(0x21000000, 2)",
-		"	/gopath/src/github.com/maruel/panicparse/main.go:72 +0x49",
+		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
@@ -392,7 +392,7 @@ func TestBucketizeAggressive(t *testing.T) {
 				State: "chan receive",
 				Stack: []Call{
 					{
-						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 						Line:       72,
 						Func:       Function{"main.func·001"},
 						Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
@@ -407,7 +407,7 @@ func TestBucketizeAggressive(t *testing.T) {
 				State: "chan receive",
 				Stack: []Call{
 					{
-						SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 						Line:       72,
 						Func:       Function{"main.func·001"},
 						Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
@@ -422,7 +422,7 @@ func TestBucketizeAggressive(t *testing.T) {
 		State: "chan receive",
 		Stack: []Call{
 			{
-				SourcePath: "/gopath/src/github.com/maruel/panicparse/main.go",
+				SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 				Line:       72,
 				Func:       Function{"main.func·001"},
 				Args:       Args{Values: []Arg{{0x11000000, "*"}, {Value: 2}}},
@@ -611,13 +611,13 @@ func TestCallStdlib(t *testing.T) {
 
 func TestCallMain(t *testing.T) {
 	c := Call{
-		SourcePath: "/gopath/src/github.com/maruel/pre-commit-go/main.go",
+		SourcePath: "/gopath/src/github.com/foo/bar/main.go",
 		Line:       428,
 		Func:       Function{"main.main"},
 	}
 	ut.AssertEqual(t, "main.go", c.SourceName())
 	ut.AssertEqual(t, "main.go:428", c.SourceLine())
-	ut.AssertEqual(t, filepath.Join("pre-commit-go", "main.go"), c.PkgSource())
+	ut.AssertEqual(t, filepath.Join("bar", "main.go"), c.PkgSource())
 	ut.AssertEqual(t, "main.main", c.Func.String())
 	ut.AssertEqual(t, "main", c.Func.Name())
 	ut.AssertEqual(t, "main", c.Func.PkgName())
