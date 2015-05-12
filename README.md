@@ -34,7 +34,7 @@ Converts this [hard to read stack dump](https://raw.githubusercontent.com/wiki/m
 Installation
 ------------
 
-    go get github.com/maruel/panicparse
+    go get github.com/maruel/panicparse/cmd/pp
 
 
 Usage
@@ -44,20 +44,19 @@ Usage
 
 Run test and prints a concise stack trace upon deadlock in bash
 
-    go test -v |& panicparse
+    go test -v |&pp
 
 `|&` tells bash to redirect stderr to stdout, it's an alias for `2>&1 |`.
 panic() and Go's native deadlock detector always print to stderr.
 
-On Windows, a better trick can be used so that only stderr is piped to
-panicparse, leaving stdout alone:
+On Windows, use:
 
-    go test -v 2>&1 1>con: | panicparse
+    go test -v 2>&1 | pp
 
 
 ### Investigate deadlock
 
-On POSIX, use `Ctrl-\` to send SIGQUIT to your process, panicparse will ignore
+On POSIX, use `Ctrl-\` to send SIGQUIT to your process, `pp` will ignore
 the signal and will parse the stack trace.
 
 
@@ -66,4 +65,4 @@ the signal and will parse the stack trace.
 To dump to a file then parse, pass the file path of a stack trace
 
     go test 2> stack.txt
-    panicparse stack.txt
+    pp stack.txt
