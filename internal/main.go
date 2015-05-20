@@ -18,13 +18,16 @@ package internal
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 
+	"github.com/maruel/panicparse/internal/imported/terminal"
 	"github.com/maruel/panicparse/stack"
 	"github.com/mgutz/ansi"
 )
@@ -102,6 +105,15 @@ func Process(in io.Reader, out io.Writer) error {
 	return err
 }
 
+// IsTerminal returns true if the specified io.Writer is a terminal.
+func IsTerminal(out io.Writer) bool {
+	f, ok := out.(*os.File)
+	if !ok {
+		return false
+	}
+	return terminal.IsTerminal(int(f.Fd()))
+}
+
 func Main() error {
 	signals := make(chan os.Signal)
 	go func() {
@@ -110,19 +122,32 @@ func Main() error {
 		}
 	}()
 	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
+	// TODO(maruel): Both github.com/mattn/go-colorable and
+	// github.com/shiena/ansicolor failed at properly printing colors on my
+	// Windows box. Figure this out eventually. In the meantime, default to no
+	// color on Windows.
+	noColor := flag.Bool("no-color", !IsTerminal(os.Stdout) || os.Getenv("TERM") == "dumb" || runtime.GOOS == "windows", "Disable coloring")
+	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
+	flag.Parse()
 
-	out := getOut()
+	var out io.Writer
+	if *noColor && !*forceColor {
+		out = NewAnsiStripper(os.Stdout)
+	} else {
+		out = os.Stdout
+	}
 	var in *os.File
-	if len(os.Args) == 1 {
+	switch flag.NArg() {
+	case 0:
 		in = os.Stdin
-	} else if len(os.Args) == 2 {
+	case 1:
 		var err error
-		name := os.Args[1]
+		name := flag.Arg(0)
 		if in, err = os.Open(name); err != nil {
 			return fmt.Errorf("did you mean to specify a valid stack dump file name? %s", err)
 		}
 		defer in.Close()
-	} else {
+	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
 	return Process(in, out)
