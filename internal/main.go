@@ -27,9 +27,9 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mgutz/ansi"
 	"github.com/maruel/panicparse/internal/imported/terminal"
 	"github.com/maruel/panicparse/stack"
-	"github.com/mgutz/ansi"
 )
 
 func CalcLengths(buckets stack.Buckets) (int, int) {
