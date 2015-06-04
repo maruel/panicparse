@@ -39,7 +39,9 @@ var (
 	reCreated = regexp.MustCompile("^created by (.+)$")
 	reFunc    = regexp.MustCompile("^(.+)\\((.*)\\)$")
 	reElided  = regexp.MustCompile("^\\.\\.\\.additional frames elided\\.\\.\\.$")
-	goroot    = runtime.GOROOT()
+	// Include c:/go/src since it's frequent on Windows. This simplifies our life
+	// when processing a trace generated on another VM.
+	goroots = []string{runtime.GOROOT(), "c:/go/src"}
 )
 
 type Function struct {
@@ -230,8 +232,10 @@ const testMainSource = "_test" + string(os.PathSeparator) + "_testmain.go"
 // IsStdlib returns true if it is a Go standard library function. This includes
 // the 'go test' generated main executable.
 func (c *Call) IsStdlib() bool {
-	if strings.HasPrefix(c.SourcePath, goroot) {
-		return true
+	for _, goroot := range goroots {
+		if strings.HasPrefix(c.SourcePath, goroot) {
+			return true
+		}
 	}
 	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
 	return c.PkgSource() == testMainSource

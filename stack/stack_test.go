@@ -13,6 +13,8 @@ import (
 	"github.com/maruel/ut"
 )
 
+var goroot = goroots[0]
+
 func TestParseDump1(t *testing.T) {
 	// One call from main, one from stdlib, one from third party.
 	data := []string{
