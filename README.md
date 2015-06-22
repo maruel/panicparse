@@ -7,7 +7,6 @@ process.
 
 [![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg?branch=master)](https://travis-ci.org/maruel/panicparse)
-[![Coverage Status](https://img.shields.io/coveralls/maruel/panicparse.svg)](https://coveralls.io/r/maruel/panicparse?branch=master)
 
 
 Features
