@@ -65,3 +65,10 @@ To dump to a file then parse, pass the file path of a stack trace
 
     go test 2> stack.txt
     pp stack.txt
+
+
+### If you have `/usr/bin/pp` installed
+
+You may have the Perl PAR Packager installed. Use long name `panicparse` then;
+
+    go get github.com/maruel/panicparse
