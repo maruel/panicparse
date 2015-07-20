@@ -126,14 +126,23 @@ func (a Arg) String() string {
 
 // Args is a series of function call arguments.
 type Args struct {
-	Values []Arg
-	Elided bool // If set, it means there was a trailing ", ..."
+	Values    []Arg    // Values is the arguments as shown on the stack trace. They are mangled via simplification.
+	Processed []string // Processed is the arguments generated from processing the source files. It can have a length lower than Values.
+	Elided    bool     // If set, it means there was a trailing ", ..."
 }
 
 func (a Args) String() string {
-	v := make([]string, 0, len(a.Values))
-	for _, item := range a.Values {
-		v = append(v, item.String())
+	var v []string
+	if len(a.Processed) != 0 {
+		v = make([]string, 0, len(a.Processed))
+		for _, item := range a.Processed {
+			v = append(v, item)
+		}
+	} else {
+		v = make([]string, 0, len(a.Values))
+		for _, item := range a.Values {
+			v = append(v, item.String())
+		}
 	}
 	if a.Elided {
 		v = append(v, "...")
@@ -560,7 +569,13 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 			goroutine = nil
 		}
 	}
+	nameArguments(goroutines)
+	return goroutines, scanner.Err()
+}
 
+// Private stuff.
+
+func nameArguments(goroutines []Goroutine) {
 	// Set a name for any pointer occuring more than once.
 	type object struct {
 		args      []*Arg
@@ -615,10 +630,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 		}
 		nextID++
 	}
-	return goroutines, scanner.Err()
 }
-
-// Private stuff.
 
 type uint64Slice []uint64
 

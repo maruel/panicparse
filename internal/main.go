@@ -21,6 +21,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -128,7 +130,13 @@ func Main() error {
 	// color on Windows.
 	noColor := flag.Bool("no-color", !IsTerminal(os.Stdout) || os.Getenv("TERM") == "dumb" || runtime.GOOS == "windows", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
+	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
 	flag.Parse()
+
+	log.SetFlags(log.Lmicroseconds)
+	if !*verboseFlag {
+		log.SetOutput(ioutil.Discard)
+	}
 
 	var out io.Writer
 	if *noColor && !*forceColor {
