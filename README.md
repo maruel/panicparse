@@ -9,6 +9,9 @@ process.
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg?branch=master)](https://travis-ci.org/maruel/panicparse)
 
 
+![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.gif "Screencast")
+
+
 Features
 --------
 
@@ -20,14 +23,6 @@ Features
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
    * Usable as a library!
    * Works on Windows.
-
-
-Screenshot
-----------
-
-Converts this [hard to read stack dump](https://raw.githubusercontent.com/wiki/maruel/panicparse/sample3.txt) into something nicer:
-
-![Screenshot](https://raw.githubusercontent.com/wiki/maruel/panicparse/screenshot3.png "Screenshot")
 
 
 Installation
