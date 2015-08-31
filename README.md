@@ -11,6 +11,7 @@ process.
 
 ![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.gif "Screencast")
 
+([Source](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.go))
 
 Features
 --------
@@ -67,3 +68,10 @@ To dump to a file then parse, pass the file path of a stack trace
 You may have the Perl PAR Packager installed. Use long name `panicparse` then;
 
     go get github.com/maruel/panicparse
+
+
+## Other screencast
+
+![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/deadlock.gif "Screencast")
+
+([Source](https://raw.githubusercontent.com/wiki/maruel/panicparse/deadlock.go))
