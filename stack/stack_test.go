@@ -64,6 +64,41 @@ func TestParseDump1(t *testing.T) {
 	ut.AssertEqual(t, expected, goroutines)
 }
 
+func TestParseDumpLongWait(t *testing.T) {
+	// One call from main, one from stdlib, one from third party.
+	data := []string{
+		"panic: bleh",
+		"",
+		"goroutine 1 [chan send, 100 minutes]:",
+		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
+		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	ut.AssertEqual(t, nil, err)
+	ut.AssertEqual(t, "panic: bleh\n\n", extra.String())
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "chan send",
+				Sleep: 100,
+				Stack: []Call{
+					{
+						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+						Line:       153,
+						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+						Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expected, goroutines)
+}
+
 func TestParseDumpAsm(t *testing.T) {
 	data := []string{
 		"panic: reflect.Set: value of type",

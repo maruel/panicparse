@@ -89,6 +89,9 @@ func Process(in io.Reader, out io.Writer) error {
 	srcLen, pkgLen := CalcLengths(buckets)
 	for _, bucket := range buckets {
 		extra := ""
+		if bucket.Sleep != 0 {
+			extra += fmt.Sprintf(" [%d minutes]", bucket.Sleep)
+		}
 		created := bucket.CreatedBy.Func.PkgDotName()
 		if created != "" {
 			if srcName := bucket.CreatedBy.SourceLine(); srcName != "" {
