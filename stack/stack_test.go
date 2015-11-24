@@ -73,6 +73,14 @@ func TestParseDumpLongWait(t *testing.T) {
 		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"",
+		"goroutine 2 [chan send, locked to thread]:",
+		"gopkg.in/yaml%2ev2.handleErr(0xc208033b21)",
+		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
+		"",
+		"goroutine 3 [chan send, 101 minutes, locked to thread]:",
+		"gopkg.in/yaml%2ev2.handleErr(0xc208033b22)",
+		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
+		"",
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
@@ -94,6 +102,37 @@ func TestParseDumpLongWait(t *testing.T) {
 			},
 			ID:    1,
 			First: true,
+		},
+		{
+			Signature: Signature{
+				State:  "chan send",
+				Locked: true,
+				Stack: []Call{
+					{
+						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+						Line:       153,
+						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+						Args:       Args{Values: []Arg{{Value: 0xc208033b21, Name: "#1"}}},
+					},
+				},
+			},
+			ID: 2,
+		},
+		{
+			Signature: Signature{
+				State:  "chan send",
+				Sleep:  101,
+				Locked: true,
+				Stack: []Call{
+					{
+						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+						Line:       153,
+						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+						Args:       Args{Values: []Arg{{Value: 0xc208033b22, Name: "#2"}}},
+					},
+				},
+			},
+			ID: 3,
 		},
 	}
 	ut.AssertEqual(t, expected, goroutines)

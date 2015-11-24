@@ -92,6 +92,9 @@ func Process(in io.Reader, out io.Writer) error {
 		if bucket.Sleep != 0 {
 			extra += fmt.Sprintf(" [%d minutes]", bucket.Sleep)
 		}
+		if bucket.Locked {
+			extra += " [locked]"
+		}
 		created := bucket.CreatedBy.Func.PkgDotName()
 		if created != "" {
 			if srcName := bucket.CreatedBy.SourceLine(); srcName != "" {
