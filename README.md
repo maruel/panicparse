@@ -37,14 +37,27 @@ Usage
 
 ### Piping a stack trace from another process
 
-Run test and prints a concise stack trace upon deadlock in bash
+#### TL;DR
+
+   * Ubuntu: `|&`
+   * OSX, [install bash 4+](README.md#updating-bash-on-osx) then: `|&`
+   * Windows _or_ OSX with bash v3: `2>&1 |`
+
+
+#### Longer version
+
+Run test and prints a concise stack trace upon deadlock in bash v4:
 
     go test -v |&pp
 
-`|&` tells bash to redirect stderr to stdout, it's an alias for `2>&1 |`.
+`|&` tells bash to redirect stderr to stdout,
+[it's an alias for `2>&1 |`](https://www.gnu.org/software/bash/manual/bash.html#Pipelines).
 panic() and Go's native deadlock detector always print to stderr.
 
-On Windows, use:
+`pp` streams its stdin to stdout as long as it doesn't detect any panic.
+
+On Windows or [OSX native bash (which is
+3.2.57)](http://meta.ath0.com/2012/02/05/apples-great-gpl-purge/), use:
 
     go test -v 2>&1 | pp
 
@@ -75,3 +88,9 @@ You may have the Perl PAR Packager installed. Use long name `panicparse` then;
 ![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/deadlock.gif "Screencast")
 
 ([Source](https://raw.githubusercontent.com/wiki/maruel/panicparse/deadlock.go))
+
+
+## Updating bash on OSX
+
+You can install bash v4+ on OSX via [homebrew](http://brew.sh) or
+[macports](https://www.macports.org/).
