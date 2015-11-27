@@ -29,8 +29,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mattn/go-isatty"
 	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mgutz/ansi"
-	"github.com/maruel/panicparse/internal/imported/terminal"
 	"github.com/maruel/panicparse/stack"
 )
 
@@ -119,7 +119,7 @@ func IsTerminal(out io.Writer) bool {
 	if !ok {
 		return false
 	}
-	return terminal.IsTerminal(int(f.Fd()))
+	return isatty.IsTerminal(f.Fd())
 }
 
 func Main() error {

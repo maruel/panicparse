@@ -1,10 +1,17 @@
 {
 	"ImportPath": "github.com/maruel/panicparse",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.5.1",
+	"Packages": [
+		"github.com/maruel/panicparse/cmd/pp"
+	],
 	"Deps": [
+		{
+			"ImportPath": "github.com/mattn/go-isatty",
+			"Rev": "d6aaa2f596ae91a0a58d8e7f2c79670991468e4f"
+		},
 		{
 			"ImportPath": "github.com/mgutz/ansi",
 			"Rev": "22ddafb24adc4786c83841aa3021349818c898e4"
-		},
+		}
 	]
 }
