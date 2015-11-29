@@ -6,12 +6,16 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/mattn/go-colorable",
+			"Rev": "3dac7b4f76f6e17fb39b768b89e3783d16e237fe"
+		},
+		{
 			"ImportPath": "github.com/mattn/go-isatty",
-			"Rev": "d6aaa2f596ae91a0a58d8e7f2c79670991468e4f"
+			"Rev": "3f7a6730f55096ff7cd34816f520d9f4517e95ea"
 		},
 		{
 			"ImportPath": "github.com/mgutz/ansi",
-			"Rev": "22ddafb24adc4786c83841aa3021349818c898e4"
+			"Rev": "c286dcecd19ff979eeb73ea444e479b903f2cfcb"
 		}
 	]
 }

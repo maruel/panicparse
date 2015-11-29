@@ -30,6 +30,10 @@ func TestPlain(t *testing.T) {
 func TestStyles(t *testing.T) {
 	PrintStyles()
 	DisableColors(false)
+	buf := colorCode("off")
+	if buf.String() != "" {
+		t.Fail()
+	}
 }
 
 func ExampleColorFunc() {
