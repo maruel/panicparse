@@ -42,9 +42,13 @@ var (
 	reCreated = regexp.MustCompile("^created by (.+)$")
 	reFunc    = regexp.MustCompile("^(.+)\\((.*)\\)$")
 	reElided  = regexp.MustCompile("^\\.\\.\\.additional frames elided\\.\\.\\.$")
-	// Include c:/go/src since it's frequent on Windows. This simplifies our life
-	// when processing a trace generated on another VM.
-	goroots = []string{runtime.GOROOT(), "c:/go/src"}
+	// Include frequent GOROOT value on Windows, distro provided and user
+	// installed path. This simplifies the user's life when processing a trace
+	// generated on another VM.
+	// TODO(maruel): Guess the path automatically via traces containing the
+	// 'runtime' package, which is very frequent. This would be "less bad" than
+	// throwing up random values at the parser.
+	goroots = []string{runtime.GOROOT(), "c:/go", "/usr/lib/go", "/usr/local/go"}
 )
 
 type Function struct {
@@ -224,14 +228,19 @@ func (l *Call) Merge(r *Call) Call {
 	}
 }
 
-// SourceName returns the file name of the source file.
+// SourceName returns the base file name of the source file.
 func (c *Call) SourceName() string {
 	return filepath.Base(c.SourcePath)
 }
 
-// SourceLine returns the source(line) format.
+// SourceLine returns "source.go:line", including only the base file name.
 func (c *Call) SourceLine() string {
 	return fmt.Sprintf("%s:%d", c.SourceName(), c.Line)
+}
+
+// FullSourceLine returns "/path/to/source.go:line".
+func (c *Call) FullSourceLine() string {
+	return fmt.Sprintf("%s:%d", c.SourcePath, c.Line)
 }
 
 // PkgSource is one directory plus the file name of the source file.
