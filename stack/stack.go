@@ -51,6 +51,10 @@ var (
 	goroots = []string{runtime.GOROOT(), "c:/go", "/usr/lib/go", "/usr/local/go"}
 )
 
+// Function is a function call.
+//
+// Go stack traces print a mangled function call, this wrapper unmangle the
+// string before printing and adds other filtering methods.
 type Function struct {
 	Raw string
 }
@@ -157,6 +161,7 @@ func (a Args) String() string {
 	return strings.Join(v, ", ")
 }
 
+// Equal returns true only if both arguments are exactly equal.
 func (a *Args) Equal(r *Args) bool {
 	if a.Elided != r.Elided || len(a.Values) != len(r.Values) {
 		return false
@@ -184,17 +189,17 @@ func (a *Args) Similar(r *Args) bool {
 }
 
 // Merge merges two similar Args, zapping out differences.
-func (l *Args) Merge(r *Args) Args {
+func (a *Args) Merge(r *Args) Args {
 	out := Args{
-		Values: make([]Arg, len(l.Values)),
-		Elided: l.Elided,
+		Values: make([]Arg, len(a.Values)),
+		Elided: a.Elided,
 	}
-	for i := range l.Values {
-		if l.Values[i] != r.Values[i] {
+	for i, l := range a.Values {
+		if l != r.Values[i] {
 			out.Values[i].Name = "*"
-			out.Values[i].Value = l.Values[i].Value
+			out.Values[i].Value = l.Value
 		} else {
-			out.Values[i] = l.Values[i]
+			out.Values[i] = l
 		}
 	}
 	return out
@@ -208,6 +213,7 @@ type Call struct {
 	Args       Args     // Call arguments
 }
 
+// Equal returns true only if both calls are exactly equal.
 func (c *Call) Equal(r *Call) bool {
 	return c.SourcePath == r.SourcePath && c.Line == r.Line && c.Func == r.Func && c.Args.Equal(&r.Args)
 }
@@ -219,12 +225,12 @@ func (c *Call) Similar(r *Call) bool {
 }
 
 // Merge merges two similar Call, zapping out differences.
-func (l *Call) Merge(r *Call) Call {
+func (c *Call) Merge(r *Call) Call {
 	return Call{
-		SourcePath: l.SourcePath,
-		Line:       l.Line,
-		Func:       l.Func,
-		Args:       l.Args.Merge(&r.Args),
+		SourcePath: c.SourcePath,
+		Line:       c.Line,
+		Func:       c.Func,
+		Args:       c.Args.Merge(&r.Args),
 	}
 }
 
@@ -262,12 +268,16 @@ func (c *Call) IsStdlib() bool {
 	return c.PkgSource() == testMainSource
 }
 
-// IsMain returns true if it is in the main package.
+// IsPkgMain returns true if it is in the main package.
 func (c *Call) IsPkgMain() bool {
 	return c.Func.PkgName() == "main"
 }
 
-// Goroutine represents the signature of one or multiple goroutines.
+// Signature represents the signature of one or multiple goroutines.
+//
+// It is effectively the stack trace plus the goroutine internal bits, like
+// it's state, if it is thread locked, which call site created this goroutine,
+// etc.
 type Signature struct {
 	// Use git grep 'gopark(|unlock)\(' to find them all plus everything listed
 	// in runtime/traceback.go. Valid values includes:
@@ -293,13 +303,15 @@ type Signature struct {
 	CreatedBy   Call   // Which other goroutine which created this one.
 }
 
-func (l *Signature) Equal(r *Signature) bool {
-	// Ignore Sleep and Locked.
-	if l.State != r.State || len(l.Stack) != len(r.Stack) || !l.CreatedBy.Equal(&r.CreatedBy) || r.StackElided != l.StackElided {
+// Equal returns true only if both signatures are exactly equal, except for
+// Sleep.
+func (s *Signature) Equal(r *Signature) bool {
+	// Ignore Sleep.
+	if s.State != r.State || len(s.Stack) != len(r.Stack) || !s.CreatedBy.Equal(&r.CreatedBy) || s.StackElided != r.StackElided || s.Locked != r.Locked {
 		return false
 	}
-	for i := range l.Stack {
-		if !l.Stack[i].Equal(&r.Stack[i]) {
+	for i := range s.Stack {
+		if !s.Stack[i].Equal(&r.Stack[i]) {
 			return false
 		}
 	}
@@ -308,13 +320,13 @@ func (l *Signature) Equal(r *Signature) bool {
 
 // Similar returns true if the two Signature are equal or almost but not quite
 // equal.
-func (l *Signature) Similar(r *Signature) bool {
+func (s *Signature) Similar(r *Signature) bool {
 	// Ignore Sleep and Locked.
-	if l.State != r.State || len(l.Stack) != len(r.Stack) || !l.CreatedBy.Similar(&r.CreatedBy) || r.StackElided != l.StackElided {
+	if s.State != r.State || len(s.Stack) != len(r.Stack) || !s.CreatedBy.Similar(&r.CreatedBy) || s.StackElided != r.StackElided {
 		return false
 	}
-	for i := range l.Stack {
-		if !l.Stack[i].Similar(&r.Stack[i]) {
+	for i := range s.Stack {
+		if !s.Stack[i].Similar(&r.Stack[i]) {
 			return false
 		}
 	}
@@ -322,16 +334,16 @@ func (l *Signature) Similar(r *Signature) bool {
 }
 
 // Merge merges two similar Signature, zapping out differences.
-func (l *Signature) Merge(r *Signature) *Signature {
+func (s *Signature) Merge(r *Signature) *Signature {
 	out := &Signature{
-		State:     l.State,
-		Sleep:     (l.Sleep + r.Sleep + 1) / 2,
-		Locked:    l.Locked || r.Locked,
-		Stack:     make([]Call, len(l.Stack)),
-		CreatedBy: l.CreatedBy,
+		State:     s.State,
+		Sleep:     (s.Sleep + r.Sleep + 1) / 2,
+		Locked:    s.Locked || r.Locked,       // TODO(maruel): This is weirdo.
+		Stack:     make([]Call, len(s.Stack)), // Assumes both stack have the exact same length.
+		CreatedBy: s.CreatedBy,
 	}
-	for i := range l.Stack {
-		out.Stack[i] = l.Stack[i].Merge(&r.Stack[i])
+	for i := range s.Stack {
+		out.Stack[i] = s.Stack[i].Merge(&r.Stack[i])
 	}
 	return out
 }
@@ -340,12 +352,12 @@ func (l *Signature) Merge(r *Signature) *Signature {
 // important, so they come up front. A Signature with more private functions is
 // 'less' so it is at the top. Inversely, a Signature with only public
 // functions is 'more' so it is at the bottom.
-func (l *Signature) Less(r *Signature) bool {
+func (s *Signature) Less(r *Signature) bool {
 	// Ignore Sleep and Locked.
 	lStdlib := 0
 	lPrivate := 0
-	for _, s := range l.Stack {
-		if s.IsStdlib() {
+	for _, c := range s.Stack {
+		if c.IsStdlib() {
 			lStdlib++
 		} else {
 			lPrivate++
@@ -374,40 +386,40 @@ func (l *Signature) Less(r *Signature) bool {
 	}
 
 	// Stack lengths are the same.
-	for x := range l.Stack {
-		if l.Stack[x].Func.Raw < r.Stack[x].Func.Raw {
+	for x := range s.Stack {
+		if s.Stack[x].Func.Raw < r.Stack[x].Func.Raw {
 			return true
 		}
-		if l.Stack[x].Func.Raw > r.Stack[x].Func.Raw {
+		if s.Stack[x].Func.Raw > r.Stack[x].Func.Raw {
 			return true
 		}
-		if l.Stack[x].PkgSource() < r.Stack[x].PkgSource() {
+		if s.Stack[x].PkgSource() < r.Stack[x].PkgSource() {
 			return true
 		}
-		if l.Stack[x].PkgSource() > r.Stack[x].PkgSource() {
+		if s.Stack[x].PkgSource() > r.Stack[x].PkgSource() {
 			return true
 		}
-		if l.Stack[x].Line < r.Stack[x].Line {
+		if s.Stack[x].Line < r.Stack[x].Line {
 			return true
 		}
-		if l.Stack[x].Line > r.Stack[x].Line {
+		if s.Stack[x].Line > r.Stack[x].Line {
 			return true
 		}
 	}
-	if l.State < r.State {
+	if s.State < r.State {
 		return true
 	}
-	if l.State > r.State {
+	if s.State > r.State {
 		return false
 	}
 	return false
 }
 
-// Goroutine represents the state of one goroutine.
+// Goroutine represents the state of one goroutine, including the stack trace.
 type Goroutine struct {
-	Signature
-	ID    int
-	First bool // First is the goroutine first printed, normally the one that crashed.
+	Signature      // It's stack trace, internal bits, state, which call site created it, etc.
+	ID        int  // Goroutine ID.
+	First     bool // First is the goroutine first printed, normally the one that crashed.
 }
 
 // Bucketize returns the number of similar goroutines.
@@ -458,6 +470,8 @@ type Bucket struct {
 	Routines []Goroutine
 }
 
+// First returns true if it contains the first goroutine, e.g. the ones that
+// likely generated the panic() call, if any.
 func (b *Bucket) First() bool {
 	for _, r := range b.Routines {
 		if r.First {

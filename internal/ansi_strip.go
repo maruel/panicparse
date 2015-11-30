@@ -6,7 +6,8 @@ package internal
 
 import "io"
 
-func NewAnsiStripper(out io.Writer) io.Writer {
+// NewANSIStripper processes out on the fly stripping out ANSI codes.
+func NewANSIStripper(out io.Writer) io.Writer {
 	return &ansiStripper{out: out}
 }
 
@@ -15,7 +16,7 @@ func NewAnsiStripper(out io.Writer) io.Writer {
 type ansiState int
 
 const (
-	stateOutsideAnsi ansiState = iota
+	stateOutsideANSI ansiState = iota
 	stateEscapeChar1
 	stateEscapeChar2
 )
@@ -38,7 +39,7 @@ func (a *ansiStripper) Write(p []byte) (int, error) {
 	toWriteEnd := 0
 	for i, ch := range p {
 		switch a.state {
-		case stateOutsideAnsi:
+		case stateOutsideANSI:
 			if ch == escapeChar1 {
 				a.state = stateEscapeChar1
 			}
@@ -50,7 +51,7 @@ func (a *ansiStripper) Write(p []byte) (int, error) {
 				a.state = stateEscapeChar2
 				toWriteEnd = i - 1
 			default:
-				a.state = stateOutsideAnsi
+				a.state = stateOutsideANSI
 			}
 		case stateEscapeChar2:
 			if !(('0' <= ch && ch <= '9') || ch == ';') {
@@ -60,13 +61,13 @@ func (a *ansiStripper) Write(p []byte) (int, error) {
 					}
 				}
 				toWriteStart = i + 1
-				a.state = stateOutsideAnsi
+				a.state = stateOutsideANSI
 			}
 		}
 	}
 
 	var err error
-	if a.state == stateOutsideAnsi {
+	if a.state == stateOutsideANSI {
 		_, err = a.out.Write(p[toWriteStart:])
 	}
 

@@ -2,7 +2,7 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-// panicparse: analyzes stack dump of Go processes and simplifies it.
+// Package internal implements panicparse
 //
 // It is mostly useful on servers will large number of identical goroutines,
 // making the crash dump harder to read than strictly necesary.
@@ -63,9 +63,8 @@ func PkgColor(line *stack.Call) string {
 	if line.IsStdlib() {
 		if line.Func.IsExported() {
 			return ansi.LightGreen
-		} else {
-			return ansi.Green
 		}
+		return ansi.Green
 	} else if line.IsPkgMain() {
 		return ansi.LightYellow
 	} else if line.Func.IsExported() {
@@ -138,6 +137,9 @@ func Process(in io.Reader, out io.Writer, fullPath bool) error {
 	return err
 }
 
+// Main is implemented here so both 'pp' and 'panicparse' executables can be
+// compiled. This is to work around the Perl Package manager 'pp' that is
+// preinstalled on some OSes.
 func Main() error {
 	signals := make(chan os.Signal)
 	go func() {
@@ -146,13 +148,9 @@ func Main() error {
 		}
 	}()
 	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
-	// TODO(maruel): Both github.com/mattn/go-colorable and
-	// github.com/shiena/ansicolor failed at properly printing colors on my
-	// Windows box. Figure this out eventually. In the meantime, default to no
-	// color on Windows.
+	fullPath := flag.Bool("full-path", false, "Print full sources path")
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
-	fullPath := flag.Bool("full-path", false, "Print full sources path")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
 	flag.Parse()
 
@@ -163,7 +161,7 @@ func Main() error {
 
 	var out io.Writer
 	if *noColor && !*forceColor {
-		out = NewAnsiStripper(os.Stdout)
+		out = NewANSIStripper(os.Stdout)
 	} else {
 		out = colorable.NewColorableStdout()
 	}
