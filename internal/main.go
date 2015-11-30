@@ -25,12 +25,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
 	"strings"
 	"syscall"
 
+	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mattn/go-colorable"
+	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mattn/go-isatty"
 	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mgutz/ansi"
-	"github.com/maruel/panicparse/internal/imported/terminal"
 	"github.com/maruel/panicparse/stack"
 )
 
@@ -113,15 +113,6 @@ func Process(in io.Reader, out io.Writer) error {
 	return err
 }
 
-// IsTerminal returns true if the specified io.Writer is a terminal.
-func IsTerminal(out io.Writer) bool {
-	f, ok := out.(*os.File)
-	if !ok {
-		return false
-	}
-	return terminal.IsTerminal(int(f.Fd()))
-}
-
 func Main() error {
 	signals := make(chan os.Signal)
 	go func() {
@@ -134,7 +125,7 @@ func Main() error {
 	// github.com/shiena/ansicolor failed at properly printing colors on my
 	// Windows box. Figure this out eventually. In the meantime, default to no
 	// color on Windows.
-	noColor := flag.Bool("no-color", !IsTerminal(os.Stdout) || os.Getenv("TERM") == "dumb" || runtime.GOOS == "windows", "Disable coloring")
+	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
 	flag.Parse()
@@ -148,7 +139,7 @@ func Main() error {
 	if *noColor && !*forceColor {
 		out = NewAnsiStripper(os.Stdout)
 	} else {
-		out = os.Stdout
+		out = colorable.NewColorableStdout()
 	}
 	var in *os.File
 	switch flag.NArg() {

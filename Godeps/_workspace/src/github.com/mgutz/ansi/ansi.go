@@ -138,6 +138,8 @@ func colorCode(style string) *bytes.Buffer {
 	if style == "reset" {
 		buf.WriteString(Reset)
 		return buf
+	} else if style == "off" {
+		return buf
 	}
 
 	foregroundBackground := strings.Split(style, ":")

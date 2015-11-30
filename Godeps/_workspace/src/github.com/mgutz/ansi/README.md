@@ -41,6 +41,7 @@ Color(s, "red+bh")         // red bold bright
 Color(s, "red:white")      // red on white
 Color(s, "red+b:white+h")  // red bold on white bright
 Color(s, "red+B:white+h")  // red blink on white bright
+Color(s, "off")            // turn off ansi codes
 ```
 
 To view color combinations, from terminal.
@@ -81,7 +82,6 @@ Attributes
 
 * ansi.Reset
 * ansi.DefaultBG
-* ansi.DefaultFG
 * ansi.DefaultFG
 * ansi.Black
 * ansi.Red
