@@ -510,7 +510,7 @@ func SortBuckets(buckets map[*Signature][]Goroutine) Buckets {
 func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	goroutines := make([]Goroutine, 0, 16)
 	var goroutine *Goroutine
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(io.TeeReader(r, out))
 	scanner.Split(bufio.ScanLines)
 	// TODO(maruel): Use a formal state machine. Patterns follows:
 	// - reRoutineHeader
@@ -526,9 +526,6 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) == 0 {
-			if goroutine == nil {
-				_, _ = io.WriteString(out, line+"\n")
-			}
 			goroutine = nil
 			continue
 		}
@@ -561,7 +558,6 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 					continue
 				}
 			}
-			_, _ = io.WriteString(out, line+"\n")
 			continue
 		}
 
