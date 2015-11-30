@@ -158,12 +158,16 @@ func StackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) s
 }
 
 // Process copies stdin to stdout and processes any "panic: " line found.
-func Process(in io.Reader, out io.Writer, fullPath bool) error {
+func Process(in io.Reader, out io.Writer, aggressive, fullPath bool) error {
 	goroutines, err := stack.ParseDump(in, out)
 	if err != nil {
 		return err
 	}
-	buckets := stack.SortBuckets(stack.Bucketize(goroutines, true))
+	s := stack.AnyPointer
+	if aggressive {
+		s = stack.AnyValue
+	}
+	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
 	srcLen, pkgLen := CalcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
 		_, _ = io.WriteString(out, BucketHeader(&bucket, fullPath, len(buckets) > 1))
@@ -183,6 +187,7 @@ func Main() error {
 		}
 	}()
 	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
+	aggressive := flag.Bool("aggressive", false, "Aggressive deduplication including non pointers")
 	fullPath := flag.Bool("full-path", false, "Print full sources path")
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
@@ -214,5 +219,5 @@ func Main() error {
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return Process(in, out, *fullPath)
+	return Process(in, out, *aggressive, *fullPath)
 }

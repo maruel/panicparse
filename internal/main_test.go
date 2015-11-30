@@ -39,7 +39,7 @@ var data = []string{
 
 func TestProcess(t *testing.T) {
 	out := &bytes.Buffer{}
-	err := Process(bytes.NewBufferString(strings.Join(data, "\n")), out, false)
+	err := Process(bytes.NewBufferString(strings.Join(data, "\n")), out, false, false)
 	ut.AssertEqual(t, nil, err)
 	expected := []string{
 		"panic: runtime error: index out of range",
@@ -64,7 +64,7 @@ func TestProcess(t *testing.T) {
 
 func TestProcessFullPath(t *testing.T) {
 	out := &bytes.Buffer{}
-	err := Process(bytes.NewBufferString(strings.Join(data, "\n")), out, true)
+	err := Process(bytes.NewBufferString(strings.Join(data, "\n")), out, true, true)
 	ut.AssertEqual(t, nil, err)
 	expected := []string{
 		"panic: runtime error: index out of range",

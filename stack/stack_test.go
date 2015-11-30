@@ -476,7 +476,7 @@ func TestParseDumpSameBucket(t *testing.T) {
 	}
 	ut.AssertEqual(t, expectedGR, goroutines)
 	expectedBuckets := Buckets{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
-	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, false)))
+	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
 }
 
 func TestBucketizeNotAggressive(t *testing.T) {
@@ -531,7 +531,7 @@ func TestBucketizeNotAggressive(t *testing.T) {
 		{expectedGR[0].Signature, []Goroutine{expectedGR[0]}},
 		{expectedGR[1].Signature, []Goroutine{expectedGR[1]}},
 	}
-	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, false)))
+	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
 }
 
 func TestBucketizeAggressive(t *testing.T) {
@@ -594,7 +594,7 @@ func TestBucketizeAggressive(t *testing.T) {
 		},
 	}
 	expectedBuckets := Buckets{{signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
-	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, true)))
+	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, AnyPointer)))
 }
 
 func TestParseDumpNoOffset(t *testing.T) {

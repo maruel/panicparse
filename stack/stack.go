@@ -53,6 +53,21 @@ var (
 	goroots = []string{runtime.GOROOT(), "c:/go", "/usr/lib/go", "/usr/local/go"}
 )
 
+// Similarity is the level at which two call lines arguments must match to be
+// considered similar enough to coalesce them.
+type Similarity int
+
+const (
+	// ExactFlags requires same bits (e.g. Locked).
+	ExactFlags Similarity = iota
+	// ExactLines requests the exact same arguments on the call line.
+	ExactLines
+	// AnyPointer considers different pointers a similar call line.
+	AnyPointer
+	// AnyValue accepts any value as similar call line.
+	AnyValue
+)
+
 // Function is a function call.
 //
 // Go stack traces print a mangled function call, this wrapper unmangle the
@@ -178,13 +193,23 @@ func (a *Args) Equal(r *Args) bool {
 
 // Similar returns true if the two Args are equal or almost but not quite
 // equal.
-func (a *Args) Similar(r *Args) bool {
+func (a *Args) Similar(r *Args, similar Similarity) bool {
 	if a.Elided != r.Elided || len(a.Values) != len(r.Values) {
 		return false
 	}
+	if similar == AnyValue {
+		return true
+	}
 	for i, l := range a.Values {
-		if l.IsPtr() != r.Values[i].IsPtr() || (!l.IsPtr() && l != r.Values[i]) {
-			return false
+		switch similar {
+		case ExactFlags, ExactLines:
+			if l != r.Values[i] {
+				return false
+			}
+		default:
+			if l.IsPtr() != r.Values[i].IsPtr() || (!l.IsPtr() && l != r.Values[i]) {
+				return false
+			}
 		}
 	}
 	return true
@@ -222,8 +247,8 @@ func (c *Call) Equal(r *Call) bool {
 
 // Similar returns true if the two Call are equal or almost but not quite
 // equal.
-func (c *Call) Similar(r *Call) bool {
-	return c.SourcePath == r.SourcePath && c.Line == r.Line && c.Func == r.Func && c.Args.Similar(&r.Args)
+func (c *Call) Similar(r *Call, similar Similarity) bool {
+	return c.SourcePath == r.SourcePath && c.Line == r.Line && c.Func == r.Func && c.Args.Similar(&r.Args, similar)
 }
 
 // Merge merges two similar Call, zapping out differences.
@@ -324,13 +349,16 @@ func (s *Signature) Equal(r *Signature) bool {
 
 // Similar returns true if the two Signature are equal or almost but not quite
 // equal.
-func (s *Signature) Similar(r *Signature) bool {
-	// Ignore Sleep and Locked.
-	if s.State != r.State || len(s.Stack) != len(r.Stack) || !s.CreatedBy.Similar(&r.CreatedBy) || s.StackElided != r.StackElided {
+func (s *Signature) Similar(r *Signature, similar Similarity) bool {
+	// Always ignore Sleep.
+	if s.State != r.State || len(s.Stack) != len(r.Stack) || !s.CreatedBy.Similar(&r.CreatedBy, similar) || s.StackElided != r.StackElided {
+		return false
+	}
+	if similar == ExactFlags && s.Locked != r.Locked {
 		return false
 	}
 	for i := range s.Stack {
-		if !s.Stack[i].Similar(&r.Stack[i]) {
+		if !s.Stack[i].Similar(&r.Stack[i], similar) {
 			return false
 		}
 	}
@@ -427,36 +455,25 @@ type Goroutine struct {
 }
 
 // Bucketize returns the number of similar goroutines.
-//
-// It will aggressively deduplicate similar looking stack traces differing only
-// with pointer values if aggressive is true.
-func Bucketize(goroutines []Goroutine, aggressive bool) map[*Signature][]Goroutine {
+func Bucketize(goroutines []Goroutine, similar Similarity) map[*Signature][]Goroutine {
 	out := map[*Signature][]Goroutine{}
 	// O(n²). Fix eventually.
 	for _, routine := range goroutines {
 		found := false
 		for key := range out {
 			// When a match is found, this effectively drops the other goroutine ID.
-			if !aggressive {
-				if key.Equal(&routine.Signature) {
-					found = true
+			if key.Similar(&routine.Signature, similar) {
+				found = true
+				if !key.Equal(&routine.Signature) {
+					// Almost but not quite equal. There's different pointers passed
+					// around but the same values. Zap out the different values.
+					newKey := key.Merge(&routine.Signature)
+					out[newKey] = append(out[key], routine)
+					delete(out, key)
+				} else {
 					out[key] = append(out[key], routine)
-					break
 				}
-			} else {
-				if key.Similar(&routine.Signature) {
-					found = true
-					if !key.Equal(&routine.Signature) {
-						// Almost but not quite equal. There's different pointers passed
-						// around but the same values. Zap out the different values.
-						newKey := key.Merge(&routine.Signature)
-						out[newKey] = append(out[key], routine)
-						delete(out, key)
-					} else {
-						out[key] = append(out[key], routine)
-					}
-					break
-				}
+				break
 			}
 		}
 		if !found {
