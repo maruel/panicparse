@@ -295,6 +295,8 @@ type Signature struct {
 	// Scan states:
 	//    - scan, scanrunnable, scanrunning, scansyscall, scanwaiting, scandead,
 	//      scanenqueue
+	// TODO(maruel): Move Sleep to Goroutine. It's not part of the signature.
+	// TODO(maruel): Create "stack.Stack struct { Calls []Call; Elided bool}"
 	State       string
 	Sleep       int    // Wait time in minutes, if applicable.
 	Locked      bool   // Locked to an OS thread.

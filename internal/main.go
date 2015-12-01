@@ -73,8 +73,16 @@ func PkgColor(line *stack.Call) string {
 	return ansi.Red
 }
 
-// PrintStackHeader prints the header of a stack.
-func PrintStackHeader(out io.Writer, bucket *stack.Bucket, fullPath, multipleBuckets bool) {
+// BucketColor returns the color for the header of the goroutines bucket.
+func BucketColor(bucket *stack.Bucket, multipleBuckets bool) string {
+	if bucket.First() && multipleBuckets {
+		return ansi.LightMagenta
+	}
+	return ansi.White
+}
+
+// BucketHeader prints the header of a goroutine signature.
+func BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets bool) string {
 	extra := ""
 	if bucket.Sleep != 0 {
 		extra += fmt.Sprintf(" [%d minutes]", bucket.Sleep)
@@ -92,34 +100,37 @@ func PrintStackHeader(out io.Writer, bucket *stack.Bucket, fullPath, multipleBuc
 		}
 		extra += ansi.LightBlack + " [Created by " + created + "]"
 	}
-	c := ansi.White
-	if bucket.First() && multipleBuckets {
-		c = ansi.LightMagenta
-	}
-	fmt.Fprintf(out, "%s%d: %s%s%s\n", c, len(bucket.Routines), bucket.State, extra, ansi.Reset)
+	return fmt.Sprintf(
+		"%s%d: %s%s%s\n",
+		BucketColor(bucket, multipleBuckets),
+		len(bucket.Routines), bucket.State, extra, ansi.Reset)
 }
 
-// PrettyStack prints one complete stack trace, without the header.
-func PrettyStack(r *stack.Signature, srcLen, pkgLen int, fullPath bool) string {
-	out := []string{}
-	for _, line := range r.Stack {
-		src := ""
-		if fullPath {
-			src = line.FullSourceLine()
-		} else {
-			src = line.SourceLine()
-		}
-		s := fmt.Sprintf(
-			"    %s%-*s%s %-*s %s%s%s(%s)",
-			ansi.LightWhite, pkgLen, line.Func.PkgName(), ansi.Reset,
-			srcLen, src,
-			PkgColor(&line), line.Func.Name(), ansi.Reset, line.Args)
-		out = append(out, s)
+// StackLine prints one complete stack trace, without the header.
+func StackLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
+	src := ""
+	if fullPath {
+		src = line.FullSourceLine()
+	} else {
+		src = line.SourceLine()
 	}
-	if r.StackElided {
+	return fmt.Sprintf(
+		"    %s%-*s%s %-*s %s%s%s(%s)",
+		ansi.LightWhite, pkgLen, line.Func.PkgName(), ansi.Reset,
+		srcLen, src,
+		PkgColor(line), line.Func.Name(), ansi.Reset, line.Args)
+}
+
+// StackLines prints one complete stack trace, without the header.
+func StackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) string {
+	out := make([]string, len(signature.Stack))
+	for i := range signature.Stack {
+		out[i] = StackLine(&signature.Stack[i], srcLen, pkgLen, fullPath)
+	}
+	if signature.StackElided {
 		out = append(out, "    (...)")
 	}
-	return strings.Join(out, "\n")
+	return strings.Join(out, "\n") + "\n"
 }
 
 // Process copies stdin to stdout and processes any "panic: " line found.
@@ -131,8 +142,8 @@ func Process(in io.Reader, out io.Writer, fullPath bool) error {
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines, true))
 	srcLen, pkgLen := CalcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
-		PrintStackHeader(out, &bucket, fullPath, len(buckets) > 1)
-		fmt.Fprintf(out, "%s\n", PrettyStack(&bucket.Signature, srcLen, pkgLen, fullPath))
+		_, _ = io.WriteString(out, BucketHeader(&bucket, fullPath, len(buckets) > 1))
+		_, _ = io.WriteString(out, StackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
 	}
 	return err
 }
