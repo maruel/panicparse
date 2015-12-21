@@ -23,6 +23,8 @@ Features
    * Arguments as pointer IDs instead of raw pointer values.
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
    * Usable as a library!
+     * Warning: please pin the version (e.g. vendor it) as breaking changes are
+       planned.
    * Works on Windows.
 
 
