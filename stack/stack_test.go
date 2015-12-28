@@ -5,6 +5,7 @@
 package stack
 
 import (
+	"bufio"
 	"bytes"
 	"path/filepath"
 	"strings"
@@ -17,7 +18,11 @@ var goroot = goroots[0]
 
 func TestParseDump1(t *testing.T) {
 	// One call from main, one from stdlib, one from third party.
+	// Create a long first line that will be ignored. It is to guard against
+	// https://github.com/maruel/panicparse/issues/17.
+	long := strings.Repeat("a", bufio.MaxScanTokenSize+1)
 	data := []string{
+		long,
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 1 [running]:",
@@ -32,7 +37,7 @@ func TestParseDump1(t *testing.T) {
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
 	ut.AssertEqual(t, nil, err)
-	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	ut.AssertEqual(t, long+"\npanic: reflect.Set: value of type\n\n", extra.String())
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -518,6 +523,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 		"	/gopath/src/github.com/foo/bar.go:110",
 		"created by github.com/foo.New",
 		"	/gopath/src/github.com/foo/bar.go:113 +0x43b",
+		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
 	ut.AssertEqual(t, nil, err)
@@ -563,6 +569,7 @@ func TestParseCCode(t *testing.T) {
 		"        " + goroot + "/src/runtime/proc.c:1654 +0x113",
 		"runtime.mcall(0x432684)",
 		"        " + goroot + "/src/runtime/asm_amd64.s:186 +0x5a",
+		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
 	ut.AssertEqual(t, nil, err)
