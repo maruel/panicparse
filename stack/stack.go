@@ -523,7 +523,7 @@ func SortBuckets(buckets map[*Signature][]Goroutine) Buckets {
 // scanLines is similar to bufio.ScanLines except that it:
 //     - doesn't drop '\n'
 //     - doesn't strip '\r'
-// 		 - returns when the data is bufio.MaxScanTokenSize bytes
+//     - returns when the data is bufio.MaxScanTokenSize bytes
 func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
