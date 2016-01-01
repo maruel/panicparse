@@ -34,6 +34,30 @@ import (
 	"github.com/maruel/panicparse/stack"
 )
 
+var (
+	boldDefault string
+	boldBlack   string
+	boldRed     string
+	boldGreen   string
+	boldYellow  string
+	boldBlue    string
+	boldMagenta string
+	boldCyan    string
+	boldWhite   string
+)
+
+func init() {
+	boldDefault = ansi.ColorCode("default+b")
+	boldBlack = ansi.ColorCode("black+b")
+	boldRed = ansi.ColorCode("red+b")
+	boldGreen = ansi.ColorCode("green+b")
+	boldYellow = ansi.ColorCode("yellow+b")
+	boldBlue = ansi.ColorCode("blue+b")
+	boldMagenta = ansi.ColorCode("magenta+b")
+	boldCyan = ansi.ColorCode("cyan+b")
+	boldWhite = ansi.ColorCode("white+b")
+}
+
 // CalcLengths returns the maximum length of the source lines and package names.
 func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
 	srcLen := 0
@@ -62,13 +86,13 @@ func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
 func PkgColor(line *stack.Call) string {
 	if line.IsStdlib() {
 		if line.Func.IsExported() {
-			return ansi.LightGreen
+			return boldGreen
 		}
 		return ansi.Green
 	} else if line.IsPkgMain() {
-		return ansi.LightYellow
+		return boldYellow
 	} else if line.Func.IsExported() {
-		return ansi.LightRed
+		return boldRed
 	}
 	return ansi.Red
 }
@@ -76,9 +100,9 @@ func PkgColor(line *stack.Call) string {
 // BucketColor returns the color for the header of the goroutines bucket.
 func BucketColor(bucket *stack.Bucket, multipleBuckets bool) string {
 	if bucket.First() && multipleBuckets {
-		return ansi.LightMagenta
+		return boldMagenta
 	}
-	return ansi.White
+	return ""
 }
 
 // BucketHeader prints the header of a goroutine signature.
@@ -116,7 +140,7 @@ func StackLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
 	}
 	return fmt.Sprintf(
 		"    %s%-*s%s %-*s %s%s%s(%s)",
-		ansi.LightWhite, pkgLen, line.Func.PkgName(), ansi.Reset,
+		boldDefault, pkgLen, line.Func.PkgName(), ansi.Reset,
 		srcLen, src,
 		PkgColor(line), line.Func.Name(), ansi.Reset, line.Args)
 }
