@@ -7,6 +7,7 @@ package stack
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -175,6 +176,89 @@ func TestParseDumpAsm(t *testing.T) {
 	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
+func TestParseDumpLineErr(t *testing.T) {
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 1 [running]:",
+		"github.com/foo/bar.recurseType()",
+		"\t/gopath/src/github.com/foo/bar/baz.go:12345678901234567890",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	ut.AssertEqual(t, errors.New("failed to parse int on line: \"\t/gopath/src/github.com/foo/bar/baz.go:12345678901234567890\n\""), err)
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: []Call{
+					{
+						Func: Function{Raw: "github.com/foo/bar.recurseType"},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+
+	ut.AssertEqual(t, expected, goroutines)
+}
+
+func TestParseDumpValueErr(t *testing.T) {
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 1 [running]:",
+		"github.com/foo/bar.recurseType(123456789012345678901)",
+		"\t/gopath/src/github.com/foo/bar/baz.go:9",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	ut.AssertEqual(t, errors.New("failed to parse int on line: \"github.com/foo/bar.recurseType(123456789012345678901)\n\""), err)
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: []Call{},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+
+	ut.AssertEqual(t, expected, goroutines)
+}
+
+func TestParseDumpOrderErr(t *testing.T) {
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 16 [garbage collection]:",
+		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
+		"runtime.switchtoM()",
+		"\t" + goroot + "/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	ut.AssertEqual(t, errors.New("unexpected order"), err)
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "garbage collection",
+				Stack: []Call{},
+			},
+			ID:    16,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expected, goroutines)
+	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+}
+
 func TestParseDumpElided(t *testing.T) {
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -268,7 +352,6 @@ func TestParseDumpSysCall(t *testing.T) {
 						Func:       Function{Raw: "runtime.signal_recv"},
 						Args: Args{
 							Values: []Arg{{}},
-							Elided: false,
 						},
 					},
 					{
@@ -545,6 +628,29 @@ func TestParseDumpNoOffset(t *testing.T) {
 				},
 			},
 			ID:    37,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expectedGR, goroutines)
+}
+
+func TestParseDumpJunk(t *testing.T) {
+	// For coverage of scanLines.
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 1 [running]:",
+		"junk",
+	}
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	ut.AssertEqual(t, nil, err)
+	expectedGR := []Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: []Call{},
+			},
+			ID:    1,
 			First: true,
 		},
 	}

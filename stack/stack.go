@@ -11,6 +11,7 @@ package stack
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -622,6 +623,9 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 						goroutine.CreatedBy.Line = num
 					} else {
 						i := len(goroutine.Stack) - 1
+						if i < 0 {
+							return goroutines, errors.New("unexpected order")
+						}
 						goroutine.Stack[i].SourcePath = match[1]
 						goroutine.Stack[i].Line = num
 					}
@@ -647,9 +651,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 						}
 						v, err := strconv.ParseUint(a, 0, 64)
 						if err != nil {
-							// TODO(maruel): If this ever happens, it should be handled more
-							// gracefully.
-							return nil, err
+							return goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
 						}
 						args.Values = append(args.Values, Arg{Value: v})
 					}
