@@ -34,32 +34,51 @@ import (
 	"github.com/maruel/panicparse/stack"
 )
 
-var (
-	boldDefault string
-	boldBlack   string
-	boldRed     string
-	boldGreen   string
-	boldYellow  string
-	boldBlue    string
-	boldMagenta string
-	boldCyan    string
-	boldWhite   string
-)
+// resetFG is similar to ansi.Reset except that it doesn't reset the
+// background color, only the foreground color and the style.
+//
+// That much for the "ansi" abstraction layer...
+const resetFG = ansi.DefaultFG + "\033[m"
 
-func init() {
-	boldDefault = ansi.ColorCode("default+b")
-	boldBlack = ansi.ColorCode("black+b")
-	boldRed = ansi.ColorCode("red+b")
-	boldGreen = ansi.ColorCode("green+b")
-	boldYellow = ansi.ColorCode("yellow+b")
-	boldBlue = ansi.ColorCode("blue+b")
-	boldMagenta = ansi.ColorCode("magenta+b")
-	boldCyan = ansi.ColorCode("cyan+b")
-	boldWhite = ansi.ColorCode("white+b")
+// Palette defines the color used.
+//
+// An empty object Palette{} can be used to disable coloring.
+type Palette struct {
+	EOLReset string
+
+	// Routine header.
+	RoutineFirst string
+	Routine      string
+	CreatedBy    string
+
+	// Call line.
+	Package                string
+	SourceFile             string
+	FunctionStdLib         string
+	FunctionStdLibExported string
+	FunctionMain           string
+	FunctionOther          string
+	FunctionOtherExported  string
+	Arguments              string
 }
 
-// CalcLengths returns the maximum length of the source lines and package names.
-func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
+// DefaultPalette is the default recommended palette.
+var DefaultPalette = Palette{
+	EOLReset:               resetFG,
+	RoutineFirst:           ansi.ColorCode("magenta+b"),
+	CreatedBy:              ansi.LightBlack,
+	Package:                ansi.ColorCode("default+b"),
+	SourceFile:             resetFG,
+	FunctionStdLib:         ansi.Green,
+	FunctionStdLibExported: ansi.ColorCode("green+b"),
+	FunctionMain:           ansi.ColorCode("yellow+b"),
+	FunctionOther:          ansi.Red,
+	FunctionOtherExported:  ansi.ColorCode("red+b"),
+	Arguments:              resetFG,
+}
+
+// calcLengths returns the maximum length of the source lines and package names.
+func calcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
 	srcLen := 0
 	pkgLen := 0
 	for _, bucket := range buckets {
@@ -82,31 +101,32 @@ func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
 	return srcLen, pkgLen
 }
 
-// PkgColor returns the color to be used for the package name.
-func PkgColor(line *stack.Call) string {
+// functionColor returns the color to be used for the function name based on
+// the type of package the function is in.
+func (p *Palette) functionColor(line *stack.Call) string {
 	if line.IsStdlib() {
 		if line.Func.IsExported() {
-			return boldGreen
+			return p.FunctionStdLibExported
 		}
-		return ansi.Green
+		return p.FunctionStdLib
 	} else if line.IsPkgMain() {
-		return boldYellow
+		return p.FunctionMain
 	} else if line.Func.IsExported() {
-		return boldRed
+		return p.FunctionOtherExported
 	}
-	return ansi.Red
+	return p.FunctionOther
 }
 
-// BucketColor returns the color for the header of the goroutines bucket.
-func BucketColor(bucket *stack.Bucket, multipleBuckets bool) string {
+// routineColor returns the color for the header of the goroutines bucket.
+func (p *Palette) routineColor(bucket *stack.Bucket, multipleBuckets bool) string {
 	if bucket.First() && multipleBuckets {
-		return boldMagenta
+		return p.RoutineFirst
 	}
-	return ""
+	return p.Routine
 }
 
-// BucketHeader prints the header of a goroutine signature.
-func BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets bool) string {
+// bucketHeader prints the header of a goroutine signature.
+func (p *Palette) bucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets bool) string {
 	extra := ""
 	if bucket.SleepMax != 0 {
 		if bucket.SleepMin != bucket.SleepMax {
@@ -126,16 +146,17 @@ func BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets bool) string {
 		} else {
 			created += bucket.CreatedBy.SourceLine()
 		}
-		extra += ansi.LightBlack + " [Created by " + created + "]"
+		extra += p.CreatedBy + " [Created by " + created + "]"
 	}
 	return fmt.Sprintf(
 		"%s%d: %s%s%s\n",
-		BucketColor(bucket, multipleBuckets),
-		len(bucket.Routines), bucket.State, extra, ansi.Reset)
+		p.routineColor(bucket, multipleBuckets), len(bucket.Routines),
+		bucket.State, extra,
+		p.EOLReset)
 }
 
-// StackLine prints one complete stack trace, without the header.
-func StackLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
+// callLine prints one stack line.
+func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
 	src := ""
 	if fullPath {
 		src = line.FullSourceLine()
@@ -143,17 +164,19 @@ func StackLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
 		src = line.SourceLine()
 	}
 	return fmt.Sprintf(
-		"    %s%-*s%s %-*s %s%s%s(%s)",
-		boldDefault, pkgLen, line.Func.PkgName(), ansi.Reset,
-		srcLen, src,
-		PkgColor(line), line.Func.Name(), ansi.Reset, line.Args)
+		"    %s%-*s %s%-*s %s%s%s(%s)%s",
+		p.Package, pkgLen, line.Func.PkgName(),
+		p.SourceFile, srcLen, src,
+		p.functionColor(line), line.Func.Name(),
+		p.Arguments, line.Args,
+		p.EOLReset)
 }
 
-// StackLines prints one complete stack trace, without the header.
-func StackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) string {
+// stackLines prints one complete stack trace, without the header.
+func (p *Palette) stackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) string {
 	out := make([]string, len(signature.Stack.Calls))
 	for i := range signature.Stack.Calls {
-		out[i] = StackLine(&signature.Stack.Calls[i], srcLen, pkgLen, fullPath)
+		out[i] = p.callLine(&signature.Stack.Calls[i], srcLen, pkgLen, fullPath)
 	}
 	if signature.Stack.Elided {
 		out = append(out, "    (...)")
@@ -162,20 +185,16 @@ func StackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) s
 }
 
 // Process copies stdin to stdout and processes any "panic: " line found.
-func Process(in io.Reader, out io.Writer, aggressive, fullPath bool) error {
+func Process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPath bool) error {
 	goroutines, err := stack.ParseDump(in, out)
 	if err != nil {
 		return err
 	}
-	s := stack.AnyPointer
-	if aggressive {
-		s = stack.AnyValue
-	}
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
-	srcLen, pkgLen := CalcLengths(buckets, fullPath)
+	srcLen, pkgLen := calcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
-		_, _ = io.WriteString(out, BucketHeader(&bucket, fullPath, len(buckets) > 1))
-		_, _ = io.WriteString(out, StackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
+		_, _ = io.WriteString(out, p.bucketHeader(&bucket, fullPath, len(buckets) > 1))
+		_, _ = io.WriteString(out, p.stackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
 	}
 	return err
 }
@@ -203,12 +222,20 @@ func Main() error {
 		log.SetOutput(ioutil.Discard)
 	}
 
+	s := stack.AnyPointer
+	if *aggressive {
+		s = stack.AnyValue
+	}
+
 	var out io.Writer
+	p := &DefaultPalette
 	if *noColor && !*forceColor {
-		out = NewANSIStripper(os.Stdout)
+		p = &Palette{}
+		out = os.Stdout
 	} else {
 		out = colorable.NewColorableStdout()
 	}
+
 	var in *os.File
 	switch flag.NArg() {
 	case 0:
@@ -223,5 +250,5 @@ func Main() error {
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return Process(in, out, *aggressive, *fullPath)
+	return Process(in, out, p, s, *fullPath)
 }
