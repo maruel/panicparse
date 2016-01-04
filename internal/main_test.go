@@ -35,6 +35,14 @@ var data = []string{
 	"main.main()",
 	" /gopath/src/github.com/maruel/pre-commit-go/main.go:428 +0x27",
 	"",
+	"goroutine 2 [running, 1 minutes]:",
+	"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
+	" /gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
+	"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
+	" c:/go/src/reflect/value.go:2125 +0x368",
+	"main.main()",
+	" /gopath/src/github.com/maruel/pre-commit-go/main.go:428 +0x27",
+	"",
 }
 
 func TestProcess(t *testing.T) {
@@ -49,7 +57,7 @@ func TestProcess(t *testing.T) {
 		"    \x1b[1;39misolate \x1b[0m isolate.go:148       \x1b[31marchive\x1b[0m(#4, #1, #2, 0x22, #3, 0xc20804666a, 0x17, 0, 0, 0, ...)",
 		"    \x1b[1;39misolate \x1b[0m isolate.go:102       \x1b[1;31mArchive\x1b[0m(#4, #1, #2, 0x22, #3, 0, 0)",
 		"    \x1b[1;39mmain    \x1b[0m batch_archive.go:166 \x1b[1;33mfunc·004\x1b[0m(0x7fffc3b8f13a, 0x2c)",
-		"1: running\x1b[0m",
+		"2: running [0~1 minutes]\x1b[0m",
 		"    \x1b[1;39myaml.v2 \x1b[0m yaml.go:153          \x1b[31mhandleErr\x1b[0m(#5)",
 		"    \x1b[1;39mreflect \x1b[0m value.go:2125        \x1b[32mValue.assignTo\x1b[0m(0x570860, #6, 0x15)",
 		"    \x1b[1;39mmain    \x1b[0m main.go:428          \x1b[1;33mmain\x1b[0m()",
@@ -74,7 +82,7 @@ func TestProcessFullPath(t *testing.T) {
 		"    \x1b[1;39misolate \x1b[0m /gopath/path/to/isolate.go:148                          \x1b[31marchive\x1b[0m(#4, #1, #2, 0x22, #3, 0xc20804666a, 0x17, 0, 0, 0, ...)",
 		"    \x1b[1;39misolate \x1b[0m /gopath/path/to/isolate.go:102                          \x1b[1;31mArchive\x1b[0m(#4, #1, #2, 0x22, #3, 0, 0)",
 		"    \x1b[1;39mmain    \x1b[0m /gopath/path/to/batch_archive.go:166                    \x1b[1;33mfunc·004\x1b[0m(0x7fffc3b8f13a, 0x2c)",
-		"1: running\x1b[0m",
+		"2: running [0~1 minutes]\x1b[0m",
 		"    \x1b[1;39myaml.v2 \x1b[0m /gopath/src/gopkg.in/yaml.v2/yaml.go:153                \x1b[31mhandleErr\x1b[0m(#5)",
 		"    \x1b[1;39mreflect \x1b[0m c:/go/src/reflect/value.go:2125                         \x1b[32mValue.assignTo\x1b[0m(0x570860, #6, 0x15)",
 		"    \x1b[1;39mmain    \x1b[0m /gopath/src/github.com/maruel/pre-commit-go/main.go:428 \x1b[1;33mmain\x1b[0m()",

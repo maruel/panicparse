@@ -63,7 +63,7 @@ func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
 	srcLen := 0
 	pkgLen := 0
 	for _, bucket := range buckets {
-		for _, line := range bucket.Signature.Stack {
+		for _, line := range bucket.Signature.Stack.Calls {
 			l := 0
 			if fullPath {
 				l = len(line.FullSourceLine())
@@ -108,8 +108,12 @@ func BucketColor(bucket *stack.Bucket, multipleBuckets bool) string {
 // BucketHeader prints the header of a goroutine signature.
 func BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets bool) string {
 	extra := ""
-	if bucket.Sleep != 0 {
-		extra += fmt.Sprintf(" [%d minutes]", bucket.Sleep)
+	if bucket.SleepMax != 0 {
+		if bucket.SleepMin != bucket.SleepMax {
+			extra += fmt.Sprintf(" [%d~%d minutes]", bucket.SleepMin, bucket.SleepMax)
+		} else {
+			extra += fmt.Sprintf(" [%d minutes]", bucket.SleepMax)
+		}
 	}
 	if bucket.Locked {
 		extra += " [locked]"
@@ -147,11 +151,11 @@ func StackLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
 
 // StackLines prints one complete stack trace, without the header.
 func StackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) string {
-	out := make([]string, len(signature.Stack))
-	for i := range signature.Stack {
-		out[i] = StackLine(&signature.Stack[i], srcLen, pkgLen, fullPath)
+	out := make([]string, len(signature.Stack.Calls))
+	for i := range signature.Stack.Calls {
+		out[i] = StackLine(&signature.Stack.Calls[i], srcLen, pkgLen, fullPath)
 	}
-	if signature.StackElided {
+	if signature.Stack.Elided {
 		out = append(out, "    (...)")
 	}
 	return strings.Join(out, "\n") + "\n"

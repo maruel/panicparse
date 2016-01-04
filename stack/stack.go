@@ -300,6 +300,112 @@ func (c *Call) IsPkgMain() bool {
 	return c.Func.PkgName() == "main"
 }
 
+// Stack is a call stack.
+type Stack struct {
+	Calls  []Call // Call stack. First is original function, last is leaf function.
+	Elided bool   // Happens when there's >100 items in Stack, currently hardcoded in package runtime.
+}
+
+// Equal returns true on if both call stacks are exactly equal.
+func (s *Stack) Equal(r *Stack) bool {
+	if len(s.Calls) != len(r.Calls) || s.Elided != r.Elided {
+		return false
+	}
+	for i := range s.Calls {
+		if !s.Calls[i].Equal(&r.Calls[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Similar returns true if the two Stack are equal or almost but not quite
+// equal.
+func (s *Stack) Similar(r *Stack, similar Similarity) bool {
+	if len(s.Calls) != len(r.Calls) || s.Elided != r.Elided {
+		return false
+	}
+	for i := range s.Calls {
+		if !s.Calls[i].Similar(&r.Calls[i], similar) {
+			return false
+		}
+	}
+	return true
+}
+
+// Merge merges two similar Stack, zapping out differences.
+func (s *Stack) Merge(r *Stack) *Stack {
+	// Assumes similar stacks have the same length.
+	out := &Stack{
+		Calls:  make([]Call, len(s.Calls)),
+		Elided: s.Elided,
+	}
+	for i := range s.Calls {
+		out.Calls[i] = s.Calls[i].Merge(&r.Calls[i])
+	}
+	return out
+}
+
+// Less compares two Stack, where the ones that are less are more
+// important, so they come up front. A Stack with more private functions is
+// 'less' so it is at the top. Inversely, a Stack with only public
+// functions is 'more' so it is at the bottom.
+func (s *Stack) Less(r *Stack) bool {
+	lStdlib := 0
+	lPrivate := 0
+	for _, c := range s.Calls {
+		if c.IsStdlib() {
+			lStdlib++
+		} else {
+			lPrivate++
+		}
+	}
+	rStdlib := 0
+	rPrivate := 0
+	for _, s := range r.Calls {
+		if s.IsStdlib() {
+			rStdlib++
+		} else {
+			rPrivate++
+		}
+	}
+	if lPrivate > rPrivate {
+		return true
+	}
+	if lPrivate < rPrivate {
+		return false
+	}
+	if lStdlib > rStdlib {
+		return false
+	}
+	if lStdlib < rStdlib {
+		return true
+	}
+
+	// Stack lengths are the same.
+	for x := range s.Calls {
+		if s.Calls[x].Func.Raw < r.Calls[x].Func.Raw {
+			return true
+		}
+		if s.Calls[x].Func.Raw > r.Calls[x].Func.Raw {
+			return true
+		}
+		if s.Calls[x].PkgSource() < r.Calls[x].PkgSource() {
+			return true
+		}
+		if s.Calls[x].PkgSource() > r.Calls[x].PkgSource() {
+			return true
+		}
+		if s.Calls[x].Line < r.Calls[x].Line {
+			return true
+		}
+		if s.Calls[x].Line > r.Calls[x].Line {
+			return true
+		}
+	}
+	return false
+}
+
 // Signature represents the signature of one or multiple goroutines.
 //
 // It is effectively the stack trace plus the goroutine internal bits, like
@@ -322,121 +428,70 @@ type Signature struct {
 	// Scan states:
 	//    - scan, scanrunnable, scanrunning, scansyscall, scanwaiting, scandead,
 	//      scanenqueue
-	// TODO(maruel): Move Sleep to Goroutine. It's not part of the signature.
-	// TODO(maruel): Create "stack.Stack struct { Calls []Call; Elided bool}"
-	State       string
-	Sleep       int    // Wait time in minutes, if applicable.
-	Locked      bool   // Locked to an OS thread.
-	Stack       []Call // Call stack.
-	StackElided bool   // Happens when there's >100 items in Stack, currently hardcoded in package runtime.
-	CreatedBy   Call   // Which other goroutine which created this one.
+	State     string
+	CreatedBy Call // Which other goroutine which created this one.
+	SleepMin  int  // Wait time in minutes, if applicable.
+	SleepMax  int  // Wait time in minutes, if applicable.
+	Stack     Stack
+	Locked    bool // Locked to an OS thread.
 }
 
-// Equal returns true only if both signatures are exactly equal, except for
-// Sleep.
+// Equal returns true only if both signatures are exactly equal.
 func (s *Signature) Equal(r *Signature) bool {
-	// Ignore Sleep.
-	if s.State != r.State || len(s.Stack) != len(r.Stack) || !s.CreatedBy.Equal(&r.CreatedBy) || s.StackElided != r.StackElided || s.Locked != r.Locked {
+	if s.State != r.State || !s.CreatedBy.Equal(&r.CreatedBy) || s.Locked != r.Locked || s.SleepMin != r.SleepMin || s.SleepMax != r.SleepMax {
 		return false
 	}
-	for i := range s.Stack {
-		if !s.Stack[i].Equal(&r.Stack[i]) {
-			return false
-		}
-	}
-	return true
+	return s.Stack.Equal(&r.Stack)
 }
 
 // Similar returns true if the two Signature are equal or almost but not quite
 // equal.
 func (s *Signature) Similar(r *Signature, similar Similarity) bool {
-	// Always ignore Sleep.
-	if s.State != r.State || len(s.Stack) != len(r.Stack) || !s.CreatedBy.Similar(&r.CreatedBy, similar) || s.StackElided != r.StackElided {
+	if s.State != r.State || !s.CreatedBy.Similar(&r.CreatedBy, similar) {
 		return false
 	}
 	if similar == ExactFlags && s.Locked != r.Locked {
 		return false
 	}
-	for i := range s.Stack {
-		if !s.Stack[i].Similar(&r.Stack[i], similar) {
-			return false
-		}
-	}
-	return true
+	return s.Stack.Similar(&r.Stack, similar)
 }
 
 // Merge merges two similar Signature, zapping out differences.
 func (s *Signature) Merge(r *Signature) *Signature {
-	out := &Signature{
-		State:     s.State,
-		Sleep:     (s.Sleep + r.Sleep + 1) / 2,
-		Locked:    s.Locked || r.Locked,       // TODO(maruel): This is weirdo.
-		Stack:     make([]Call, len(s.Stack)), // Assumes both stack have the exact same length.
-		CreatedBy: s.CreatedBy,
+	min := s.SleepMin
+	if r.SleepMin < min {
+		min = r.SleepMin
 	}
-	for i := range s.Stack {
-		out.Stack[i] = s.Stack[i].Merge(&r.Stack[i])
+	max := s.SleepMax
+	if r.SleepMax > max {
+		max = r.SleepMax
 	}
-	return out
+	return &Signature{
+		State:     s.State,     // Drop right side.
+		CreatedBy: s.CreatedBy, // Drop right side.
+		SleepMin:  min,
+		SleepMax:  max,
+		Stack:     *s.Stack.Merge(&r.Stack),
+		Locked:    s.Locked || r.Locked, // TODO(maruel): This is weirdo.
+	}
 }
 
-// Less compares two signautre, where the ones that are less are more
+// Less compares two Signature, where the ones that are less are more
 // important, so they come up front. A Signature with more private functions is
 // 'less' so it is at the top. Inversely, a Signature with only public
 // functions is 'more' so it is at the bottom.
 func (s *Signature) Less(r *Signature) bool {
-	// Ignore Sleep and Locked.
-	lStdlib := 0
-	lPrivate := 0
-	for _, c := range s.Stack {
-		if c.IsStdlib() {
-			lStdlib++
-		} else {
-			lPrivate++
-		}
-	}
-	rStdlib := 0
-	rPrivate := 0
-	for _, s := range r.Stack {
-		if s.IsStdlib() {
-			rStdlib++
-		} else {
-			rPrivate++
-		}
-	}
-	if lPrivate > rPrivate {
+	if s.Stack.Less(&r.Stack) {
 		return true
 	}
-	if lPrivate < rPrivate {
+	if r.Stack.Less(&s.Stack) {
 		return false
 	}
-	if lStdlib > rStdlib {
-		return false
-	}
-	if lStdlib < rStdlib {
+	if s.Locked && !r.Locked {
 		return true
 	}
-
-	// Stack lengths are the same.
-	for x := range s.Stack {
-		if s.Stack[x].Func.Raw < r.Stack[x].Func.Raw {
-			return true
-		}
-		if s.Stack[x].Func.Raw > r.Stack[x].Func.Raw {
-			return true
-		}
-		if s.Stack[x].PkgSource() < r.Stack[x].PkgSource() {
-			return true
-		}
-		if s.Stack[x].PkgSource() > r.Stack[x].PkgSource() {
-			return true
-		}
-		if s.Stack[x].Line < r.Stack[x].Line {
-			return true
-		}
-		if s.Stack[x].Line > r.Stack[x].Line {
-			return true
-		}
+	if r.Locked && !s.Locked {
+		return false
 	}
 	if s.State < r.State {
 		return true
@@ -485,7 +540,8 @@ func Bucketize(goroutines []Goroutine, similar Similarity) map[*Signature][]Goro
 	return out
 }
 
-// Bucket is a stack trace signature.
+// Bucket is a stack trace signature and the list of goroutines that fits this
+// signature.
 type Bucket struct {
 	Signature
 	Routines []Goroutine
@@ -609,9 +665,14 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 							}
 						}
 						goroutines = append(goroutines, Goroutine{
-							Signature: Signature{State: items[0], Sleep: sleep, Locked: locked, Stack: []Call{}},
-							ID:        id,
-							First:     len(goroutines) == 0,
+							Signature: Signature{
+								State:    items[0],
+								SleepMin: sleep,
+								SleepMax: sleep,
+								Locked:   locked,
+							},
+							ID:    id,
+							First: len(goroutines) == 0,
 						})
 						goroutine = &goroutines[len(goroutines)-1]
 						firstLine = true
@@ -623,7 +684,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 					firstLine = false
 					if match := reUnavail.FindStringSubmatch(line); match != nil {
 						// Generate a fake stack entry.
-						goroutine.Stack = []Call{{SourcePath: "<unavailable>"}}
+						goroutine.Stack.Calls = []Call{{SourcePath: "<unavailable>"}}
 						continue
 					}
 				}
@@ -639,12 +700,12 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 						goroutine.CreatedBy.SourcePath = match[1]
 						goroutine.CreatedBy.Line = num
 					} else {
-						i := len(goroutine.Stack) - 1
+						i := len(goroutine.Stack.Calls) - 1
 						if i < 0 {
 							return goroutines, errors.New("unexpected order")
 						}
-						goroutine.Stack[i].SourcePath = match[1]
-						goroutine.Stack[i].Line = num
+						goroutine.Stack.Calls[i].SourcePath = match[1]
+						goroutine.Stack.Calls[i].Line = num
 					}
 					continue
 				}
@@ -672,12 +733,12 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 						}
 						args.Values = append(args.Values, Arg{Value: v})
 					}
-					goroutine.Stack = append(goroutine.Stack, Call{Func: Function{match[1]}, Args: args})
+					goroutine.Stack.Calls = append(goroutine.Stack.Calls, Call{Func: Function{match[1]}, Args: args})
 					continue
 				}
 
 				if match := reElided.FindStringSubmatch(line); match != nil {
-					goroutine.StackElided = true
+					goroutine.Stack.Elided = true
 					continue
 				}
 			}
@@ -701,12 +762,12 @@ func nameArguments(goroutines []Goroutine) {
 	objects := map[uint64]object{}
 	// Enumerate all the arguments.
 	for i := range goroutines {
-		for j := range goroutines[i].Stack {
-			for k := range goroutines[i].Stack[j].Args.Values {
-				arg := goroutines[i].Stack[j].Args.Values[k]
+		for j := range goroutines[i].Stack.Calls {
+			for k := range goroutines[i].Stack.Calls[j].Args.Values {
+				arg := goroutines[i].Stack.Calls[j].Args.Values[k]
 				if arg.IsPtr() {
 					objects[arg.Value] = object{
-						args:      append(objects[arg.Value].args, &goroutines[i].Stack[j].Args.Values[k]),
+						args:      append(objects[arg.Value].args, &goroutines[i].Stack.Calls[j].Args.Values[k]),
 						inPrimary: objects[arg.Value].inPrimary || i == 0,
 					}
 				}

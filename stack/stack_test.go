@@ -43,23 +43,25 @@ func TestParseDump1(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-						Line:       153,
-						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-						Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
-					},
-					{
-						SourcePath: goroot + "/src/reflect/value.go",
-						Line:       2125,
-						Func:       Function{"reflect.Value.assignTo"},
-						Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
-					},
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-						Line:       428,
-						Func:       Function{"main.main"},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:       153,
+							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
+						},
+						{
+							SourcePath: goroot + "/src/reflect/value.go",
+							Line:       2125,
+							Func:       Function{"reflect.Value.assignTo"},
+							Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+						},
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       428,
+							Func:       Function{"main.main"},
+						},
 					},
 				},
 			},
@@ -95,14 +97,17 @@ func TestParseDumpLongWait(t *testing.T) {
 	expected := []Goroutine{
 		{
 			Signature: Signature{
-				State: "chan send",
-				Sleep: 100,
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-						Line:       153,
-						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-						Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
+				State:    "chan send",
+				SleepMin: 100,
+				SleepMax: 100,
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:       153,
+							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
+						},
 					},
 				},
 			},
@@ -113,12 +118,14 @@ func TestParseDumpLongWait(t *testing.T) {
 			Signature: Signature{
 				State:  "chan send",
 				Locked: true,
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-						Line:       153,
-						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-						Args:       Args{Values: []Arg{{Value: 0xc208033b21, Name: "#1"}}},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:       153,
+							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:       Args{Values: []Arg{{Value: 0xc208033b21, Name: "#1"}}},
+						},
 					},
 				},
 			},
@@ -126,17 +133,20 @@ func TestParseDumpLongWait(t *testing.T) {
 		},
 		{
 			Signature: Signature{
-				State:  "chan send",
-				Sleep:  101,
-				Locked: true,
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-						Line:       153,
-						Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-						Args:       Args{Values: []Arg{{Value: 0xc208033b22, Name: "#2"}}},
+				State:    "chan send",
+				SleepMin: 101,
+				SleepMax: 101,
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:       153,
+							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:       Args{Values: []Arg{{Value: 0xc208033b22, Name: "#2"}}},
+						},
 					},
 				},
+				Locked: true,
 			},
 			ID: 3,
 		},
@@ -160,11 +170,13 @@ func TestParseDumpAsm(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "garbage collection",
-				Stack: []Call{
-					{
-						SourcePath: goroot + "/src/runtime/asm_amd64.s",
-						Line:       198,
-						Func:       Function{Raw: "runtime.switchtoM"},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: goroot + "/src/runtime/asm_amd64.s",
+							Line:       198,
+							Func:       Function{Raw: "runtime.switchtoM"},
+						},
 					},
 				},
 			},
@@ -192,11 +204,7 @@ func TestParseDumpLineErr(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				Stack: []Call{
-					{
-						Func: Function{Raw: "github.com/foo/bar.recurseType"},
-					},
-				},
+				Stack: Stack{Calls: []Call{{Func: Function{Raw: "github.com/foo/bar.recurseType"}}}},
 			},
 			ID:    1,
 			First: true,
@@ -220,12 +228,9 @@ func TestParseDumpValueErr(t *testing.T) {
 	ut.AssertEqual(t, errors.New("failed to parse int on line: \"github.com/foo/bar.recurseType(123456789012345678901)\n\""), err)
 	expected := []Goroutine{
 		{
-			Signature: Signature{
-				State: "running",
-				Stack: []Call{},
-			},
-			ID:    1,
-			First: true,
+			Signature: Signature{State: "running"},
+			ID:        1,
+			First:     true,
 		},
 	}
 
@@ -247,12 +252,9 @@ func TestParseDumpOrderErr(t *testing.T) {
 	ut.AssertEqual(t, errors.New("unexpected order"), err)
 	expected := []Goroutine{
 		{
-			Signature: Signature{
-				State: "garbage collection",
-				Stack: []Call{},
-			},
-			ID:    16,
-			First: true,
+			Signature: Signature{State: "garbage collection"},
+			ID:        16,
+			First:     true,
 		},
 	}
 	ut.AssertEqual(t, expected, goroutines)
@@ -278,23 +280,25 @@ func TestParseDumpElided(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "garbage collection",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-						Line:       53,
-						Func:       Function{Raw: "github.com/foo/bar.recurseType"},
-						Args: Args{
-							Values: []Arg{
-								{Value: 0x7f4fa9a3ec70},
-								{Value: 0xc208062580},
-								{Value: 0x7f4fa9a3e818},
-								{Value: 0x50a820},
-								{Value: 0xc20803a8a0},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       53,
+							Func:       Function{Raw: "github.com/foo/bar.recurseType"},
+							Args: Args{
+								Values: []Arg{
+									{Value: 0x7f4fa9a3ec70},
+									{Value: 0xc208062580},
+									{Value: 0x7f4fa9a3e818},
+									{Value: 0x50a820},
+									{Value: 0xc20803a8a0},
+								},
 							},
 						},
 					},
+					Elided: true,
 				},
-				StackElided: true,
 				CreatedBy: Call{
 					SourcePath: goroot + "/src/testing/testing.go",
 					Line:       555,
@@ -333,36 +337,38 @@ func TestParseDumpSysCall(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "syscall",
-				Stack: []Call{
-					{
-						SourcePath: goroot + "/src/runtime/lock_futex.go",
-						Line:       201,
-						Func:       Function{Raw: "runtime.notetsleepg"},
-						Args: Args{
-							Values: []Arg{
-								{Value: 0x918100},
-								{Value: 0xffffffffffffffff},
-								{Value: 0x1},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: goroot + "/src/runtime/lock_futex.go",
+							Line:       201,
+							Func:       Function{Raw: "runtime.notetsleepg"},
+							Args: Args{
+								Values: []Arg{
+									{Value: 0x918100},
+									{Value: 0xffffffffffffffff},
+									{Value: 0x1},
+								},
 							},
 						},
-					},
-					{
-						SourcePath: goroot + "/src/runtime/sigqueue.go",
-						Line:       109,
-						Func:       Function{Raw: "runtime.signal_recv"},
-						Args: Args{
-							Values: []Arg{{}},
+						{
+							SourcePath: goroot + "/src/runtime/sigqueue.go",
+							Line:       109,
+							Func:       Function{Raw: "runtime.signal_recv"},
+							Args: Args{
+								Values: []Arg{{}},
+							},
 						},
-					},
-					{
-						SourcePath: goroot + "/src/os/signal/signal_unix.go",
-						Line:       21,
-						Func:       Function{Raw: "os/signal.loop"},
-					},
-					{
-						SourcePath: goroot + "/src/runtime/asm_amd64.s",
-						Line:       2232,
-						Func:       Function{Raw: "runtime.goexit"},
+						{
+							SourcePath: goroot + "/src/os/signal/signal_unix.go",
+							Line:       21,
+							Func:       Function{Raw: "os/signal.loop"},
+						},
+						{
+							SourcePath: goroot + "/src/runtime/asm_amd64.s",
+							Line:       2232,
+							Func:       Function{Raw: "runtime.goexit"},
+						},
 					},
 				},
 				CreatedBy: Call{
@@ -396,10 +402,8 @@ func TestParseDumpUnavail(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				Stack: []Call{
-					{
-						SourcePath: "<unavailable>",
-					},
+				Stack: Stack{
+					Calls: []Call{{SourcePath: "<unavailable>"}},
 				},
 				CreatedBy: Call{
 					SourcePath: "/gopath/src/github.com/foo/bar.go",
@@ -439,11 +443,13 @@ func TestParseDumpSameBucket(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "chan receive",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-						Line:       72,
-						Func:       Function{"main.func·001"},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       72,
+							Func:       Function{"main.func·001"},
+						},
 					},
 				},
 				CreatedBy: Call{
@@ -458,11 +464,13 @@ func TestParseDumpSameBucket(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "chan receive",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-						Line:       72,
-						Func:       Function{"main.func·001"},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       72,
+							Func:       Function{"main.func·001"},
+						},
 					},
 				},
 				CreatedBy: Call{
@@ -499,12 +507,14 @@ func TestBucketizeNotAggressive(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "chan receive",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-						Line:       72,
-						Func:       Function{"main.func·001"},
-						Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       72,
+							Func:       Function{"main.func·001"},
+							Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
+						},
 					},
 				},
 			},
@@ -514,12 +524,14 @@ func TestBucketizeNotAggressive(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "chan receive",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-						Line:       72,
-						Func:       Function{"main.func·001"},
-						Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       72,
+							Func:       Function{"main.func·001"},
+							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+						},
 					},
 				},
 			},
@@ -539,11 +551,15 @@ func TestBucketizeAggressive(t *testing.T) {
 	data := []string{
 		"panic: runtime error: index out of range",
 		"",
-		"goroutine 6 [chan receive]:",
+		"goroutine 6 [chan receive, 10 minutes]:",
 		"main.func·001(0x11000000, 2)",
 		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
 		"",
-		"goroutine 7 [chan receive]:",
+		"goroutine 7 [chan receive, 50 minutes]:",
+		"main.func·001(0x21000000, 2)",
+		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
+		"",
+		"goroutine 8 [chan receive, 100 minutes]:",
 		"main.func·001(0x21000000, 2)",
 		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
 		"",
@@ -553,13 +569,17 @@ func TestBucketizeAggressive(t *testing.T) {
 	expectedGR := []Goroutine{
 		{
 			Signature: Signature{
-				State: "chan receive",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-						Line:       72,
-						Func:       Function{"main.func·001"},
-						Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
+				State:    "chan receive",
+				SleepMin: 10,
+				SleepMax: 10,
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       72,
+							Func:       Function{"main.func·001"},
+							Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
+						},
 					},
 				},
 			},
@@ -568,32 +588,58 @@ func TestBucketizeAggressive(t *testing.T) {
 		},
 		{
 			Signature: Signature{
-				State: "chan receive",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-						Line:       72,
-						Func:       Function{"main.func·001"},
-						Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+				State:    "chan receive",
+				SleepMin: 50,
+				SleepMax: 50,
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       72,
+							Func:       Function{"main.func·001"},
+							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+						},
 					},
 				},
 			},
 			ID: 7,
 		},
+		{
+			Signature: Signature{
+				State:    "chan receive",
+				SleepMin: 100,
+				SleepMax: 100,
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       72,
+							Func:       Function{"main.func·001"},
+							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+						},
+					},
+				},
+			},
+			ID: 8,
+		},
 	}
 	ut.AssertEqual(t, expectedGR, goroutines)
 	signature := Signature{
-		State: "chan receive",
-		Stack: []Call{
-			{
-				SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-				Line:       72,
-				Func:       Function{"main.func·001"},
-				Args:       Args{Values: []Arg{{0x11000000, "*"}, {Value: 2}}},
+		State:    "chan receive",
+		SleepMin: 10,
+		SleepMax: 100,
+		Stack: Stack{
+			Calls: []Call{
+				{
+					SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+					Line:       72,
+					Func:       Function{"main.func·001"},
+					Args:       Args{Values: []Arg{{0x11000000, "*"}, {Value: 2}}},
+				},
 			},
 		},
 	}
-	expectedBuckets := Buckets{{signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
+	expectedBuckets := Buckets{{signature, []Goroutine{expectedGR[0], expectedGR[1], expectedGR[2]}}}
 	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, AnyPointer)))
 }
 
@@ -614,11 +660,13 @@ func TestParseDumpNoOffset(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "runnable",
-				Stack: []Call{
-					{
-						SourcePath: "/gopath/src/github.com/foo/bar.go",
-						Line:       110,
-						Func:       Function{"github.com/foo.func·002"},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar.go",
+							Line:       110,
+							Func:       Function{"github.com/foo.func·002"},
+						},
 					},
 				},
 				CreatedBy: Call{
@@ -646,12 +694,9 @@ func TestParseDumpJunk(t *testing.T) {
 	ut.AssertEqual(t, nil, err)
 	expectedGR := []Goroutine{
 		{
-			Signature: Signature{
-				State: "running",
-				Stack: []Call{},
-			},
-			ID:    1,
-			First: true,
+			Signature: Signature{State: "running"},
+			ID:        1,
+			First:     true,
 		},
 	}
 	ut.AssertEqual(t, expectedGR, goroutines)
@@ -683,55 +728,57 @@ func TestParseCCode(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "idle",
-				Stack: []Call{
-					{
-						SourcePath: goroot + "/src/runtime/sys_linux_amd64.s",
-						Line:       400,
-						Func:       Function{"runtime.epollwait"},
-						Args: Args{
-							Values: []Arg{
-								{Value: 0x4},
-								{Value: 0x7fff671c7118},
-								{Value: 0xffffffff00000080},
-								{},
-								{Value: 0xffffffff0028c1be},
-								{},
-								{},
-								{},
-								{},
-								{},
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: goroot + "/src/runtime/sys_linux_amd64.s",
+							Line:       400,
+							Func:       Function{"runtime.epollwait"},
+							Args: Args{
+								Values: []Arg{
+									{Value: 0x4},
+									{Value: 0x7fff671c7118},
+									{Value: 0xffffffff00000080},
+									{},
+									{Value: 0xffffffff0028c1be},
+									{},
+									{},
+									{},
+									{},
+									{},
+								},
+								Elided: true,
 							},
-							Elided: true,
 						},
-					},
-					{
-						SourcePath: goroot + "/src/runtime/netpoll_epoll.go",
-						Line:       68,
-						Func:       Function{"runtime.netpoll"},
-						Args:       Args{Values: []Arg{{Value: 0x901b01}, {}}},
-					},
-					{
-						SourcePath: goroot + "/src/runtime/proc.c",
-						Line:       1472,
-						Func:       Function{"findrunnable"},
-						Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
-					},
-					{
-						SourcePath: goroot + "/src/runtime/proc.c",
-						Line:       1575,
-						Func:       Function{"schedule"},
-					},
-					{
-						SourcePath: goroot + "/src/runtime/proc.c",
-						Line:       1654,
-						Func:       Function{"runtime.park_m"},
-						Args:       Args{Values: []Arg{{Value: 0xc2080017a0}}},
-					},
-					{
-						SourcePath: goroot + "/src/runtime/asm_amd64.s",
-						Line:       186,
-						Func:       Function{"runtime.mcall"},
-						Args:       Args{Values: []Arg{{Value: 0x432684}}},
+						{
+							SourcePath: goroot + "/src/runtime/netpoll_epoll.go",
+							Line:       68,
+							Func:       Function{"runtime.netpoll"},
+							Args:       Args{Values: []Arg{{Value: 0x901b01}, {}}},
+						},
+						{
+							SourcePath: goroot + "/src/runtime/proc.c",
+							Line:       1472,
+							Func:       Function{"findrunnable"},
+							Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
+						},
+						{
+							SourcePath: goroot + "/src/runtime/proc.c",
+							Line:       1575,
+							Func:       Function{"schedule"},
+						},
+						{
+							SourcePath: goroot + "/src/runtime/proc.c",
+							Line:       1654,
+							Func:       Function{"runtime.park_m"},
+							Args:       Args{Values: []Arg{{Value: 0xc2080017a0}}},
+						},
+						{
+							SourcePath: goroot + "/src/runtime/asm_amd64.s",
+							Line:       186,
+							Func:       Function{"runtime.mcall"},
+							Args:       Args{Values: []Arg{{Value: 0x432684}}},
+						},
 					},
 				},
 			},
