@@ -7,6 +7,7 @@ process.
 
 [![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg?branch=master)](https://travis-ci.org/maruel/panicparse)
+[![Chat](https://badges.gitter.im/maruel/panicparse.svg)](https://gitter.im/maruel/panicparse)
 
 
 ![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.gif "Screencast")
