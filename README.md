@@ -106,6 +106,17 @@ Other screencast
 Tips
 ----
 
+### Get all routines in Go 1.6+
+
+Starting with Go 1.6, [`GOTRACEBACK`](https://golang.org/pkg/runtime/) defaults
+to `single` instead of `all` in 1.5 and before. To get all goroutine traces, set
+the environment variable:
+
+    export GOTRACEBACK=all
+
+or `set GOTRACEBACK=all on Windows. Probably worth to put it in your `.bashrc`.
+
+
 ### Updating bash on OSX
 
 Install bash v4+ on OSX via [homebrew](http://brew.sh) or
