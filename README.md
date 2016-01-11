@@ -106,15 +106,15 @@ Other screencast
 Tips
 ----
 
-### Get all routines in Go 1.6+
+### GOTRACEBACK
 
 Starting with Go 1.6, [`GOTRACEBACK`](https://golang.org/pkg/runtime/) defaults
-to `single` instead of `all` in 1.5 and before. To get all goroutine traces, set
-the environment variable:
+to `single` instead of `all` / `1` that was used in 1.5 and before. To get all
+goroutines trace and not just the crashing one, set the environment variable:
 
     export GOTRACEBACK=all
 
-or `set GOTRACEBACK=all on Windows. Probably worth to put it in your `.bashrc`.
+or `set GOTRACEBACK=all` on Windows. Probably worth to put it in your `.bashrc`.
 
 
 ### Updating bash on OSX

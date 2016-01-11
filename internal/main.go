@@ -190,6 +190,9 @@ func Process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPa
 	if err != nil {
 		return err
 	}
+	if len(goroutines) == 1 && showBanner() {
+		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#GOTRACEBACK\n\n")
+	}
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
 	srcLen, pkgLen := calcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
@@ -197,6 +200,14 @@ func Process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPa
 		_, _ = io.WriteString(out, p.stackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
 	}
 	return err
+}
+
+func showBanner() bool {
+	if !showGOTRACEBACKBanner {
+		return false
+	}
+	gtb := os.Getenv("GOTRACEBACK")
+	return gtb == "" || gtb == "single"
 }
 
 // Main is implemented here so both 'pp' and 'panicparse' executables can be
