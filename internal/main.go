@@ -25,7 +25,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mattn/go-colorable"
@@ -40,30 +39,8 @@ import (
 // That much for the "ansi" abstraction layer...
 const resetFG = ansi.DefaultFG + "\033[m"
 
-// Palette defines the color used.
-//
-// An empty object Palette{} can be used to disable coloring.
-type Palette struct {
-	EOLReset string
-
-	// Routine header.
-	RoutineFirst string
-	Routine      string
-	CreatedBy    string
-
-	// Call line.
-	Package                string
-	SourceFile             string
-	FunctionStdLib         string
-	FunctionStdLibExported string
-	FunctionMain           string
-	FunctionOther          string
-	FunctionOtherExported  string
-	Arguments              string
-}
-
-// DefaultPalette is the default recommended palette.
-var DefaultPalette = Palette{
+// defaultPalette is the default recommended palette.
+var defaultPalette = stack.Palette{
 	EOLReset:               resetFG,
 	RoutineFirst:           ansi.ColorCode("magenta+b"),
 	CreatedBy:              ansi.LightBlack,
@@ -77,115 +54,8 @@ var DefaultPalette = Palette{
 	Arguments:              resetFG,
 }
 
-// calcLengths returns the maximum length of the source lines and package names.
-func calcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
-	srcLen := 0
-	pkgLen := 0
-	for _, bucket := range buckets {
-		for _, line := range bucket.Signature.Stack.Calls {
-			l := 0
-			if fullPath {
-				l = len(line.FullSourceLine())
-			} else {
-				l = len(line.SourceLine())
-			}
-			if l > srcLen {
-				srcLen = l
-			}
-			l = len(line.Func.PkgName())
-			if l > pkgLen {
-				pkgLen = l
-			}
-		}
-	}
-	return srcLen, pkgLen
-}
-
-// functionColor returns the color to be used for the function name based on
-// the type of package the function is in.
-func (p *Palette) functionColor(line *stack.Call) string {
-	if line.IsStdlib() {
-		if line.Func.IsExported() {
-			return p.FunctionStdLibExported
-		}
-		return p.FunctionStdLib
-	} else if line.IsPkgMain() {
-		return p.FunctionMain
-	} else if line.Func.IsExported() {
-		return p.FunctionOtherExported
-	}
-	return p.FunctionOther
-}
-
-// routineColor returns the color for the header of the goroutines bucket.
-func (p *Palette) routineColor(bucket *stack.Bucket, multipleBuckets bool) string {
-	if bucket.First() && multipleBuckets {
-		return p.RoutineFirst
-	}
-	return p.Routine
-}
-
-// bucketHeader prints the header of a goroutine signature.
-func (p *Palette) bucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets bool) string {
-	extra := ""
-	if bucket.SleepMax != 0 {
-		if bucket.SleepMin != bucket.SleepMax {
-			extra += fmt.Sprintf(" [%d~%d minutes]", bucket.SleepMin, bucket.SleepMax)
-		} else {
-			extra += fmt.Sprintf(" [%d minutes]", bucket.SleepMax)
-		}
-	}
-	if bucket.Locked {
-		extra += " [locked]"
-	}
-	created := bucket.CreatedBy.Func.PkgDotName()
-	if created != "" {
-		created += " @ "
-		if fullPath {
-			created += bucket.CreatedBy.FullSourceLine()
-		} else {
-			created += bucket.CreatedBy.SourceLine()
-		}
-		extra += p.CreatedBy + " [Created by " + created + "]"
-	}
-	return fmt.Sprintf(
-		"%s%d: %s%s%s\n",
-		p.routineColor(bucket, multipleBuckets), len(bucket.Routines),
-		bucket.State, extra,
-		p.EOLReset)
-}
-
-// callLine prints one stack line.
-func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
-	src := ""
-	if fullPath {
-		src = line.FullSourceLine()
-	} else {
-		src = line.SourceLine()
-	}
-	return fmt.Sprintf(
-		"    %s%-*s %s%-*s %s%s%s(%s)%s",
-		p.Package, pkgLen, line.Func.PkgName(),
-		p.SourceFile, srcLen, src,
-		p.functionColor(line), line.Func.Name(),
-		p.Arguments, line.Args,
-		p.EOLReset)
-}
-
-// stackLines prints one complete stack trace, without the header.
-func (p *Palette) stackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) string {
-	out := make([]string, len(signature.Stack.Calls))
-	for i := range signature.Stack.Calls {
-		out[i] = p.callLine(&signature.Stack.Calls[i], srcLen, pkgLen, fullPath)
-	}
-	if signature.Stack.Elided {
-		out = append(out, "    (...)")
-	}
-	return strings.Join(out, "\n") + "\n"
-}
-
-// Process copies stdin to stdout and processes any "panic: " line found.
-func Process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPath bool) error {
+// process copies stdin to stdout and processes any "panic: " line found.
+func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath bool) error {
 	goroutines, err := stack.ParseDump(in, out)
 	if err != nil {
 		return err
@@ -194,10 +64,10 @@ func Process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPa
 		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#GOTRACEBACK\n\n")
 	}
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
-	srcLen, pkgLen := calcLengths(buckets, fullPath)
+	srcLen, pkgLen := stack.CalcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
-		_, _ = io.WriteString(out, p.bucketHeader(&bucket, fullPath, len(buckets) > 1))
-		_, _ = io.WriteString(out, p.stackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
+		_, _ = io.WriteString(out, p.BucketHeader(&bucket, fullPath, len(buckets) > 1))
+		_, _ = io.WriteString(out, p.StackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
 	}
 	return err
 }
@@ -239,9 +109,9 @@ func Main() error {
 	}
 
 	var out io.Writer
-	p := &DefaultPalette
+	p := &defaultPalette
 	if *noColor && !*forceColor {
-		p = &Palette{}
+		p = &stack.Palette{}
 		out = os.Stdout
 	} else {
 		out = colorable.NewColorableStdout()
@@ -261,5 +131,5 @@ func Main() error {
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return Process(in, out, p, s, *fullPath)
+	return process(in, out, p, s, *fullPath)
 }
