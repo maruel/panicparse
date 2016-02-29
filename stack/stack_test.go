@@ -8,6 +8,8 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +18,44 @@ import (
 )
 
 var goroot = goroots[0]
+
+const crash = `panic: oh no!
+
+goroutine 1 [running]:
+panic(0x0, 0x0)
+	/home/user/src/golang/src/runtime/panic.go:464 +0x3e6
+main.crash2(0x7fe50b49d028, 0xc82000a1e0)
+	/home/user/src/foo.go:45 +0x23
+main.main()
+	/home/user/src/foo.go:50 +0xa6
+`
+
+func Example() {
+	in := bytes.NewBufferString(crash)
+	goroutines, err := ParseDump(in, os.Stdout)
+	if err != nil {
+		return
+	}
+
+	// Optional: Check for GOTRACEBACK being set, in particular if there is only
+	// one goroutine returned.
+
+	// Use a color palette based on ANSI code.
+	p := &Palette{}
+	buckets := SortBuckets(Bucketize(goroutines, AnyValue))
+	srcLen, pkgLen := CalcLengths(buckets, false)
+	for _, bucket := range buckets {
+		io.WriteString(os.Stdout, p.BucketHeader(&bucket, false, len(buckets) > 1))
+		io.WriteString(os.Stdout, p.StackLines(&bucket.Signature, srcLen, pkgLen, false))
+	}
+	// Output:
+	// panic: oh no!
+	//
+	// 1: running
+	//          panic.go:464 panic(0, 0)
+	//     main foo.go:45    crash2(0x7fe50b49d028, 0xc82000a1e0)
+	//     main foo.go:50    main()
+}
 
 func TestParseDump1(t *testing.T) {
 	// One call from main, one from stdlib, one from third party.
