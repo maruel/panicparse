@@ -5,14 +5,12 @@ Parses panic stack traces, densifies and deduplicates goroutines with similar
 stack traces. Helps debugging crashes and deadlocks in heavily parallelized
 process.
 
-[![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg?branch=master)](https://travis-ci.org/maruel/panicparse)
 [![Chat](https://badges.gitter.im/maruel/panicparse.svg)](https://gitter.im/maruel/panicparse)
 
 
-![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.gif "Screencast")
+![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/parse.gif "Screencast")
 
-([Source](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.go))
 
 Features
 --------
@@ -20,12 +18,14 @@ Features
    * >50% more compact output than original stack dump yet more readable.
    * Exported symbols are bold, private symbols are darker.
    * Stdlib is green, main is yellow, rest is red.
-   * Deduplicate redundant goroutine stacks. Useful for large server crashes.
+   * Deduplicates redundant goroutine stacks. Useful for large server crashes.
    * Arguments as pointer IDs instead of raw pointer values.
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
    * Usable as a library!
-     * Warning: please pin the version (e.g. vendor it) as breaking changes are
-       planned.
+     [![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
+     * Warning: please pin the version (e.g. vendor it). Breaking changes are
+       not planned but may happen.
+   * Parses the source files if available to augment the output.
    * Works on Windows.
 
 
@@ -101,6 +101,11 @@ Other screencast
 ![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/deadlock.gif "Screencast")
 
 ([Source](https://raw.githubusercontent.com/wiki/maruel/panicparse/deadlock.go))
+
+
+![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.gif "Screencast")
+
+([Source](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.go))
 
 
 Tips

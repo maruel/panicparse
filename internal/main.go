@@ -55,13 +55,16 @@ var defaultPalette = stack.Palette{
 }
 
 // process copies stdin to stdout and processes any "panic: " line found.
-func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath bool) error {
+func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse bool) error {
 	goroutines, err := stack.ParseDump(in, out)
 	if err != nil {
 		return err
 	}
 	if len(goroutines) == 1 && showBanner() {
 		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#GOTRACEBACK\n\n")
+	}
+	if parse {
+		stack.Augment(goroutines)
 	}
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
 	srcLen, pkgLen := stack.CalcLengths(buckets, fullPath)
@@ -95,6 +98,7 @@ func Main() error {
 	fullPath := flag.Bool("full-path", false, "Print full sources path")
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
+	parse := flag.Bool("parse", false, "Parses source files to deduct types")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
 	flag.Parse()
 
@@ -131,5 +135,5 @@ func Main() error {
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return process(in, out, p, s, *fullPath)
+	return process(in, out, p, s, *fullPath, *parse)
 }

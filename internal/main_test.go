@@ -48,7 +48,7 @@ var data = []string{
 
 func TestProcess(t *testing.T) {
 	out := &bytes.Buffer{}
-	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyPointer, false)
+	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyPointer, false, false)
 	ut.AssertEqual(t, nil, err)
 	expected := []string{
 		"panic: runtime error: index out of range",
@@ -73,7 +73,7 @@ func TestProcess(t *testing.T) {
 
 func TestProcessFullPath(t *testing.T) {
 	out := &bytes.Buffer{}
-	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyValue, true)
+	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyValue, true, false)
 	ut.AssertEqual(t, nil, err)
 	expected := []string{
 		"panic: runtime error: index out of range",
@@ -98,7 +98,7 @@ func TestProcessFullPath(t *testing.T) {
 
 func TestProcessNoColor(t *testing.T) {
 	out := &bytes.Buffer{}
-	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &stack.Palette{}, stack.AnyPointer, false)
+	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &stack.Palette{}, stack.AnyPointer, false, false)
 	ut.AssertEqual(t, nil, err)
 	expected := []string{
 		"panic: runtime error: index out of range",
