@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mattn/go-colorable"
@@ -55,7 +56,7 @@ var defaultPalette = stack.Palette{
 }
 
 // process copies stdin to stdout and processes any "panic: " line found.
-func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath bool) error {
+func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath bool, filterPackage, filterPath string) error {
 	goroutines, err := stack.ParseDump(in, out)
 	if err != nil {
 		return err
@@ -64,6 +65,22 @@ func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, 
 		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#GOTRACEBACK\n\n")
 	}
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
+	filtered := make([]stack.Bucket, 0, len(buckets))
+	for _, b := range buckets {
+		include := (filterPackage == "" && filterPath == "")
+		for _, c := range b.Stack.Calls {
+			if filterPackage != "" && c.Func.PkgName() == filterPackage {
+				include = true
+			}
+			if filterPath != "" && strings.Contains(c.SourcePath, filterPath) {
+				include = true
+			}
+		}
+		if include {
+			filtered = append(filtered, b)
+		}
+	}
+	buckets = filtered
 	srcLen, pkgLen := stack.CalcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
 		_, _ = io.WriteString(out, p.BucketHeader(&bucket, fullPath, len(buckets) > 1))
@@ -96,6 +113,8 @@ func Main() error {
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
+	filterPackage := flag.String("filter-package", "", "only show stacktraces that involve specified package")
+	filterPath := flag.String("filter-path", "", "only show stacktraces that involve a file whose path includes this substring")
 	flag.Parse()
 
 	log.SetFlags(log.Lmicroseconds)
@@ -131,5 +150,5 @@ func Main() error {
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return process(in, out, p, s, *fullPath)
+	return process(in, out, p, s, *fullPath, *filterPackage, *filterPath)
 }
