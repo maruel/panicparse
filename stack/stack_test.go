@@ -67,6 +67,8 @@ func TestParseDump1(t *testing.T) {
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 1 [running]:",
+		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
+		" ??:0 +0x6d",
 		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
@@ -85,6 +87,10 @@ func TestParseDump1(t *testing.T) {
 				State: "running",
 				Stack: Stack{
 					Calls: []Call{
+						{
+							SourcePath: "??",
+							Func:       Function{"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"},
+						},
 						{
 							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							Line:       153,
