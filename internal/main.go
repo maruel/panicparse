@@ -98,7 +98,7 @@ func Main() error {
 	fullPath := flag.Bool("full-path", false, "Print full sources path")
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
-	parse := flag.Bool("parse", false, "Parses source files to deduct types")
+	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
 	flag.Parse()
 
