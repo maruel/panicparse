@@ -6,8 +6,8 @@ stack traces. Helps debugging crashes and deadlocks in heavily parallelized
 process.
 
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg?branch=master)](https://travis-ci.org/maruel/panicparse)
-[![Chat](https://badges.gitter.im/maruel/panicparse.svg)](https://gitter.im/maruel/panicparse)
 
+panicparse helps make sense of Go crash dumps:
 
 ![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/parse.gif "Screencast")
 
@@ -93,19 +93,6 @@ To dump to a file then parse, pass the file path of a stack trace
 
     go test 2> stack.txt
     pp stack.txt
-
-
-Other screencast
-----------------
-
-![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/deadlock.gif "Screencast")
-
-([Source](https://raw.githubusercontent.com/wiki/maruel/panicparse/deadlock.go))
-
-
-![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.gif "Screencast")
-
-([Source](https://raw.githubusercontent.com/wiki/maruel/panicparse/simple.go))
 
 
 Tips
