@@ -27,10 +27,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mattn/go-colorable"
-	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mattn/go-isatty"
-	"github.com/maruel/panicparse/Godeps/_workspace/src/github.com/mgutz/ansi"
 	"github.com/maruel/panicparse/stack"
+	"github.com/mattn/go-colorable"
+	"github.com/mattn/go-isatty"
+	"github.com/mgutz/ansi"
 )
 
 // resetFG is similar to ansi.Reset except that it doesn't reset the
