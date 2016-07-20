@@ -6,7 +6,7 @@ sudo: false
 language: go
 
 go:
-- 1.4
+- tip
 
 before_install:
   - go get github.com/maruel/pre-commit-go/cmd/pcg
