@@ -117,8 +117,8 @@ func TestAugment(t *testing.T) {
 			{
 				Func: Function{"main.f8"},
 				Args: Args{
-					Values:    []Arg{{Value: 0x3fe0000000000000}, {Value: 0x40000000}},
-					Processed: []string{"0.5", "2"},
+					Values:    []Arg{{Value: 0x3fe0000000000000}, {Value: 0xc440066666}},
+					Processed: []string{"0.5", "2.1"},
 				},
 			},
 			{
@@ -279,7 +279,7 @@ func f8(a float64, b float32) {
 }
 
 func f9(a []int) {
-	f8(0.5, 2)
+	f8(0.5, 2.1)
 }
 
 func f10(a []interface{}) {
