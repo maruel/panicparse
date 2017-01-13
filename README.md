@@ -121,3 +121,38 @@ done that.
 You may have the Perl PAR Packager installed. Use long name `panicparse` then;
 
     go get github.com/maruel/panicparse
+    
+### You can also use it as a library to log your errors like this
+```go
+defaultPalette = stack.Palette{
+	EOLReset:               resetFG,
+	RoutineFirst:           ansi.ColorCode("magenta+b"),
+	CreatedBy:              ansi.LightBlack,
+	Package:                ansi.ColorCode("default+b"),
+	SourceFile:             resetFG,
+	FunctionStdLib:         ansi.Green,
+	FunctionStdLibExported: ansi.ColorCode("green+b"),
+	FunctionMain:           ansi.ColorCode("yellow+b"),
+	FunctionOther:          ansi.Red,
+	FunctionOtherExported:  ansi.ColorCode("red+b"),
+	Arguments:              resetFG,
+}
+
+if exception := recover(); exception != nil {
+	inputBuffer := &bytes.Buffer{}
+	outputBuffer := &bytes.Buffer{}
+	trace := make([]byte, 1<<16)
+	n := runtime.Stack(trace, true)
+	inputBuffer.WriteString(fmt.Sprintf("panic recover %v stack trace %d bytes\n", exception, n))
+	inputBuffer.Write(trace)
+	goroutines, _ := stack.ParseDump(inputBuffer, outputBuffer)
+	fullPath := false
+	buckets := stack.SortBuckets(stack.Bucketize(goroutines, stack.AnyPointer))
+	srcLen, pkgLen := stack.CalcLengths(buckets, fullPath)
+	for _, bucket := range buckets {
+		_, _ = io.WriteString(outputBuffer, defaultPalette.BucketHeader(&bucket, fullPath, len(buckets) > 1))
+		_, _ = io.WriteString(outputBuffer, defaultPalette.StackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
+	}
+	println(outputBuffer.String())
+}
+```
