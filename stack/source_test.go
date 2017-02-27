@@ -206,6 +206,15 @@ func TestAugment(t *testing.T) {
 	}
 	// Zap out panic() exact line number.
 	s.Calls[0].Line = 0
+
+	// Zap out floating point, this is not deterministic. Verify the line # is
+	// actually the right one.
+	line := 8 // main.f8
+	ut.AssertEqual(t, uint64(0xc440066666), expected.Calls[line].Args.Values[1].Value)
+	if s.Calls[line].Args.Values[1].Value != expected.Calls[line].Args.Values[1].Value {
+		// Try an alternate encoding of "2.1".
+		expected.Calls[line].Args.Values[1].Value = 0x40066666
+	}
 	ut.AssertEqual(t, expected, s)
 }
 
