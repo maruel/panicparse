@@ -30,7 +30,7 @@ func Formatter(x interface{}) (f fmt.Formatter) {
 }
 
 func (fo formatter) String() string {
-	return fmt.Sprint(fo.v) // unwrap it
+	return fmt.Sprint(fo.v.Interface()) // unwrap it
 }
 
 func (fo formatter) passThrough(f fmt.State, c rune) {
@@ -47,7 +47,7 @@ func (fo formatter) passThrough(f fmt.State, c rune) {
 		s += fmt.Sprintf(".%d", p)
 	}
 	s += string(c)
-	fmt.Fprintf(f, s, fo.v)
+	fmt.Fprintf(f, s, fo.v.Interface())
 }
 
 func (fo formatter) Format(f fmt.State, c rune) {
