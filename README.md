@@ -118,6 +118,22 @@ done that.
 
 ### If you have `/usr/bin/pp` installed
 
-You may have the Perl PAR Packager installed. Use long name `panicparse` then;
+If you try `pp` for the first time and you get:
+
+    Creating tables and indexes...
+    Done.
+
+and/or
+
+    /usr/bin/pp5.18: No input files specified
+
+you may be running the _Perl PAR Packager_ instead of panicparse.
+
+You have two choices, either you put `$GOPATH/bin` at the begining of `$PATH` or
+use long name `panicparse` with:
 
     go get github.com/maruel/panicparse
+
+then using `panicparse` instead of `pp`:
+
+    go test 2> panicparse
