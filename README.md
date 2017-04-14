@@ -1,6 +1,8 @@
 panicparse
 ==========
 
+[![Join the chat at https://gitter.im/maruel/panicparse](https://badges.gitter.im/maruel/panicparse.svg)](https://gitter.im/maruel/panicparse?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Parses panic stack traces, densifies and deduplicates goroutines with similar
 stack traces. Helps debugging crashes and deadlocks in heavily parallelized
 process.
