@@ -357,11 +357,9 @@ func TestAugment(t *testing.T) {
 			t.Fatalf("Unexpected panic output:\n%#v", actual)
 		}
 		s := goroutines[0].Signature.Stack
-		zapPointers(t, &line.expected, &s)
-		for j := range s.Calls {
-			s.Calls[j].SourcePath = filepath.Base(s.Calls[j].SourcePath)
-		}
 		t.Logf("Test: %v", line.name)
+		zapPointers(t, line.name, &line.expected, &s)
+		zapPaths(&s)
 		ut.AssertEqualIndex(t, i, line.expected, s)
 	}
 }
@@ -445,7 +443,7 @@ func getCrash(t *testing.T, content string) (string, []byte) {
 }
 
 // zapPointers zaps out pointers.
-func zapPointers(t *testing.T, expected, s *Stack) {
+func zapPointers(t *testing.T, name string, expected, s *Stack) {
 	for i := range s.Calls {
 		if i >= len(expected.Calls) {
 			// When using GOTRACEBACK=2, it'll include runtime.main() and
@@ -454,9 +452,6 @@ func zapPointers(t *testing.T, expected, s *Stack) {
 			s.Calls = s.Calls[:len(expected.Calls)]
 			break
 		}
-		if i > 0 && s.Calls[i].Line <= s.Calls[i-1].Line {
-			t.Fatalf("the next line cannot be before the previous line: line %d <= line %d", s.Calls[i].Line, s.Calls[i-1].Line)
-		}
 		for j := range s.Calls[i].Args.Values {
 			if j >= len(expected.Calls[i].Args.Values) {
 				break
@@ -464,7 +459,7 @@ func zapPointers(t *testing.T, expected, s *Stack) {
 			if expected.Calls[i].Args.Values[j].Value == pointer {
 				// Replace the pointer value.
 				if s.Calls[i].Args.Values[j].Value == 0 {
-					t.Fatalf("Call %d, value %d, expected pointer, got 0", i, j)
+					t.Fatalf("%s: Call %d, value %d, expected pointer, got 0", name, i, j)
 				}
 				old := fmt.Sprintf("0x%x", s.Calls[i].Args.Values[j].Value)
 				s.Calls[i].Args.Values[j].Value = pointer
@@ -473,5 +468,12 @@ func zapPointers(t *testing.T, expected, s *Stack) {
 				}
 			}
 		}
+	}
+}
+
+// zapPaths removes the directory part and only keep the base file name.
+func zapPaths(s *Stack) {
+	for j := range s.Calls {
+		s.Calls[j].SourcePath = filepath.Base(s.Calls[j].SourcePath)
 	}
 }
