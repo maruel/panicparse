@@ -7,7 +7,6 @@ package stack
 import (
 	"bytes"
 	"fmt"
-	"go/ast"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -18,204 +17,351 @@ import (
 	"github.com/maruel/ut"
 )
 
-func overrideEnv(env []string, key, value string) []string {
-	prefix := key + "="
-	for i, e := range env {
-		if strings.HasPrefix(e, prefix) {
-			env[i] = value
-			return env
-		}
-	}
-	return append(env, prefix+value)
-}
-
-func getCrash(t *testing.T, content string) (string, []byte) {
-	name, err := ioutil.TempDir("", "panicparse")
-	ut.AssertEqual(t, nil, err)
-	defer os.RemoveAll(name)
-	main := filepath.Join(name, "main.go")
-	ut.AssertEqual(t, nil, ioutil.WriteFile(main, []byte(content), 0500))
-	cmd := exec.Command("go", "run", main)
-	// Use the Go 1.4 compatible format.
-	cmd.Env = overrideEnv(os.Environ(), "GOTRACEBACK", "2")
-	out, _ := cmd.CombinedOutput()
-	return main, out
-}
-
 func TestAugment(t *testing.T) {
-	extra := &bytes.Buffer{}
-	main, content := getCrash(t, mainSource)
-	goroutines, err := ParseDump(bytes.NewBuffer(content), extra)
-	ut.AssertEqual(t, nil, err)
-	// On go1.4, there's one less space.
-	actual := extra.String()
-	if actual != "panic: ooh\n\nexit status 2\n" && actual != "panic: ooh\nexit status 2\n" {
-		t.Fatalf("Unexpected panic output:\n%#v", actual)
-	}
-	// The number of goroutine alive depends on the runtime environment. It
-	// doesn't matter as only the crashing thread is of importance.
-	ut.AssertEqual(t, true, len(goroutines) >= 1)
-
-	// Preload content so no disk I/O is done.
-	c := &cache{files: map[string][]byte{main: []byte(mainSource)}}
-	c.augmentGoroutine(&goroutines[0])
-	pointer := uint64(0xfffffffff)
-	pointerStr := fmt.Sprintf("0x%x", pointer)
-	expected := Stack{
-		Calls: []Call{
-			{
-				SourcePath: filepath.Join(goroot, "src", "runtime", "panic.go"),
-				Func:       Function{"panic"},
-				Args:       Args{Values: []Arg{{Value: pointer}, {Value: pointer}}},
-			},
-			{
-				Func: Function{"main.S.f1"},
-			},
-			{
-				Func: Function{"main.(*S).f2"},
-				Args: Args{
-					Values:    []Arg{{Value: pointer}},
-					Processed: []string{"*S(" + pointerStr + ")"},
+	data := []struct {
+		name     string
+		input    string
+		expected Stack
+	}{
+		{
+			"Local function doesn't interfere",
+			`package main
+			func f(s string) {
+				a := func(i int) int {
+					return 1 + i
+				}
+				_ = a(3)
+				panic("ooh")
+			}
+			func main() {
+				f("yo")
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 7, Func: Function{"main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer, Name: ""}, {Value: 0x2}},
+						},
+					},
+					{SourcePath: "main.go", Line: 10, Func: Function{"main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f3"},
-				Args: Args{
-					Values:    []Arg{{Value: pointer}, {Value: 3}, {Value: 1}},
-					Processed: []string{"string(" + pointerStr + ", len=3)", "1"},
+		},
+		{
+			"func",
+			`package main
+			func f(a func() string) {
+				panic(a())
+			}
+			func main() {
+				f(func() string { return "ooh" })
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{Values: []Arg{{Value: pointer}}},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f4"},
-				Args: Args{
-					Values:    []Arg{{Value: pointer}, {Value: 3}},
-					Processed: []string{"string(" + pointerStr + ", len=3)"},
+		},
+		{
+			"func elipsis",
+			`package main
+			func f(a ...func() string) {
+				panic(a[0]())
+			}
+			func main() {
+				f(func() string { return "ooh" })
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}, {Value: 0x1}, {Value: 0x1}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f5"},
-				Args: Args{
-					Values:    []Arg{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}},
-					Processed: []string{"0", "0", "0", "0", "0", "0", "0", "0", "0", "interface{}(0x0)"},
-					Elided:    true,
+		},
+		{
+			"interface{}",
+			`package main
+			func f(a []interface{}) {
+				panic("ooh")
+			}
+			func main() {
+				f(make([]interface{}, 5, 7))
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}, {Value: 0x5}, {Value: 0x7}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f6"},
-				Args: Args{
-					Values:    []Arg{{Value: pointer}, {Value: pointer}},
-					Processed: []string{"error(" + pointerStr + ")"},
+		},
+		{
+			"[]int",
+			`package main
+			func f(a []int) {
+				panic("ooh")
+			}
+			func main() {
+				f(make([]int, 5, 7))
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}, {Value: 5}, {Value: 7}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f7"},
-				Args: Args{
-					Values:    []Arg{{}, {}},
-					Processed: []string{"error(0x0)"},
+		},
+		{
+			"[]interface{}",
+			`package main
+			func f(a []interface{}) {
+				panic(a[0].(string))
+			}
+			func main() {
+				f([]interface{}{"ooh"})
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}, {Value: 1}, {Value: 1}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f8"},
-				Args: Args{
-					Values:    []Arg{{Value: 0x3fe0000000000000}, {Value: 0xc440066666}},
-					Processed: []string{"0.5", "2.1"},
+		},
+		{
+			"non-pointer method",
+			`package main
+			type S struct {
+			}
+			func (s S) f() {
+				panic("ooh")
+			}
+			func main() {
+				var s S
+				s.f()
+			}`,
+			Stack{
+				Calls: []Call{
+					{SourcePath: "main.go", Line: 5, Func: Function{Raw: "main.S.f"}},
+					{SourcePath: "main.go", Line: 9, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f9"},
-				Args: Args{
-					Values:    []Arg{{Value: pointer}, {Value: 5}, {Value: 7}},
-					Processed: []string{"[]int(" + pointerStr + " len=5 cap=7)"},
+		},
+		{
+			"pointer method",
+			`package main
+			type S struct {
+			}
+			func (s *S) f() {
+				panic("ooh")
+			}
+			func main() {
+				var s S
+				s.f()
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 5, Func: Function{Raw: "main.(*S).f"},
+						Args: Args{Values: []Arg{{Value: pointer}}},
+					},
+					{SourcePath: "main.go", Line: 9, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f10"},
-				Args: Args{
-					Values:    []Arg{{Value: pointer}, {Value: 5}, {Value: 7}},
-					Processed: []string{"[]interface{}(" + pointerStr + " len=5 cap=7)"},
+		},
+		{
+			"string",
+			`package main
+			func f(s string) {
+				panic(s)
+			}
+			func main() {
+			  f("ooh")
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{Values: []Arg{{Value: pointer}, {Value: 0x3}}},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f11"},
-				Args: Args{
-					Values:    []Arg{{}},
-					Processed: []string{"func(0x0)"},
+		},
+		{
+			"string and int",
+			`package main
+			func f(s string, i int) {
+				panic(s)
+			}
+			func main() {
+			  f("ooh", 42)
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{Values: []Arg{{Value: pointer}, {Value: 0x3}, {Value: 42}}},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f12"},
-				Args: Args{
-					Values:    []Arg{{Value: pointer}, {Value: 2}, {Value: 2}},
-					Processed: []string{"func(" + pointerStr + ")", "func(0x2)"},
+		},
+		{
+			"values are elided",
+			`package main
+			func f(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12 int, s13 interface{}) {
+				panic("ooh")
+			}
+			func main() {
+				f(0, 0, 0, 0, 0, 0, 0, 0, 42, 43, 44, 45, nil)
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{}, {}, {}, {}, {}, {}, {}, {}, {Value: 42}, {Value: 43}},
+							Elided: true,
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.f13"},
-				Args: Args{
-					Values:    []Arg{{Value: pointer}, {Value: 2}},
-					Processed: []string{"string(" + pointerStr + ", len=2)"},
+		},
+		{
+			"error",
+			`package main
+			import "errors"
+			func f(err error) {
+				panic(err.Error())
+			}
+			func main() {
+				f(errors.New("ooh"))
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 4, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}, {Value: pointer}},
+						},
+					},
+					{SourcePath: "main.go", Line: 7, Func: Function{Raw: "main.main"}},
 				},
 			},
-			{
-				Func: Function{"main.main"},
+		},
+		{
+			"error unnamed",
+			`package main
+			import "errors"
+			func f(error) {
+				panic("ooh")
+			}
+			func main() {
+				f(errors.New("ooh"))
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 4, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}, {Value: pointer}},
+						},
+					},
+					{SourcePath: "main.go", Line: 7, Func: Function{Raw: "main.main"}},
+				},
+			},
+		},
+		{
+			"float32",
+			`package main
+			func f(v float32) {
+				panic("ooh")
+			}
+			func main() {
+				f(0.5)
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							// The value is NOT a pointer but floating point encoding is not
+							// deterministic.
+							Values: []Arg{{Value: pointer}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+				},
+			},
+		},
+		{
+			"float64",
+			`package main
+			func f(v float64) {
+				panic("ooh")
+			}
+			func main() {
+				f(0.5)
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							// The value is NOT a pointer but floating point encoding is not
+							// deterministic.
+							Values: []Arg{{Value: pointer}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+				},
 			},
 		},
 	}
-	s := goroutines[0].Signature.Stack
-	// On Travis, runtime.GOROOT() != what is dumped when running a command via
-	// "go run". E.g. GOROOT() were "/usr/local/go" yet the path output via a
-	// subcommand is "/home/travis/.gimme/versions/go1.4.linux.amd64". Kidding
-	// me, right?
-	ut.AssertEqual(t, true, strings.HasSuffix(s.Calls[0].SourcePath, "panic.go"))
-	s.Calls[0].SourcePath = expected.Calls[0].SourcePath
-	// Zap out the panic() call, since its signature changed between go1.4 and
-	// go1.5, it used to be runtime.gopanic().
-	ut.AssertEqual(t, true, strings.HasSuffix(s.Calls[0].Func.Raw, "panic"))
-	s.Calls[0].Func = expected.Calls[0].Func
 
-	// Zap out pointers.
-	for i := range s.Calls {
-		if i >= len(expected.Calls) {
-			// When using GOTRACEBACK=2, it'll include runtime.main() and
-			// runtime.goexit(). Ignore these since they could be changed in a future
-			// version.
-			s.Calls = s.Calls[:len(expected.Calls)]
-			break
+	for i, line := range data {
+		extra := bytes.Buffer{}
+		_, content := getCrash(t, line.input)
+		goroutines, err := ParseDump(bytes.NewBuffer(content), &extra)
+		if err != nil {
+			t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 		}
-		if i > 0 {
-			ut.AssertEqual(t, true, s.Calls[i].Line > s.Calls[i-1].Line)
+		// On go1.4, there's one less space.
+		actual := extra.String()
+		if actual != "panic: ooh\n\nexit status 2\n" && actual != "panic: ooh\nexit status 2\n" {
+			t.Fatalf("Unexpected panic output:\n%#v", actual)
 		}
-		s.Calls[i].Line = 0
-		for j := range s.Calls[i].Args.Values {
-			if j >= len(expected.Calls[i].Args.Values) {
-				break
-			}
-			if expected.Calls[i].Args.Values[j].Value == pointer {
-				// Replace the pointer value.
-				ut.AssertEqual(t, false, s.Calls[i].Args.Values[j].Value == 0)
-				old := fmt.Sprintf("0x%x", s.Calls[i].Args.Values[j].Value)
-				s.Calls[i].Args.Values[j].Value = pointer
-				for k := range s.Calls[i].Args.Processed {
-					s.Calls[i].Args.Processed[k] = strings.Replace(s.Calls[i].Args.Processed[k], old, pointerStr, -1)
-				}
-			}
-		}
-		if expected.Calls[i].SourcePath == "" {
-			expected.Calls[i].SourcePath = main
-		}
+		s := goroutines[0].Signature.Stack
+		t.Logf("Test: %v", line.name)
+		zapPointers(t, line.name, &line.expected, &s)
+		zapPaths(&s)
+		ut.AssertEqualIndex(t, i, line.expected, s)
 	}
-	// Zap out panic() exact line number.
-	s.Calls[0].Line = 0
-
-	// Zap out floating point, this is not deterministic. Verify the line # is
-	// actually the right one.
-	line := 8 // main.f8
-	ut.AssertEqual(t, uint64(0xc440066666), expected.Calls[line].Args.Values[1].Value)
-	if s.Calls[line].Args.Values[1].Value != expected.Calls[line].Args.Values[1].Value {
-		// Try an alternate encoding of "2.1".
-		expected.Calls[line].Args.Values[1].Value = 0x40066666
-	}
-	ut.AssertEqual(t, expected, s)
 }
 
 func TestAugmentDummy(t *testing.T) {
@@ -239,80 +385,95 @@ func TestLoad(t *testing.T) {
 	c.load("foo.asm")
 	c.load("bad.go")
 	c.load("doesnt_exist.go")
-	ut.AssertEqual(t, 3, len(c.parsed))
-	ut.AssertEqual(t, (*parsedFile)(nil), c.parsed["foo.asm"])
-	ut.AssertEqual(t, (*parsedFile)(nil), c.parsed["bad.go"])
-	ut.AssertEqual(t, (*parsedFile)(nil), c.parsed["doesnt_exist.go"])
-	ut.AssertEqual(t, (*ast.FuncDecl)(nil), c.getFuncAST(&Call{SourcePath: "other"}))
-}
-
-const mainSource = `// Exercises most code paths in processCall().
-
-package main
-
-import "errors"
-
-type S struct {
-}
-
-func (s S) f1() {
-	panic("ooh")
-}
-
-func (s *S) f2() {
-	s.f1()
-}
-
-func f3(s string, i int) {
-	(&S{}).f2()
-}
-
-func f4(s string) {
-	f3(s, 1)
-}
-
-func f5(s1, s2, s3, s4, s5, s6, s7, s8, s9 int, s10 interface{}) {
-	f4("ooh")
-}
-
-func f6(err error) {
-	f5(0, 0, 0, 0, 0, 0, 0, 0, 0, nil)
-}
-
-func f7(error) {
-	f6(errors.New("Ooh"))
-}
-
-func f8(a float64, b float32) {
-	f7(nil)
-}
-
-func f9(a []int) {
-	f8(0.5, 2.1)
-}
-
-func f10(a []interface{}) {
-	f9(make([]int, 5, 7))
-}
-
-func f11(a func()) {
-	f10(make([]interface{}, 5, 7))
-}
-
-func f12(a ...func()) {
-	f11(nil)
-}
-
-func f13(s string) {
-	// This asserts that a local function definition is not picked up by accident.
-	a := func(i int) int {
-		return 1 + i
+	if l := len(c.parsed); l != 3 {
+		t.Fatalf("expected 3, got %d", l)
 	}
-	_ = a(3)
-	f12(nil, nil)
+	if c.parsed["foo.asm"] != nil {
+		t.Fatalf("foo.asm is not present; should not have been loaded")
+	}
+	if c.parsed["bad.go"] != nil {
+		t.Fatalf("bad.go is not valid code; should not have been loaded")
+	}
+	if c.parsed["doesnt_exist.go"] != nil {
+		t.Fatalf("doesnt_exist.go is not present; should not have been loaded")
+	}
+	if c.getFuncAST(&Call{SourcePath: "other"}) != nil {
+		t.Fatalf("there's no 'other'")
+	}
 }
 
-func main() {
-	f13("yo")
+//
+
+const pointer = uint64(0xfffffffff)
+const pointerStr = "0xfffffffff"
+
+func overrideEnv(env []string, key, value string) []string {
+	prefix := key + "="
+	for i, e := range env {
+		if strings.HasPrefix(e, prefix) {
+			env[i] = prefix + value
+			return env
+		}
+	}
+	return append(env, prefix+value)
 }
-`
+
+func getCrash(t *testing.T, content string) (string, []byte) {
+	name, err := ioutil.TempDir("", "panicparse")
+	if err != nil {
+		t.Fatalf("failed to create temporary directory: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(name); err != nil {
+			t.Fatalf("failed to remove temporary directory %q: %v", name, err)
+		}
+	}()
+	main := filepath.Join(name, "main.go")
+	if err := ioutil.WriteFile(main, []byte(content), 0500); err != nil {
+		t.Fatalf("failed to write %q: %v", main, err)
+	}
+	cmd := exec.Command("go", "run", main)
+	// Use the Go 1.4 compatible format.
+	cmd.Env = overrideEnv(os.Environ(), "GOTRACEBACK", "1")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected error since this is supposed to crash")
+	}
+	return main, out
+}
+
+// zapPointers zaps out pointers.
+func zapPointers(t *testing.T, name string, expected, s *Stack) {
+	for i := range s.Calls {
+		if i >= len(expected.Calls) {
+			// When using GOTRACEBACK=2, it'll include runtime.main() and
+			// runtime.goexit(). Ignore these since they could be changed in a future
+			// version.
+			s.Calls = s.Calls[:len(expected.Calls)]
+			break
+		}
+		for j := range s.Calls[i].Args.Values {
+			if j >= len(expected.Calls[i].Args.Values) {
+				break
+			}
+			if expected.Calls[i].Args.Values[j].Value == pointer {
+				// Replace the pointer value.
+				if s.Calls[i].Args.Values[j].Value == 0 {
+					t.Fatalf("%s: Call %d, value %d, expected pointer, got 0", name, i, j)
+				}
+				old := fmt.Sprintf("0x%x", s.Calls[i].Args.Values[j].Value)
+				s.Calls[i].Args.Values[j].Value = pointer
+				for k := range s.Calls[i].Args.Processed {
+					s.Calls[i].Args.Processed[k] = strings.Replace(s.Calls[i].Args.Processed[k], old, pointerStr, -1)
+				}
+			}
+		}
+	}
+}
+
+// zapPaths removes the directory part and only keep the base file name.
+func zapPaths(s *Stack) {
+	for j := range s.Calls {
+		s.Calls[j].SourcePath = filepath.Base(s.Calls[j].SourcePath)
+	}
+}
