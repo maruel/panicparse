@@ -9,6 +9,7 @@ go:
 - 1.5.x
 - 1.8.x
 - 1.x
+- master
 
 before_install:
 - go get github.com/maruel/pre-commit-go/cmd/pcg
