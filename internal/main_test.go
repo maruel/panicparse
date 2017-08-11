@@ -6,6 +6,7 @@ package internal
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -108,6 +109,50 @@ func TestProcessNoColor(t *testing.T) {
 		"    isolate  isolate.go:148       archive(#4, #1, #2, 0x22, #3, 0xc20804666a, 0x17, 0, 0, 0, ...)",
 		"    isolate  isolate.go:102       Archive(#4, #1, #2, 0x22, #3, 0, 0)",
 		"    main     batch_archive.go:166 func·004(0x7fffc3b8f13a, 0x2c)",
+		"2: running [0~1 minutes]",
+		"    yaml.v2  yaml.go:153          handleErr(#5)",
+		"    reflect  value.go:2125        Value.assignTo(0x570860, #6, 0x15)",
+		"    main     main.go:428          main()",
+		"",
+	}
+	actual := strings.Split(out.String(), "\n")
+	for i := 0; i < len(actual) && i < len(expected); i++ {
+		ut.AssertEqualIndex(t, i, expected[i], actual[i])
+	}
+	ut.AssertEqual(t, expected, actual)
+}
+func TestProcessMatch(t *testing.T) {
+	out := &bytes.Buffer{}
+	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &stack.Palette{}, stack.AnyPointer,
+		false, false, nil, regexp.MustCompile(`batchArchiveRun`),
+	)
+	ut.AssertEqual(t, nil, err)
+	expected := []string{
+		"panic: runtime error: index out of range",
+		"",
+		"1: running [5 minutes] [locked] [Created by main.(*batchArchiveRun).main @ batch_archive.go:167]",
+		"    archiver archiver.go:325      (*archiver).PushFile(#1, 0xc20968a3c0, 0x5b, 0xc20988c280, 0x7d, 0, 0)",
+		"    isolate  isolate.go:148       archive(#4, #1, #2, 0x22, #3, 0xc20804666a, 0x17, 0, 0, 0, ...)",
+		"    isolate  isolate.go:102       Archive(#4, #1, #2, 0x22, #3, 0, 0)",
+		"    main     batch_archive.go:166 func·004(0x7fffc3b8f13a, 0x2c)",
+		"",
+	}
+	actual := strings.Split(out.String(), "\n")
+	for i := 0; i < len(actual) && i < len(expected); i++ {
+		ut.AssertEqualIndex(t, i, expected[i], actual[i])
+	}
+	ut.AssertEqual(t, expected, actual)
+}
+
+func TestProcessFilter(t *testing.T) {
+	out := &bytes.Buffer{}
+	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &stack.Palette{}, stack.AnyPointer,
+		false, false, regexp.MustCompile(`batchArchiveRun`), nil,
+	)
+	ut.AssertEqual(t, nil, err)
+	expected := []string{
+		"panic: runtime error: index out of range",
+		"",
 		"2: running [0~1 minutes]",
 		"    yaml.v2  yaml.go:153          handleErr(#5)",
 		"    reflect  value.go:2125        Value.assignTo(0x570860, #6, 0x15)",
