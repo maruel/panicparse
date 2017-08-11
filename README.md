@@ -15,7 +15,7 @@ panicparse helps make sense of Go crash dumps:
 Features
 --------
 
-   * >50% more compact output than original stack dump yet more readable.
+   * &gt;50% more compact output than original stack dump yet more readable.
    * Exported symbols are bold, private symbols are darker.
    * Stdlib is green, main is yellow, rest is red.
    * Deduplicates redundant goroutine stacks. Useful for large server crashes.
