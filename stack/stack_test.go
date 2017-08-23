@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -833,6 +834,59 @@ func TestParseCCode(t *testing.T) {
 		},
 	}
 	ut.AssertEqual(t, expectedGR, goroutines)
+}
+
+func TestParseWithCarriageReturn(t *testing.T) {
+	data := []string{
+		"goroutine 1 [running]:",
+		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
+		" ??:0 +0x6d",
+		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
+		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
+		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
+		"	" + goroot + "/src/reflect/value.go:2125 +0x368",
+		"main.main()",
+		"	/gopath/src/github.com/foo/bar/baz.go:428 +0x27",
+		"",
+	}
+
+	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\r\n")), ioutil.Discard)
+	ut.AssertEqual(t, nil, err)
+	expected := []Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SourcePath: "??",
+							Func:       Function{"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"},
+						},
+						{
+							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:       153,
+							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
+						},
+						{
+							SourcePath: goroot + "/src/reflect/value.go",
+							Line:       2125,
+							Func:       Function{"reflect.Value.assignTo"},
+							Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+						},
+						{
+							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							Line:       428,
+							Func:       Function{"main.main"},
+						},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	ut.AssertEqual(t, expected, goroutines)
 }
 
 func TestCallPkg1(t *testing.T) {
