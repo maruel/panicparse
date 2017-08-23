@@ -189,6 +189,10 @@ func fieldToType(f *ast.Field) (string, bool) {
 		return arg.Sel.Name, false
 	case *ast.StarExpr:
 		return "*" + name(arg.X), false
+	case *ast.MapType:
+		return "Map" + "[" + arg.Key.(*ast.Ident).Name + "]" + arg.Value.(*ast.Ident).Name, false
+	case *ast.ChanType:
+		return "Channel " + arg.Value.(*ast.Ident).Name, false
 	default:
 		// TODO(maruel): Implement anything missing.
 		return "<unknown>", false
