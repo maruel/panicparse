@@ -68,7 +68,7 @@ func TestAugment(t *testing.T) {
 			},
 		},
 		{
-			"func elipsis",
+			"func ellipsis",
 			`package main
 			func f(a ...func() string) {
 				panic(a[0]())
@@ -145,6 +145,90 @@ func TestAugment(t *testing.T) {
 						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}, {Value: 1}, {Value: 1}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+				},
+			},
+		},
+		{
+			"map[int]int",
+			`package main
+			func f(a map[int]int) {
+				panic("ooh")
+			}
+			func main() {
+				f(map[int]int{1: 2})
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+				},
+			},
+		},
+		{
+			"map[interface{}]interface{}",
+			`package main
+			func f(a map[interface{}]interface{}) {
+				panic("ooh")
+			}
+			func main() {
+				f(make(map[interface{}]interface{}))
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+				},
+			},
+		},
+		{
+			"chan int",
+			`package main
+			func f(a chan int) {
+				panic("ooh")
+			}
+			func main() {
+				f(make(chan int))
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}},
+						},
+					},
+					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+				},
+			},
+		},
+		{
+			"chan interface{}",
+			`package main
+			func f(a chan interface{}) {
+				panic("ooh")
+			}
+			func main() {
+				f(make(chan interface{}))
+			}`,
+			Stack{
+				Calls: []Call{
+					{
+						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						Args: Args{
+							Values: []Arg{{Value: pointer}},
 						},
 					},
 					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
