@@ -155,23 +155,18 @@ func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl) {
 }
 
 func name(n ast.Node) string {
-	if _, ok := n.(*ast.InterfaceType); ok {
+	switch t := n.(type) {
+	case *ast.InterfaceType:
 		return "interface{}"
+	case *ast.Ident:
+		return t.Name
+	case *ast.SelectorExpr:
+		return t.Sel.Name
+	case *ast.StarExpr:
+		return "*" + name(t.X)
+	default:
+		return "<unknown>"
 	}
-	if i, ok := n.(*ast.Ident); ok {
-		return i.Name
-	}
-	if _, ok := n.(*ast.FuncType); ok {
-		return "func"
-	}
-	if s, ok := n.(*ast.SelectorExpr); ok {
-		return s.Sel.Name
-	}
-	if s, ok := n.(*ast.StarExpr); ok {
-		return "*" + name(s.X)
-	}
-	// TODO(maruel): Implement anything missing.
-	return "<unknown>"
 }
 
 // fieldToType returns the type name and whether if it's an ellipsis.
