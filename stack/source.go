@@ -53,7 +53,7 @@ func (c *cache) augmentGoroutine(goroutine *Goroutine) {
 	}
 
 	// Once all loaded, we can look at the next call when available.
-	for i := 0; i < len(goroutine.Stack.Calls); i++ {
+	for i := 0; i < len(goroutine.Stack.Calls)-1; i++ {
 		// Get the AST from the previous call and process the call line with it.
 		if f := c.getFuncAST(&goroutine.Stack.Calls[i]); f != nil {
 			processCall(&goroutine.Stack.Calls[i], f)
