@@ -53,7 +53,7 @@ func (c *cache) augmentGoroutine(goroutine *Goroutine) {
 	}
 
 	// Once all loaded, we can look at the next call when available.
-	for i := 1; i < len(goroutine.Stack.Calls); i++ {
+	for i := 0; i < len(goroutine.Stack.Calls); i++ {
 		// Get the AST from the previous call and process the call line with it.
 		if f := c.getFuncAST(&goroutine.Stack.Calls[i]); f != nil {
 			processCall(&goroutine.Stack.Calls[i], f)
@@ -167,6 +167,9 @@ func name(n ast.Node) string {
 	if s, ok := n.(*ast.SelectorExpr); ok {
 		return s.Sel.Name
 	}
+	if s, ok := n.(*ast.StarExpr); ok {
+		return "*" + name(s.X)
+	}
 	// TODO(maruel): Implement anything missing.
 	return "<unknown>"
 }
@@ -190,9 +193,9 @@ func fieldToType(f *ast.Field) (string, bool) {
 	case *ast.StarExpr:
 		return "*" + name(arg.X), false
 	case *ast.MapType:
-		return fmt.Sprintf("map[%s]%s", arg.Key.(*ast.Ident).Name, arg.Value.(*ast.Ident).Name), false
+		return fmt.Sprintf("map[%s]%s", name(arg.Key), name(arg.Value)), false
 	case *ast.ChanType:
-		return fmt.Sprintf("chan %s", arg.Value.(*ast.Ident).Name), false
+		return fmt.Sprintf("chan %s", name(arg.Value)), false
 	default:
 		// TODO(maruel): Implement anything missing.
 		return "<unknown>", false
