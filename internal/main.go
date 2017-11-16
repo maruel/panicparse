@@ -25,9 +25,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"syscall"
-
 	"regexp"
+	"syscall"
 
 	"github.com/maruel/panicparse/stack"
 	"github.com/mattn/go-colorable"
@@ -111,8 +110,8 @@ func Main() error {
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
 	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
-	filterFlag := flag.String("f", "", "A regexp to only show traces that does NOT match its, ex: -f 'IO wait|syscall'")
-	matchFlag := flag.String("m", "", "A regexp to only show traces that match it, ex: -ex 'semacquire|file.go'")
+	filterFlag := flag.String("f", "", "Regexp ti filter out headers that match, ex: -f 'IO wait|syscall'")
+	matchFlag := flag.String("m", "", "Regexp to filter by only headers that match, ex: -m 'semacquire|file.go'")
 	flag.Parse()
 
 	log.SetFlags(log.Lmicroseconds)
