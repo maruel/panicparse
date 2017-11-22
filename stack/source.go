@@ -115,6 +115,15 @@ type parsedFile struct {
 // getFuncAST gets the callee site function AST representation for the code
 // inside the function f at line l.
 func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl) {
+	if len(p.lineToByteOffset) <= l {
+		// The line number in the stack trace line does not exist in the file. That
+		// can only mean that the sources on disk do not match the sources used to
+		// build the binary.
+		// TODO(maruel): This should be surfaced, so that source parsing is
+		// completely ignored.
+		return
+	}
+
 	// Walk the AST to find the lineToByteOffset that fits the line number.
 	var lastFunc *ast.FuncDecl
 	var found ast.Node
