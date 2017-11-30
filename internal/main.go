@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 
 	"github.com/maruel/panicparse/stack"
@@ -55,7 +56,7 @@ var defaultPalette = stack.Palette{
 }
 
 // process copies stdin to stdout and processes any "panic: " line found.
-func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse bool) error {
+func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse bool, filter, match *regexp.Regexp) error {
 	goroutines, err := stack.ParseDump(in, out)
 	if err != nil {
 		return err
@@ -69,7 +70,16 @@ func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, 
 	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
 	srcLen, pkgLen := stack.CalcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
-		_, _ = io.WriteString(out, p.BucketHeader(&bucket, fullPath, len(buckets) > 1))
+		header := p.BucketHeader(&bucket, fullPath, len(buckets) > 1)
+		if filter != nil && filter.MatchString(header) {
+			continue
+		}
+
+		if match != nil && !match.MatchString(header) {
+			continue
+		}
+
+		_, _ = io.WriteString(out, header)
 		_, _ = io.WriteString(out, p.StackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
 	}
 	return err
@@ -100,11 +110,36 @@ func Main() error {
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
 	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
+	filterFlag := flag.String("f", "", "Regexp ti filter out headers that match, ex: -f 'IO wait|syscall'")
+	matchFlag := flag.String("m", "", "Regexp to filter by only headers that match, ex: -m 'semacquire|file.go'")
 	flag.Parse()
 
 	log.SetFlags(log.Lmicroseconds)
 	if !*verboseFlag {
 		log.SetOutput(ioutil.Discard)
+	}
+
+	var (
+		excludeRe *regexp.Regexp
+		matchRe   *regexp.Regexp
+	)
+
+	if *filterFlag != "" {
+		var err error
+		if excludeRe, err = regexp.Compile(*filterFlag); err != nil {
+			return err
+		}
+	}
+
+	if *matchFlag != "" {
+		var err error
+		if matchRe, err = regexp.Compile(*matchFlag); err != nil {
+			return err
+		}
+	}
+
+	if excludeRe != nil && matchRe != nil {
+		return errors.New("can't specify both match and filter")
 	}
 
 	s := stack.AnyPointer
@@ -135,5 +170,5 @@ func Main() error {
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return process(in, out, p, s, *fullPath, *parse)
+	return process(in, out, p, s, *fullPath, *parse, excludeRe, matchRe)
 }
