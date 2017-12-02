@@ -10,9 +10,11 @@ package main
 // To install, run:
 //   go install github.com/maruel/panicparse/internal/panic
 //   panic -help
+//   panic str |& pp
 //
-// You can also run directly:
-//   go run ./internal/panic/main.go str |& pp
+// Some panics require the race detector with -race:
+//   go install -race github.com/maruel/panicparse/internal/panic
+//   panic race |& pp
 //
 // To add a new panic stack signature, add it to types type below, keeping the
 // list ordered by name. If you need utility functions, add it in the section
@@ -81,6 +83,11 @@ var types = map[string]struct {
 		func() {
 			panicint(42)
 		},
+	},
+
+	"race": {
+		"will cause a crash by -race detector",
+		panicRace,
 	},
 
 	"simple": {
