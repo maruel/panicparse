@@ -22,7 +22,6 @@ package main
 
 import (
 	"fmt"
-	"go/build"
 	"io"
 	"os"
 	"runtime"
@@ -213,7 +212,6 @@ var types = map[string]struct {
 //
 
 func main() {
-	fmt.Printf("%v\n", build.Default.BuildTags)
 	if len(os.Args) == 2 {
 		n := os.Args[1]
 		if f, ok := types[n]; ok {
