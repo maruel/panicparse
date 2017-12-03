@@ -14,7 +14,7 @@ import (
 func panicRace() {
 	help := "'panic race' can only be used when built with the race detector.\n" +
 		"To build, use:\n" +
-		"  go install -race github.com/maruel/panicparse/internal/panic\n"
+		"  go install -race github.com/maruel/panicparse/cmd/panic\n"
 	io.WriteString(os.Stderr, help)
 	os.Exit(1)
 }
