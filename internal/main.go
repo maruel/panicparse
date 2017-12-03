@@ -54,25 +54,35 @@ var defaultPalette = stack.Palette{
 	Arguments:              resetFG,
 }
 
-// process copies stdin to stdout and processes any "panic: " line found.
-func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse bool) error {
-	goroutines, err := stack.ParseDump(in, out)
-	if err != nil {
-		return err
+func writeToConsole(out io.Writer, p *stack.Palette, buckets stack.Buckets, fullPath, needsEnv bool) error {
+	if needsEnv {
+		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#gotraceback\n\n")
 	}
-	if len(goroutines) == 1 && showBanner() {
-		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#GOTRACEBACK\n\n")
-	}
-	if parse {
-		stack.Augment(goroutines)
-	}
-	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
 	srcLen, pkgLen := stack.CalcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
 		_, _ = io.WriteString(out, p.BucketHeader(&bucket, fullPath, len(buckets) > 1))
 		_, _ = io.WriteString(out, p.StackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
 	}
-	return err
+	return nil
+}
+
+// process copies stdin to stdout and processes any "panic: " line found.
+//
+// If html is used, a stack trace is written to this file instead.
+func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse bool, html string) error {
+	goroutines, err := stack.ParseDump(in, out)
+	if err != nil {
+		return err
+	}
+	needsEnv := len(goroutines) == 1 && showBanner()
+	if parse {
+		stack.Augment(goroutines)
+	}
+	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
+	if html == "" {
+		return writeToConsole(out, p, buckets, fullPath, needsEnv)
+	}
+	return writeToHTML(html, buckets, needsEnv)
 }
 
 func showBanner() bool {
@@ -90,9 +100,12 @@ func Main() error {
 	aggressive := flag.Bool("aggressive", false, "Aggressive deduplication including non pointers")
 	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
+	// Console only.
 	fullPath := flag.Bool("full-path", false, "Print full sources path")
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
+	// HTML only.
+	html := flag.String("html", "", "Output an HTML file")
 	flag.Parse()
 
 	log.SetFlags(log.Lmicroseconds)
@@ -105,13 +118,14 @@ func Main() error {
 		s = stack.AnyValue
 	}
 
-	var out io.Writer
+	var out io.Writer = os.Stdout
 	p := &defaultPalette
-	if *noColor && !*forceColor {
-		p = &stack.Palette{}
-		out = os.Stdout
-	} else {
-		out = colorable.NewColorableStdout()
+	if *html == "" {
+		if *noColor && !*forceColor {
+			p = &stack.Palette{}
+		} else {
+			out = colorable.NewColorableStdout()
+		}
 	}
 
 	var in *os.File
@@ -140,5 +154,6 @@ func Main() error {
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return process(in, out, p, s, *fullPath, *parse)
+
+	return process(in, out, p, s, *fullPath, *parse, *html)
 }
