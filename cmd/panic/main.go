@@ -46,6 +46,18 @@ func panicslicestr(a []string) {
 	panic(a)
 }
 
+func panicArgsElided(a, b, c, d, e, f, g, h, i, j, k int) {
+	panic(a)
+}
+
+func recurse(i int) {
+	if i > 0 {
+		recurse(i - 1)
+		return
+	}
+	panic(42)
+}
+
 //
 
 // types is all the supported types of panics.
@@ -65,6 +77,13 @@ var types = map[string]struct {
 	desc string
 	f    func()
 }{
+	"args_elided": {
+		"too many args in stack line, causing the call arguments to be elided",
+		func() {
+			panicArgsElided(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+		},
+	},
+
 	"chan_receive": {
 		"goroutine blocked on <-c",
 		func() {
@@ -160,6 +179,14 @@ var types = map[string]struct {
 	"race": {
 		"will cause a crash by -race detector",
 		panicRace,
+	},
+
+	"stack_cut_off": {
+		"too many call lines in traceback, causing higher up calls to missing",
+		func() {
+			// Observed limit is 99.
+			recurse(100)
+		},
 	},
 
 	"simple": {
