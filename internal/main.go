@@ -87,19 +87,12 @@ func showBanner() bool {
 // compiled. This is to work around the Perl Package manager 'pp' that is
 // preinstalled on some OSes.
 func Main() error {
-	signals := make(chan os.Signal)
-	go func() {
-		for {
-			<-signals
-		}
-	}()
-	signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
 	aggressive := flag.Bool("aggressive", false, "Aggressive deduplication including non pointers")
+	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
+	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
 	fullPath := flag.Bool("full-path", false, "Print full sources path")
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
-	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
-	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
 	flag.Parse()
 
 	log.SetFlags(log.Lmicroseconds)
@@ -125,13 +118,25 @@ func Main() error {
 	switch flag.NArg() {
 	case 0:
 		in = os.Stdin
+		// Explicitly silence SIGQUIT, as it is useful to gather the stack dump
+		// from the piped command..
+		signals := make(chan os.Signal)
+		go func() {
+			for {
+				<-signals
+			}
+		}()
+		signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
+
 	case 1:
+		// Do not handle SIGQUIT when passed a file to process.
 		var err error
 		name := flag.Arg(0)
 		if in, err = os.Open(name); err != nil {
 			return fmt.Errorf("did you mean to specify a valid stack dump file name? %s", err)
 		}
 		defer in.Close()
+
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
