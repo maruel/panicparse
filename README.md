@@ -23,8 +23,9 @@ Features
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
    * Usable as a library!
      [![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
-     * Warning: please pin the version (e.g. vendor it). Breaking changes are
-       not planned but may happen.
+     * Warning: please pin the major version (i.e. vendor it via
+       [dep](https://github.com/golang/dep)) as breaking changes happen on
+       [major version update](https://semver.org/).
    * Parses the source files if available to augment the output.
    * Works on Windows.
 
