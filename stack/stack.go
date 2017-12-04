@@ -691,7 +691,7 @@ func nameArguments(goroutines []Goroutine) {
 		}
 		// CreatedBy.Args is never set.
 	}
-	order := uint64Slice{}
+	order := make(uint64Slice, 0, len(objects)/2)
 	for k, obj := range objects {
 		if len(obj.args) > 1 && obj.inPrimary {
 			order = append(order, k)
@@ -707,7 +707,7 @@ func nameArguments(goroutines []Goroutine) {
 	}
 
 	// Now do the rest. This is done so the output is deterministic.
-	order = uint64Slice{}
+	order = make(uint64Slice, 0, len(objects))
 	for k := range objects {
 		order = append(order, k)
 	}
