@@ -5,7 +5,7 @@
 // panicparse: analyzes stack dump of Go processes and simplifies it.
 //
 // It is mostly useful on servers will large number of identical goroutines,
-// making the crash dump harder to read than strictly necesary.
+// making the crash dump harder to read than strictly necessary.
 //
 // Colors:
 //  - Magenta: first goroutine to be listed.
