@@ -210,7 +210,6 @@ var types = map[string]struct {
 			a := []string{"a", "b"}
 			sort.Slice(a, func(i, j int) bool {
 				panic("allo")
-				return false
 			})
 		},
 	},

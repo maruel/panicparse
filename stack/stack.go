@@ -5,7 +5,7 @@
 // Package stack analyzes stack dump of Go processes and simplifies it.
 //
 // It is mostly useful on servers will large number of identical goroutines,
-// making the crash dump harder to read than strictly necesary.
+// making the crash dump harder to read than strictly necessary.
 package stack
 
 import (
@@ -669,7 +669,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 // Private stuff.
 
 func nameArguments(goroutines []Goroutine) {
-	// Set a name for any pointer occuring more than once.
+	// Set a name for any pointer occurring more than once.
 	type object struct {
 		args      []*Arg
 		inPrimary bool
