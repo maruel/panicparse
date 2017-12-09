@@ -6,6 +6,7 @@ stack traces. Helps debugging crashes and deadlocks in heavily parallelized
 process.
 
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg?branch=master)](https://travis-ci.org/maruel/panicparse)
+[![Go Report Card](https://goreportcard.com/badge/github.com/maruel/panicparse)](https://goreportcard.com/report/github.com/maruel/panicparse)
 
 panicparse helps make sense of Go crash dumps:
 
