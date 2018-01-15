@@ -69,7 +69,10 @@ func writeToConsole(out io.Writer, p *stack.Palette, buckets stack.Buckets, full
 // process copies stdin to stdout and processes any "panic: " line found.
 //
 // If html is used, a stack trace is written to this file instead.
-func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse bool, html string) error {
+func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse, rebase bool, html string) error {
+	if !rebase {
+		stack.NoRebase()
+	}
 	goroutines, err := stack.ParseDump(in, out)
 	if err != nil {
 		return err
@@ -99,6 +102,7 @@ func showBanner() bool {
 func Main() error {
 	aggressive := flag.Bool("aggressive", false, "Aggressive deduplication including non pointers")
 	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
+	rebase := flag.Bool("rebase", true, "Guess GOROOT and GOPATH")
 	verboseFlag := flag.Bool("v", false, "Enables verbose logging output")
 	// Console only.
 	fullPath := flag.Bool("full-path", false, "Print full sources path")
@@ -155,5 +159,5 @@ func Main() error {
 		return errors.New("pipe from stdin or specify a single file")
 	}
 
-	return process(in, out, p, s, *fullPath, *parse, *html)
+	return process(in, out, p, s, *fullPath, *parse, *rebase, *html)
 }

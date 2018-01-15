@@ -18,17 +18,15 @@ import (
 	"github.com/maruel/ut"
 )
 
-var goroot = goroots[0]
-
 const crash = `panic: oh no!
 
 goroutine 1 [running]:
 panic(0x0, 0x0)
 	/home/user/src/golang/src/runtime/panic.go:464 +0x3e6
 main.crash2(0x7fe50b49d028, 0xc82000a1e0)
-	/home/user/src/foo.go:45 +0x23
+	/home/user/go/src/github.com/maruel/panicparse/cmd/pp/main.go:45 +0x23
 main.main()
-	/home/user/src/foo.go:50 +0xa6
+	/home/user/go/src/github.com/maruel/panicparse/cmd/pp/main.go:50 +0xa6
 `
 
 func Example() {
@@ -54,11 +52,12 @@ func Example() {
 	//
 	// 1: running
 	//          panic.go:464 panic(0, 0)
-	//     main foo.go:45    crash2(0x7fe50b49d028, 0xc82000a1e0)
-	//     main foo.go:50    main()
+	//     main main.go:45   crash2(0x7fe50b49d028, 0xc82000a1e0)
+	//     main main.go:50   main()
 }
 
 func TestParseDump1(t *testing.T) {
+	defer reset()
 	// One call from main, one from stdlib, one from third party.
 	// Create a long first line that will be ignored. It is to guard against
 	// https://github.com/maruel/panicparse/issues/17.
@@ -73,9 +72,9 @@ func TestParseDump1(t *testing.T) {
 		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
-		"	" + goroot + "/src/reflect/value.go:2125 +0x368",
+		"	/goroot/src/reflect/value.go:2125 +0x368",
 		"main.main()",
-		"	/gopath/src/github.com/foo/bar/baz.go:428 +0x27",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:428 +0x27",
 		"",
 	}
 	extra := &bytes.Buffer{}
@@ -99,13 +98,13 @@ func TestParseDump1(t *testing.T) {
 							Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 						},
 						{
-							SourcePath: goroot + "/src/reflect/value.go",
+							SourcePath: "/goroot/src/reflect/value.go",
 							Line:       2125,
 							Func:       Function{"reflect.Value.assignTo"},
 							Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 						},
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       428,
 							Func:       Function{"main.main"},
 						},
@@ -120,6 +119,7 @@ func TestParseDump1(t *testing.T) {
 }
 
 func TestParseDumpLongWait(t *testing.T) {
+	defer reset()
 	// One call from main, one from stdlib, one from third party.
 	data := []string{
 		"panic: bleh",
@@ -202,12 +202,13 @@ func TestParseDumpLongWait(t *testing.T) {
 }
 
 func TestParseDumpAsm(t *testing.T) {
+	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 16 [garbage collection]:",
 		"runtime.switchtoM()",
-		"\t" + goroot + "/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0",
+		"\t/goroot/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0",
 		"",
 	}
 	extra := &bytes.Buffer{}
@@ -220,7 +221,7 @@ func TestParseDumpAsm(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: goroot + "/src/runtime/asm_amd64.s",
+							SourcePath: "/goroot/src/runtime/asm_amd64.s",
 							Line:       198,
 							Func:       Function{Raw: "runtime.switchtoM"},
 						},
@@ -236,22 +237,23 @@ func TestParseDumpAsm(t *testing.T) {
 }
 
 func TestParseDumpLineErr(t *testing.T) {
+	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 1 [running]:",
-		"github.com/foo/bar.recurseType()",
-		"\t/gopath/src/github.com/foo/bar/baz.go:12345678901234567890",
+		"github.com/maruel/panicparse/stack/stack.recurseType()",
+		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890",
 		"",
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, errors.New("failed to parse int on line: \"\t/gopath/src/github.com/foo/bar/baz.go:12345678901234567890\n\""), err)
+	ut.AssertEqual(t, errors.New("failed to parse int on line: \"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890\n\""), err)
 	expected := []Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
-				Stack: Stack{Calls: []Call{{Func: Function{Raw: "github.com/foo/bar.recurseType"}}}},
+				Stack: Stack{Calls: []Call{{Func: Function{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"}}}},
 			},
 			ID:    1,
 			First: true,
@@ -262,17 +264,18 @@ func TestParseDumpLineErr(t *testing.T) {
 }
 
 func TestParseDumpValueErr(t *testing.T) {
+	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 1 [running]:",
-		"github.com/foo/bar.recurseType(123456789012345678901)",
-		"\t/gopath/src/github.com/foo/bar/baz.go:9",
+		"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)",
+		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:9",
 		"",
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, errors.New("failed to parse int on line: \"github.com/foo/bar.recurseType(123456789012345678901)\n\""), err)
+	ut.AssertEqual(t, errors.New("failed to parse int on line: \"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)\n\""), err)
 	expected := []Goroutine{
 		{
 			Signature: Signature{State: "running"},
@@ -285,13 +288,14 @@ func TestParseDumpValueErr(t *testing.T) {
 }
 
 func TestParseDumpOrderErr(t *testing.T) {
+	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 16 [garbage collection]:",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"runtime.switchtoM()",
-		"\t" + goroot + "/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0",
+		"\t/goroot/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0",
 		"",
 	}
 	extra := &bytes.Buffer{}
@@ -309,15 +313,16 @@ func TestParseDumpOrderErr(t *testing.T) {
 }
 
 func TestParseDumpElided(t *testing.T) {
+	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 16 [garbage collection]:",
-		"github.com/foo/bar.recurseType(0x7f4fa9a3ec70, 0xc208062580, 0x7f4fa9a3e818, 0x50a820, 0xc20803a8a0)",
-		"\t/gopath/src/github.com/foo/bar/baz.go:53 +0x845 fp=0xc20cfc66d8 sp=0xc20cfc6470",
+		"github.com/maruel/panicparse/stack/stack.recurseType(0x7f4fa9a3ec70, 0xc208062580, 0x7f4fa9a3e818, 0x50a820, 0xc20803a8a0)",
+		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:53 +0x845 fp=0xc20cfc66d8 sp=0xc20cfc6470",
 		"...additional frames elided...",
 		"created by testing.RunTests",
-		"\t" + goroot + "/src/testing/testing.go:555 +0xa8b",
+		"\t/goroot/src/testing/testing.go:555 +0xa8b",
 		"",
 	}
 	extra := &bytes.Buffer{}
@@ -330,9 +335,9 @@ func TestParseDumpElided(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       53,
-							Func:       Function{Raw: "github.com/foo/bar.recurseType"},
+							Func:       Function{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"},
 							Args: Args{
 								Values: []Arg{
 									{Value: 0x7f4fa9a3ec70},
@@ -347,7 +352,7 @@ func TestParseDumpElided(t *testing.T) {
 					Elided: true,
 				},
 				CreatedBy: Call{
-					SourcePath: goroot + "/src/testing/testing.go",
+					SourcePath: "/goroot/src/testing/testing.go",
 					Line:       555,
 					Func:       Function{Raw: "testing.RunTests"},
 				},
@@ -361,20 +366,21 @@ func TestParseDumpElided(t *testing.T) {
 }
 
 func TestParseDumpSysCall(t *testing.T) {
+	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 5 [syscall]:",
 		"runtime.notetsleepg(0x918100, 0xffffffffffffffff, 0x1)",
-		"\t" + goroot + "/src/runtime/lock_futex.go:201 +0x52 fp=0xc208018f68 sp=0xc208018f40",
+		"\t/goroot/src/runtime/lock_futex.go:201 +0x52 fp=0xc208018f68 sp=0xc208018f40",
 		"runtime.signal_recv(0x0)",
-		"\t" + goroot + "/src/runtime/sigqueue.go:109 +0x135 fp=0xc208018fa0 sp=0xc208018f68",
+		"\t/goroot/src/runtime/sigqueue.go:109 +0x135 fp=0xc208018fa0 sp=0xc208018f68",
 		"os/signal.loop()",
-		"\t" + goroot + "/src/os/signal/signal_unix.go:21 +0x1f fp=0xc208018fe0 sp=0xc208018fa0",
+		"\t/goroot/src/os/signal/signal_unix.go:21 +0x1f fp=0xc208018fe0 sp=0xc208018fa0",
 		"runtime.goexit()",
-		"\t" + goroot + "/src/runtime/asm_amd64.s:2232 +0x1 fp=0xc208018fe8 sp=0xc208018fe0",
+		"\t/goroot/src/runtime/asm_amd64.s:2232 +0x1 fp=0xc208018fe8 sp=0xc208018fe0",
 		"created by os/signal.init·1",
-		"\t" + goroot + "/src/os/signal/signal_unix.go:27 +0x35",
+		"\t/goroot/src/os/signal/signal_unix.go:27 +0x35",
 		"",
 	}
 	extra := &bytes.Buffer{}
@@ -387,7 +393,7 @@ func TestParseDumpSysCall(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: goroot + "/src/runtime/lock_futex.go",
+							SourcePath: "/goroot/src/runtime/lock_futex.go",
 							Line:       201,
 							Func:       Function{Raw: "runtime.notetsleepg"},
 							Args: Args{
@@ -399,7 +405,7 @@ func TestParseDumpSysCall(t *testing.T) {
 							},
 						},
 						{
-							SourcePath: goroot + "/src/runtime/sigqueue.go",
+							SourcePath: "/goroot/src/runtime/sigqueue.go",
 							Line:       109,
 							Func:       Function{Raw: "runtime.signal_recv"},
 							Args: Args{
@@ -407,19 +413,19 @@ func TestParseDumpSysCall(t *testing.T) {
 							},
 						},
 						{
-							SourcePath: goroot + "/src/os/signal/signal_unix.go",
+							SourcePath: "/goroot/src/os/signal/signal_unix.go",
 							Line:       21,
 							Func:       Function{Raw: "os/signal.loop"},
 						},
 						{
-							SourcePath: goroot + "/src/runtime/asm_amd64.s",
+							SourcePath: "/goroot/src/runtime/asm_amd64.s",
 							Line:       2232,
 							Func:       Function{Raw: "runtime.goexit"},
 						},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: goroot + "/src/os/signal/signal_unix.go",
+					SourcePath: "/goroot/src/os/signal/signal_unix.go",
 					Line:       27,
 					Func:       Function{Raw: "os/signal.init·1"},
 				},
@@ -433,13 +439,14 @@ func TestParseDumpSysCall(t *testing.T) {
 }
 
 func TestParseDumpUnavail(t *testing.T) {
+	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
 		"goroutine 24 [running]:",
 		"\tgoroutine running on other thread; stack unavailable",
-		"created by github.com/foo.New",
-		"\t/gopath/src/github.com/foo/bar.go:131 +0x381",
+		"created by github.com/maruel/panicparse/stack.New",
+		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:131 +0x381",
 		"",
 	}
 	extra := &bytes.Buffer{}
@@ -453,9 +460,9 @@ func TestParseDumpUnavail(t *testing.T) {
 					Calls: []Call{{SourcePath: "<unavailable>"}},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/foo/bar.go",
+					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:       131,
-					Func:       Function{Raw: "github.com/foo.New"},
+					Func:       Function{Raw: "github.com/maruel/panicparse/stack.New"},
 				},
 			},
 			ID:    24,
@@ -467,21 +474,22 @@ func TestParseDumpUnavail(t *testing.T) {
 }
 
 func TestParseDumpSameBucket(t *testing.T) {
+	defer reset()
 	// 2 goroutines with the same signature
 	data := []string{
 		"panic: runtime error: index out of range",
 		"",
 		"goroutine 6 [chan receive]:",
 		"main.func·001()",
-		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"created by main.mainImpl",
-		"	/gopath/src/github.com/foo/bar/baz.go:74 +0xeb",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:74 +0xeb",
 		"",
 		"goroutine 7 [chan receive]:",
 		"main.func·001()",
-		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"created by main.mainImpl",
-		"	/gopath/src/github.com/foo/bar/baz.go:74 +0xeb",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:74 +0xeb",
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
@@ -493,14 +501,14 @@ func TestParseDumpSameBucket(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       72,
 							Func:       Function{"main.func·001"},
 						},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:       74,
 					Func:       Function{"main.mainImpl"},
 				},
@@ -514,14 +522,14 @@ func TestParseDumpSameBucket(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       72,
 							Func:       Function{"main.func·001"},
 						},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:       74,
 					Func:       Function{"main.mainImpl"},
 				},
@@ -535,17 +543,18 @@ func TestParseDumpSameBucket(t *testing.T) {
 }
 
 func TestBucketizeNotAggressive(t *testing.T) {
+	defer reset()
 	// 2 goroutines with the same signature
 	data := []string{
 		"panic: runtime error: index out of range",
 		"",
 		"goroutine 6 [chan receive]:",
 		"main.func·001(0x11000000, 2)",
-		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 		"goroutine 7 [chan receive]:",
 		"main.func·001(0x21000000, 2)",
-		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
@@ -557,7 +566,7 @@ func TestBucketizeNotAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       72,
 							Func:       Function{"main.func·001"},
 							Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
@@ -574,7 +583,7 @@ func TestBucketizeNotAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       72,
 							Func:       Function{"main.func·001"},
 							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
@@ -594,21 +603,22 @@ func TestBucketizeNotAggressive(t *testing.T) {
 }
 
 func TestBucketizeAggressive(t *testing.T) {
+	defer reset()
 	// 2 goroutines with the same signature
 	data := []string{
 		"panic: runtime error: index out of range",
 		"",
 		"goroutine 6 [chan receive, 10 minutes]:",
 		"main.func·001(0x11000000, 2)",
-		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 		"goroutine 7 [chan receive, 50 minutes]:",
 		"main.func·001(0x21000000, 2)",
-		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 		"goroutine 8 [chan receive, 100 minutes]:",
 		"main.func·001(0x21000000, 2)",
-		"	/gopath/src/github.com/foo/bar/baz.go:72 +0x49",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
@@ -622,7 +632,7 @@ func TestBucketizeAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       72,
 							Func:       Function{"main.func·001"},
 							Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
@@ -641,7 +651,7 @@ func TestBucketizeAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       72,
 							Func:       Function{"main.func·001"},
 							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
@@ -659,7 +669,7 @@ func TestBucketizeAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       72,
 							Func:       Function{"main.func·001"},
 							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
@@ -678,7 +688,7 @@ func TestBucketizeAggressive(t *testing.T) {
 		Stack: Stack{
 			Calls: []Call{
 				{
-					SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:       72,
 					Func:       Function{"main.func·001"},
 					Args:       Args{Values: []Arg{{0x11000000, "*"}, {Value: 2}}},
@@ -691,14 +701,15 @@ func TestBucketizeAggressive(t *testing.T) {
 }
 
 func TestParseDumpNoOffset(t *testing.T) {
+	defer reset()
 	data := []string{
 		"panic: runtime error: index out of range",
 		"",
 		"goroutine 37 [runnable]:",
-		"github.com/foo.func·002()",
-		"	/gopath/src/github.com/foo/bar.go:110",
-		"created by github.com/foo.New",
-		"	/gopath/src/github.com/foo/bar.go:113 +0x43b",
+		"github.com/maruel/panicparse/stack.func·002()",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:110",
+		"created by github.com/maruel/panicparse/stack.New",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:113 +0x43b",
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
@@ -710,16 +721,16 @@ func TestParseDumpNoOffset(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       110,
-							Func:       Function{"github.com/foo.func·002"},
+							Func:       Function{"github.com/maruel/panicparse/stack.func·002"},
 						},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/foo/bar.go",
+					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:       113,
-					Func:       Function{"github.com/foo.New"},
+					Func:       Function{"github.com/maruel/panicparse/stack.New"},
 				},
 			},
 			ID:    37,
@@ -730,6 +741,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 }
 
 func TestParseDumpJunk(t *testing.T) {
+	defer reset()
 	// For coverage of scanLines.
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -750,23 +762,24 @@ func TestParseDumpJunk(t *testing.T) {
 }
 
 func TestParseCCode(t *testing.T) {
+	defer reset()
 	data := []string{
 		"SIGQUIT: quit",
 		"PC=0x43f349",
 		"",
 		"goroutine 0 [idle]:",
 		"runtime.epollwait(0x4, 0x7fff671c7118, 0xffffffff00000080, 0x0, 0xffffffff0028c1be, 0x0, 0x0, 0x0, 0x0, 0x0, ...)",
-		"        " + goroot + "/src/runtime/sys_linux_amd64.s:400 +0x19",
+		"        /goroot/src/runtime/sys_linux_amd64.s:400 +0x19",
 		"runtime.netpoll(0x901b01, 0x0)",
-		"        " + goroot + "/src/runtime/netpoll_epoll.go:68 +0xa3",
+		"        /goroot/src/runtime/netpoll_epoll.go:68 +0xa3",
 		"findrunnable(0xc208012000)",
-		"        " + goroot + "/src/runtime/proc.c:1472 +0x485",
+		"        /goroot/src/runtime/proc.c:1472 +0x485",
 		"schedule()",
-		"        " + goroot + "/src/runtime/proc.c:1575 +0x151",
+		"        /goroot/src/runtime/proc.c:1575 +0x151",
 		"runtime.park_m(0xc2080017a0)",
-		"        " + goroot + "/src/runtime/proc.c:1654 +0x113",
+		"        /goroot/src/runtime/proc.c:1654 +0x113",
 		"runtime.mcall(0x432684)",
-		"        " + goroot + "/src/runtime/asm_amd64.s:186 +0x5a",
+		"        /goroot/src/runtime/asm_amd64.s:186 +0x5a",
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
@@ -778,7 +791,7 @@ func TestParseCCode(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: goroot + "/src/runtime/sys_linux_amd64.s",
+							SourcePath: "/goroot/src/runtime/sys_linux_amd64.s",
 							Line:       400,
 							Func:       Function{"runtime.epollwait"},
 							Args: Args{
@@ -798,30 +811,30 @@ func TestParseCCode(t *testing.T) {
 							},
 						},
 						{
-							SourcePath: goroot + "/src/runtime/netpoll_epoll.go",
+							SourcePath: "/goroot/src/runtime/netpoll_epoll.go",
 							Line:       68,
 							Func:       Function{"runtime.netpoll"},
 							Args:       Args{Values: []Arg{{Value: 0x901b01}, {}}},
 						},
 						{
-							SourcePath: goroot + "/src/runtime/proc.c",
+							SourcePath: "/goroot/src/runtime/proc.c",
 							Line:       1472,
 							Func:       Function{"findrunnable"},
 							Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
 						},
 						{
-							SourcePath: goroot + "/src/runtime/proc.c",
+							SourcePath: "/goroot/src/runtime/proc.c",
 							Line:       1575,
 							Func:       Function{"schedule"},
 						},
 						{
-							SourcePath: goroot + "/src/runtime/proc.c",
+							SourcePath: "/goroot/src/runtime/proc.c",
 							Line:       1654,
 							Func:       Function{"runtime.park_m"},
 							Args:       Args{Values: []Arg{{Value: 0xc2080017a0}}},
 						},
 						{
-							SourcePath: goroot + "/src/runtime/asm_amd64.s",
+							SourcePath: "/goroot/src/runtime/asm_amd64.s",
 							Line:       186,
 							Func:       Function{"runtime.mcall"},
 							Args:       Args{Values: []Arg{{Value: 0x432684}}},
@@ -837,6 +850,7 @@ func TestParseCCode(t *testing.T) {
 }
 
 func TestParseWithCarriageReturn(t *testing.T) {
+	defer reset()
 	data := []string{
 		"goroutine 1 [running]:",
 		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
@@ -844,9 +858,9 @@ func TestParseWithCarriageReturn(t *testing.T) {
 		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
-		"	" + goroot + "/src/reflect/value.go:2125 +0x368",
+		"	/goroot/src/reflect/value.go:2125 +0x368",
 		"main.main()",
-		"	/gopath/src/github.com/foo/bar/baz.go:428 +0x27",
+		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:428 +0x27",
 		"",
 	}
 
@@ -869,13 +883,13 @@ func TestParseWithCarriageReturn(t *testing.T) {
 							Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 						},
 						{
-							SourcePath: goroot + "/src/reflect/value.go",
+							SourcePath: "/goroot/src/reflect/value.go",
 							Line:       2125,
 							Func:       Function{"reflect.Value.assignTo"},
 							Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 						},
 						{
-							SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
+							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:       428,
 							Func:       Function{"main.main"},
 						},
@@ -890,6 +904,9 @@ func TestParseWithCarriageReturn(t *testing.T) {
 }
 
 func TestCallPkg1(t *testing.T) {
+	defer reset()
+	goroot = "/goroot"
+	gopaths = map[string]string{"/gopath": getGOPATHs()[0]}
 	c := Call{
 		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:       153,
@@ -908,6 +925,9 @@ func TestCallPkg1(t *testing.T) {
 }
 
 func TestCallPkg2(t *testing.T) {
+	defer reset()
+	goroot = "/goroot"
+	gopaths = map[string]string{"/gopath": getGOPATHs()[0]}
 	c := Call{
 		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:       153,
@@ -928,8 +948,10 @@ func TestCallPkg2(t *testing.T) {
 }
 
 func TestCallStdlib(t *testing.T) {
+	defer reset()
+	goroot = "/goroot"
 	c := Call{
-		SourcePath: goroot + "/src/reflect/value.go",
+		SourcePath: "/goroot/src/reflect/value.go",
 		Line:       2125,
 		Func:       Function{"reflect.Value.assignTo"},
 		Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
@@ -946,14 +968,17 @@ func TestCallStdlib(t *testing.T) {
 }
 
 func TestCallMain(t *testing.T) {
+	defer reset()
+	goroot = "/goroot"
+	gopaths = map[string]string{"/gopath": getGOPATHs()[0]}
 	c := Call{
-		SourcePath: "/gopath/src/github.com/foo/bar/main.go",
+		SourcePath: "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
 		Line:       428,
 		Func:       Function{"main.main"},
 	}
 	ut.AssertEqual(t, "main.go", c.SourceName())
 	ut.AssertEqual(t, "main.go:428", c.SourceLine())
-	ut.AssertEqual(t, filepath.Join("bar", "main.go"), c.PkgSource())
+	ut.AssertEqual(t, filepath.Join("pp", "main.go"), c.PkgSource())
 	ut.AssertEqual(t, "main.main", c.Func.String())
 	ut.AssertEqual(t, "main", c.Func.Name())
 	ut.AssertEqual(t, "main", c.Func.PkgName())
@@ -963,8 +988,11 @@ func TestCallMain(t *testing.T) {
 }
 
 func TestCallC(t *testing.T) {
+	defer reset()
+	goroot = "/goroot"
+	gopaths = map[string]string{"/gopath": getGOPATHs()[0]}
 	c := Call{
-		SourcePath: goroot + "/src/runtime/proc.c",
+		SourcePath: "/goroot/src/runtime/proc.c",
 		Line:       1472,
 		Func:       Function{"findrunnable"},
 		Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
@@ -1015,4 +1043,11 @@ func TestFunctionGC(t *testing.T) {
 	ut.AssertEqual(t, "gc", f.Name())
 	ut.AssertEqual(t, "", f.PkgName())
 	ut.AssertEqual(t, false, f.IsExported())
+}
+
+//
+
+func reset() {
+	goroot = ""
+	gopaths = nil
 }

@@ -14,9 +14,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -60,13 +62,24 @@ var (
 	reCreated = regexp.MustCompile("^created by (.+)\r?\n$")
 	reFunc    = regexp.MustCompile("^(.+)\\((.*)\\)\r?\n$")
 	reElided  = regexp.MustCompile("^\\.\\.\\.additional frames elided\\.\\.\\.\r?\n$")
-	// Include frequent GOROOT value on Windows, distro provided and user
-	// installed path. This simplifies the user's life when processing a trace
-	// generated on another VM.
-	// TODO(maruel): Guess the path automatically via traces containing the
-	// 'runtime' package, which is very frequent. This would be "less bad" than
-	// throwing up random values at the parser.
-	goroots = []string{runtime.GOROOT(), "c:/go", "/usr/lib/go", "/usr/local/go"}
+
+	// TODO(maruel): This is a global state, affected by ParseDump(). This will
+	// be refactored in v2.
+
+	// goroot is the GOROOT as detected in the traceback, not the on the host.
+	//
+	// It can be empty if no root was determined, for example the traceback
+	// contains only non-stdlib source references.
+	goroot string
+	// gopaths is the GOPATH as detected in the traceback, with the value being
+	// the corresponding path mapped to the host.
+	//
+	// It can be empty if only stdlib code is in the traceback or if no local
+	// sources were matched up. In the general case there is only one.
+	gopaths map[string]string
+	// Corresponding local values on the host.
+	localgoroot  = runtime.GOROOT()
+	localgopaths = getGOPATHs()
 )
 
 // Function is a function call.
@@ -235,7 +248,7 @@ func (a *Args) Merge(r *Args) Args {
 
 // Call is an item in the stack trace.
 type Call struct {
-	SourcePath string   // Full path name of the source file
+	SourcePath string   // Full path name of the source file as seen in the trace
 	Line       int      // Line number
 	Func       Function // Fully qualified function name (encoded).
 	Args       Args     // Call arguments
@@ -272,7 +285,23 @@ func (c *Call) SourceLine() string {
 	return fmt.Sprintf("%s:%d", c.SourceName(), c.Line)
 }
 
+// LocalSourcePath is the full path name of the source file as seen in the host.
+func (c *Call) LocalSourcePath() string {
+	// TODO(maruel): Call needs members goroot and gopaths.
+	if strings.HasPrefix(c.SourcePath, goroot) {
+		return filepath.Join(localgoroot, c.SourcePath[len(goroot):])
+	}
+	for prefix, dest := range gopaths {
+		if strings.HasPrefix(c.SourcePath, prefix) {
+			return filepath.Join(dest, c.SourcePath[len(prefix):])
+		}
+	}
+	return c.SourcePath
+}
+
 // FullSourceLine returns "/path/to/source.go:line".
+//
+// This file path is mutated to look like the local path.
 func (c *Call) FullSourceLine() string {
 	return fmt.Sprintf("%s:%d", c.SourcePath, c.Line)
 }
@@ -287,13 +316,8 @@ const testMainSource = "_test" + string(os.PathSeparator) + "_testmain.go"
 // IsStdlib returns true if it is a Go standard library function. This includes
 // the 'go test' generated main executable.
 func (c *Call) IsStdlib() bool {
-	for _, goroot := range goroots {
-		if strings.HasPrefix(c.SourcePath, goroot) {
-			return true
-		}
-	}
 	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
-	return c.PkgSource() == testMainSource
+	return (goroot != "" && strings.HasPrefix(c.SourcePath, goroot)) || c.PkgSource() == testMainSource
 }
 
 // IsPkgMain returns true if it is in the main package.
@@ -663,7 +687,24 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 		goroutine = nil
 	}
 	nameArguments(goroutines)
+	// Mutate global state.
+	// TODO(maruel): Make this part of the context instead of a global.
+	if goroot == "" {
+		findRoots(goroutines)
+	}
 	return goroutines, scanner.Err()
+}
+
+// NoRebase disables GOROOT and GOPATH guessing in ParseDump().
+//
+// BUG: This function will be removed in v2, as ParseDump() will accept a flag
+// explicitly.
+func NoRebase() {
+	goroot = runtime.GOROOT()
+	gopaths = map[string]string{}
+	for _, p := range getGOPATHs() {
+		gopaths[p] = p
+	}
 }
 
 // Private stuff.
@@ -723,6 +764,133 @@ func nameArguments(goroutines []Goroutine) {
 		}
 		nextID++
 	}
+}
+
+// hasPathPrefix returns true if any of s is the prefix of p.
+func hasPathPrefix(p string, s map[string]string) bool {
+	for prefix := range s {
+		if strings.HasPrefix(p, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// getFiles returns all the source files deduped and ordered.
+func getFiles(goroutines []Goroutine) []string {
+	files := map[string]struct{}{}
+	for _, g := range goroutines {
+		for _, c := range g.Stack.Calls {
+			files[c.SourcePath] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(files))
+	for f := range files {
+		out = append(out, f)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// splitPath splits a path into its components.
+//
+// The first item has its initial path separator kept.
+func splitPath(p string) []string {
+	if p == "" {
+		return nil
+	}
+	var out []string
+	s := ""
+	for _, c := range p {
+		if c != '/' || (len(out) == 0 && strings.Count(s, "/") == len(s)) {
+			s += string(c)
+		} else if s != "" {
+			out = append(out, s)
+			s = ""
+		}
+	}
+	if s != "" {
+		out = append(out, s)
+	}
+	return out
+}
+
+// isFile returns true if the path is a valid file.
+func isFile(p string) bool {
+	// TODO(maruel): Is it faster to open the file or to stat it? Worth a perf
+	// test on Windows.
+	i, err := os.Stat(p)
+	return err == nil && !i.IsDir()
+}
+
+// isRootIn returns a root if the file split in parts is rooted in root.
+func rootedIn(root string, parts []string) string {
+	//log.Printf("rootIn(%s, %v)", root, parts)
+	for i := 1; i < len(parts); i++ {
+		suffix := filepath.Join(parts[i:]...)
+		if isFile(filepath.Join(root, suffix)) {
+			return filepath.Join(parts[:i]...)
+		}
+	}
+	return ""
+}
+
+// findRoots sets global variables goroot and gopath.
+//
+// TODO(maruel): In v2, it will be a property of the new struct that will
+// contain the goroutines.
+func findRoots(goroutines []Goroutine) {
+	gopaths = map[string]string{}
+	for _, f := range getFiles(goroutines) {
+		// TODO(maruel): Could a stack dump have mixed cases? I think it's
+		// possible, need to confirm and handle.
+		//log.Printf("  Analyzing %s", f)
+		if goroot != "" && strings.HasPrefix(f, goroot+"/") {
+			continue
+		}
+		if gopaths != nil && hasPathPrefix(f, gopaths) {
+			continue
+		}
+		parts := splitPath(f)
+		if goroot == "" {
+			if r := rootedIn(localgoroot, parts); r != "" {
+				goroot = r
+				log.Printf("Found GOROOT=%s", goroot)
+				continue
+			}
+		}
+		found := false
+		for _, l := range localgopaths {
+			if r := rootedIn(l, parts); r != "" {
+				log.Printf("Found GOPATH=%s", r)
+				gopaths[r] = l
+				found = true
+				break
+			}
+		}
+		if !found {
+			// If the source is not found, just too bad.
+			//log.Printf("Failed to find locally: %s / %s", f, goroot)
+		}
+	}
+}
+
+func getGOPATHs() []string {
+	var out []string
+	for _, v := range filepath.SplitList(os.Getenv("GOPATH")) {
+		// Disallow non-absolute paths?
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 {
+		u, err := user.Current()
+		if err != nil {
+			panic(err)
+		}
+		out = []string{u.HomeDir + "go"}
+	}
+	return out
 }
 
 type uint64Slice []uint64

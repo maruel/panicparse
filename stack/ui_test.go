@@ -26,23 +26,33 @@ var p = &Palette{
 }
 
 func TestCalcLengths(t *testing.T) {
-	t.Parallel()
+	defer reset()
+	goroot = "/goroot"
+	dest := getGOPATHs()[0]
+	gopaths = map[string]string{"/gopath": dest}
 	b := Buckets{
 		{
-			Signature{Stack: Stack{Calls: []Call{{SourcePath: "/gopath/baz.go", Func: Function{"main.func·001"}}}}},
+			Signature{Stack: Stack{Calls: []Call{{SourcePath: "/gopath/foo/baz.go", Line: 123, Func: Function{"foo.func·001"}}}}},
 			nil,
 		},
 	}
 	srcLen, pkgLen := CalcLengths(b, true)
-	ut.AssertEqual(t, 16, srcLen)
-	ut.AssertEqual(t, 4, pkgLen)
+	// When printing, it prints the remote path, not the transposed local path.
+	ut.AssertEqual(t, "/gopath/foo/baz.go:123", b[0].Signature.Stack.Calls[0].FullSourceLine())
+	ut.AssertEqual(t, len("/gopath/foo/baz.go:123"), srcLen)
+	ut.AssertEqual(t, len("foo"), pkgLen)
+
 	srcLen, pkgLen = CalcLengths(b, false)
-	ut.AssertEqual(t, 8, srcLen)
-	ut.AssertEqual(t, 4, pkgLen)
+	ut.AssertEqual(t, "baz.go:123", b[0].Signature.Stack.Calls[0].SourceLine())
+	ut.AssertEqual(t, len("baz.go:123"), srcLen)
+	ut.AssertEqual(t, len("foo"), pkgLen)
 }
 
 func TestBucketHeader(t *testing.T) {
-	t.Parallel()
+	defer reset()
+	goroot = "/goroot"
+	dest := getGOPATHs()[0]
+	gopaths = map[string]string{"/gopath": dest}
 	b := &Bucket{
 		Signature{
 			State: "chan receive",
@@ -61,6 +71,7 @@ func TestBucketHeader(t *testing.T) {
 			{},
 		},
 	}
+	// When printing, it prints the remote path, not the transposed local path.
 	ut.AssertEqual(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", p.BucketHeader(b, true, true))
 	ut.AssertEqual(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", p.BucketHeader(b, true, false))
 	ut.AssertEqual(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", p.BucketHeader(b, false, true))
@@ -79,13 +90,16 @@ func TestBucketHeader(t *testing.T) {
 }
 
 func TestStackLines(t *testing.T) {
-	t.Parallel()
+	defer reset()
+	goroot = "/goroot"
+	dest := getGOPATHs()[0]
+	gopaths = map[string]string{"/gopath": dest}
 	s := &Signature{
 		State: "idle",
 		Stack: Stack{
 			Calls: []Call{
 				{
-					SourcePath: goroot + "/src/runtime/sys_linux_amd64.s",
+					SourcePath: "/goroot/src/runtime/sys_linux_amd64.s",
 					Line:       400,
 					Func:       Function{"runtime.Epollwait"},
 					Args: Args{
@@ -105,24 +119,24 @@ func TestStackLines(t *testing.T) {
 					},
 				},
 				{
-					SourcePath: goroot + "/src/runtime/netpoll_epoll.go",
+					SourcePath: "/goroot/src/runtime/netpoll_epoll.go",
 					Line:       68,
 					Func:       Function{"runtime.netpoll"},
 					Args:       Args{Values: []Arg{{Value: 0x901b01}, {}}},
 				},
 				{
-					SourcePath: "/src/main.go",
+					SourcePath: "/gopath/src/main.go",
 					Line:       1472,
 					Func:       Function{"main.Main"},
 					Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
 				},
 				{
-					SourcePath: "/src/foo/bar.go",
+					SourcePath: "/gopath/src/foo/bar.go",
 					Line:       1575,
 					Func:       Function{"foo.OtherExported"},
 				},
 				{
-					SourcePath: "/src/foo/bar.go",
+					SourcePath: "/gopath/src/foo/bar.go",
 					Line:       10,
 					Func:       Function{"foo.otherPrivate"},
 				},
@@ -130,12 +144,13 @@ func TestStackLines(t *testing.T) {
 			Elided: true,
 		},
 	}
+	// When printing, it prints the remote path, not the transposed local path.
 	expected := "" +
-		"    Eruntime    F" + goroot + "/src/runtime/sys_linux_amd64.s:400 HEpollwaitL(0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
-		"    Eruntime    F" + goroot + "/src/runtime/netpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
-		"    Emain       F/src/main.go:1472 IMainL(0xc208012000)A\n" +
-		"    Efoo        F/src/foo/bar.go:1575 KOtherExportedL()A\n" +
-		"    Efoo        F/src/foo/bar.go:10 JotherPrivateL()A\n" +
+		"    Eruntime    F/goroot/src/runtime/sys_linux_amd64.s:400 HEpollwaitL(0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
+		"    Eruntime    F/goroot/src/runtime/netpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
+		"    Emain       F/gopath/src/main.go:1472 IMainL(0xc208012000)A\n" +
+		"    Efoo        F/gopath/src/foo/bar.go:1575 KOtherExportedL()A\n" +
+		"    Efoo        F/gopath/src/foo/bar.go:10 JotherPrivateL()A\n" +
 		"    (...)\n"
 	ut.AssertEqual(t, expected, p.StackLines(s, 10, 10, true))
 	expected = "" +

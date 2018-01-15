@@ -18,6 +18,7 @@ import (
 )
 
 func TestAugment(t *testing.T) {
+	defer reset()
 	data := []struct {
 		name     string
 		input    string
@@ -430,20 +431,24 @@ func TestAugment(t *testing.T) {
 
 	for i, line := range data {
 		extra := bytes.Buffer{}
-		_, content := getCrash(t, line.input)
+		_, content, clean := getCrash(t, line.input)
+		reset()
 		goroutines, err := ParseDump(bytes.NewBuffer(content), &extra)
 		if err != nil {
+			clean()
 			t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 		}
 		// On go1.4, there's one less space.
 		actual := extra.String()
 		if actual != "panic: ooh\n\nexit status 2\n" && actual != "panic: ooh\nexit status 2\n" {
+			clean()
 			t.Fatalf("Unexpected panic output:\n%#v", actual)
 		}
 		s := goroutines[0].Signature.Stack
 		t.Logf("Test: %v", line.name)
 		zapPointers(t, line.name, &line.expected, &s)
 		zapPaths(&s)
+		clean()
 		ut.AssertEqualIndex(t, i, line.expected, s)
 	}
 }
@@ -502,18 +507,21 @@ func overrideEnv(env []string, key, value string) []string {
 	return append(env, prefix+value)
 }
 
-func getCrash(t *testing.T, content string) (string, []byte) {
+func getCrash(t *testing.T, content string) (string, []byte, func()) {
+	//p := getGOPATHs()
+	//name, err := ioutil.TempDir(filepath.Join(p[0], "src"), "panicparse")
 	name, err := ioutil.TempDir("", "panicparse")
 	if err != nil {
 		t.Fatalf("failed to create temporary directory: %v", err)
 	}
-	defer func() {
+	clean := func() {
 		if err := os.RemoveAll(name); err != nil {
 			t.Fatalf("failed to remove temporary directory %q: %v", name, err)
 		}
-	}()
+	}
 	main := filepath.Join(name, "main.go")
 	if err := ioutil.WriteFile(main, []byte(content), 0500); err != nil {
+		clean()
 		t.Fatalf("failed to write %q: %v", main, err)
 	}
 	cmd := exec.Command("go", "run", main)
@@ -521,9 +529,10 @@ func getCrash(t *testing.T, content string) (string, []byte) {
 	cmd.Env = overrideEnv(os.Environ(), "GOTRACEBACK", "1")
 	out, err := cmd.CombinedOutput()
 	if err == nil {
+		clean()
 		t.Fatal("expected error since this is supposed to crash")
 	}
-	return main, out
+	return main, out, clean
 }
 
 // zapPointers zaps out pointers.

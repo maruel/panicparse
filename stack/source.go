@@ -49,7 +49,7 @@ func (c *cache) augmentGoroutine(goroutine *Goroutine) {
 	// For each call site, look at the next call and populate it. Then we can
 	// walk back and reformat things.
 	for i := range goroutine.Stack.Calls {
-		c.load(goroutine.Stack.Calls[i].SourcePath)
+		c.load(goroutine.Stack.Calls[i].LocalSourcePath())
 	}
 
 	// Once all loaded, we can look at the next call when available.
@@ -101,7 +101,7 @@ func (c *cache) load(fileName string) {
 }
 
 func (c *cache) getFuncAST(call *Call) *ast.FuncDecl {
-	if p := c.parsed[call.SourcePath]; p != nil {
+	if p := c.parsed[call.LocalSourcePath()]; p != nil {
 		return p.getFuncAST(call.Func.Name(), call.Line)
 	}
 	return nil
