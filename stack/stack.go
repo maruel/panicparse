@@ -884,11 +884,17 @@ func getGOPATHs() []string {
 		}
 	}
 	if len(out) == 0 {
+		homeDir := ""
 		u, err := user.Current()
 		if err != nil {
-			panic(err)
+			homeDir = os.Getenv("HOME")
+			if homeDir == "" {
+				panic(fmt.Sprintf("Could not get current user or $HOME: %s\n", err.Error()))
+			}
+		} else {
+			homeDir = u.HomeDir
 		}
-		out = []string{u.HomeDir + "go"}
+		out = []string{homeDir + "go"}
 	}
 	return out
 }
