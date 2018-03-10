@@ -11,10 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/maruel/ut"
 )
 
 func TestAugment(t *testing.T) {
@@ -449,7 +448,9 @@ func TestAugment(t *testing.T) {
 		zapPointers(t, line.name, &line.expected, &s)
 		zapPaths(&s)
 		clean()
-		ut.AssertEqualIndex(t, i, line.expected, s)
+		if !reflect.DeepEqual(line.expected, s) {
+			t.Fatalf("#%d: %v != %v", i, line.expected, s)
+		}
 	}
 }
 

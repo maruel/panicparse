@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/maruel/panicparse/stack"
-	"github.com/maruel/ut"
 )
 
 var data = []string{
@@ -48,8 +47,9 @@ var data = []string{
 
 func TestProcess(t *testing.T) {
 	out := &bytes.Buffer{}
-	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyPointer, false, false, true, "")
-	ut.AssertEqual(t, nil, err)
+	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyPointer, false, false, true, ""); err != nil {
+		t.Fatal(err)
+	}
 	expected := []string{
 		"panic: runtime error: index out of range",
 		"",
@@ -65,16 +65,14 @@ func TestProcess(t *testing.T) {
 		"",
 	}
 	actual := strings.Split(out.String(), "\n")
-	for i := 0; i < len(actual) && i < len(expected); i++ {
-		ut.AssertEqualIndex(t, i, expected[i], actual[i])
-	}
-	ut.AssertEqual(t, expected, actual)
+	compareLines(t, expected, actual)
 }
 
 func TestProcessFullPath(t *testing.T) {
 	out := &bytes.Buffer{}
-	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyValue, true, false, true, "")
-	ut.AssertEqual(t, nil, err)
+	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyValue, true, false, true, ""); err != nil {
+		t.Fatal(err)
+	}
 	expected := []string{
 		"panic: runtime error: index out of range",
 		"",
@@ -90,16 +88,14 @@ func TestProcessFullPath(t *testing.T) {
 		"",
 	}
 	actual := strings.Split(out.String(), "\n")
-	for i := 0; i < len(actual) && i < len(expected); i++ {
-		ut.AssertEqualIndex(t, i, expected[i], actual[i])
-	}
-	ut.AssertEqual(t, expected, actual)
+	compareLines(t, expected, actual)
 }
 
 func TestProcessNoColor(t *testing.T) {
 	out := &bytes.Buffer{}
-	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &stack.Palette{}, stack.AnyPointer, false, false, true, "")
-	ut.AssertEqual(t, nil, err)
+	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &stack.Palette{}, stack.AnyPointer, false, false, true, ""); err != nil {
+		t.Fatal(err)
+	}
 	expected := []string{
 		"panic: runtime error: index out of range",
 		"",
@@ -115,8 +111,16 @@ func TestProcessNoColor(t *testing.T) {
 		"",
 	}
 	actual := strings.Split(out.String(), "\n")
+	compareLines(t, expected, actual)
+}
+
+func compareLines(t *testing.T, expected, actual []string) {
 	for i := 0; i < len(actual) && i < len(expected); i++ {
-		ut.AssertEqualIndex(t, i, expected[i], actual[i])
+		if expected[i] != actual[i] {
+			t.Fatalf("#%d: %q != %q", i, expected[i], actual[i])
+		}
 	}
-	ut.AssertEqual(t, expected, actual)
+	if len(expected) != len(actual) {
+		t.Fatalf("different length %d != %d", len(expected), len(actual))
+	}
 }

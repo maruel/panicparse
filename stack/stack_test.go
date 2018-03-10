@@ -12,10 +12,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/maruel/ut"
 )
 
 const crash = `panic: oh no!
@@ -79,8 +78,10 @@ func TestParseDump1(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, nil, err)
-	ut.AssertEqual(t, long+"\npanic: reflect.Set: value of type\n\n", extra.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareString(t, long+"\npanic: reflect.Set: value of type\n\n", extra.String())
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -115,7 +116,7 @@ func TestParseDump1(t *testing.T) {
 			First: true,
 		},
 	}
-	ut.AssertEqual(t, expected, goroutines)
+	compareGoroutines(t, expected, goroutines)
 }
 
 func TestParseDumpLongWait(t *testing.T) {
@@ -139,8 +140,10 @@ func TestParseDumpLongWait(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, nil, err)
-	ut.AssertEqual(t, "panic: bleh\n\n", extra.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareString(t, "panic: bleh\n\n", extra.String())
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -198,7 +201,7 @@ func TestParseDumpLongWait(t *testing.T) {
 			ID: 3,
 		},
 	}
-	ut.AssertEqual(t, expected, goroutines)
+	compareGoroutines(t, expected, goroutines)
 }
 
 func TestParseDumpAsm(t *testing.T) {
@@ -213,7 +216,9 @@ func TestParseDumpAsm(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -232,8 +237,8 @@ func TestParseDumpAsm(t *testing.T) {
 			First: true,
 		},
 	}
-	ut.AssertEqual(t, expected, goroutines)
-	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareGoroutines(t, expected, goroutines)
+	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpLineErr(t *testing.T) {
@@ -248,7 +253,7 @@ func TestParseDumpLineErr(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, errors.New("failed to parse int on line: \"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890\n\""), err)
+	compareErr(t, errors.New("failed to parse int on line: \"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890\n\""), err)
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -260,7 +265,7 @@ func TestParseDumpLineErr(t *testing.T) {
 		},
 	}
 
-	ut.AssertEqual(t, expected, goroutines)
+	compareGoroutines(t, expected, goroutines)
 }
 
 func TestParseDumpValueErr(t *testing.T) {
@@ -275,7 +280,7 @@ func TestParseDumpValueErr(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, errors.New("failed to parse int on line: \"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)\n\""), err)
+	compareErr(t, errors.New("failed to parse int on line: \"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)\n\""), err)
 	expected := []Goroutine{
 		{
 			Signature: Signature{State: "running"},
@@ -284,7 +289,7 @@ func TestParseDumpValueErr(t *testing.T) {
 		},
 	}
 
-	ut.AssertEqual(t, expected, goroutines)
+	compareGoroutines(t, expected, goroutines)
 }
 
 func TestParseDumpOrderErr(t *testing.T) {
@@ -300,7 +305,7 @@ func TestParseDumpOrderErr(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, errors.New("unexpected order"), err)
+	compareErr(t, errors.New("unexpected order"), err)
 	expected := []Goroutine{
 		{
 			Signature: Signature{State: "garbage collection"},
@@ -308,8 +313,8 @@ func TestParseDumpOrderErr(t *testing.T) {
 			First:     true,
 		},
 	}
-	ut.AssertEqual(t, expected, goroutines)
-	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareGoroutines(t, expected, goroutines)
+	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpElided(t *testing.T) {
@@ -327,7 +332,9 @@ func TestParseDumpElided(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -361,8 +368,8 @@ func TestParseDumpElided(t *testing.T) {
 			First: true,
 		},
 	}
-	ut.AssertEqual(t, expected, goroutines)
-	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareGoroutines(t, expected, goroutines)
+	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpSysCall(t *testing.T) {
@@ -385,7 +392,9 @@ func TestParseDumpSysCall(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -434,8 +443,8 @@ func TestParseDumpSysCall(t *testing.T) {
 			First: true,
 		},
 	}
-	ut.AssertEqual(t, expected, goroutines)
-	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareGoroutines(t, expected, goroutines)
+	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpUnavail(t *testing.T) {
@@ -451,7 +460,9 @@ func TestParseDumpUnavail(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -469,8 +480,8 @@ func TestParseDumpUnavail(t *testing.T) {
 			First: true,
 		},
 	}
-	ut.AssertEqual(t, expected, goroutines)
-	ut.AssertEqual(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareGoroutines(t, expected, goroutines)
+	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpSameBucket(t *testing.T) {
@@ -493,7 +504,9 @@ func TestParseDumpSameBucket(t *testing.T) {
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expectedGR := []Goroutine{
 		{
 			Signature: Signature{
@@ -537,9 +550,9 @@ func TestParseDumpSameBucket(t *testing.T) {
 			ID: 7,
 		},
 	}
-	ut.AssertEqual(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, goroutines)
 	expectedBuckets := Buckets{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
-	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
+	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
 }
 
 func TestBucketizeNotAggressive(t *testing.T) {
@@ -558,7 +571,9 @@ func TestBucketizeNotAggressive(t *testing.T) {
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expectedGR := []Goroutine{
 		{
 			Signature: Signature{
@@ -594,12 +609,12 @@ func TestBucketizeNotAggressive(t *testing.T) {
 			ID: 7,
 		},
 	}
-	ut.AssertEqual(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, goroutines)
 	expectedBuckets := Buckets{
 		{expectedGR[0].Signature, []Goroutine{expectedGR[0]}},
 		{expectedGR[1].Signature, []Goroutine{expectedGR[1]}},
 	}
-	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
+	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
 }
 
 func TestBucketizeAggressive(t *testing.T) {
@@ -622,7 +637,9 @@ func TestBucketizeAggressive(t *testing.T) {
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expectedGR := []Goroutine{
 		{
 			Signature: Signature{
@@ -680,7 +697,7 @@ func TestBucketizeAggressive(t *testing.T) {
 			ID: 8,
 		},
 	}
-	ut.AssertEqual(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, goroutines)
 	signature := Signature{
 		State:    "chan receive",
 		SleepMin: 10,
@@ -697,7 +714,7 @@ func TestBucketizeAggressive(t *testing.T) {
 		},
 	}
 	expectedBuckets := Buckets{{signature, []Goroutine{expectedGR[0], expectedGR[1], expectedGR[2]}}}
-	ut.AssertEqual(t, expectedBuckets, SortBuckets(Bucketize(goroutines, AnyPointer)))
+	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(goroutines, AnyPointer)))
 }
 
 func TestParseDumpNoOffset(t *testing.T) {
@@ -713,7 +730,9 @@ func TestParseDumpNoOffset(t *testing.T) {
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expectedGR := []Goroutine{
 		{
 			Signature: Signature{
@@ -737,7 +756,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 			First: true,
 		},
 	}
-	ut.AssertEqual(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, goroutines)
 }
 
 func TestParseDumpJunk(t *testing.T) {
@@ -750,7 +769,9 @@ func TestParseDumpJunk(t *testing.T) {
 		"junk",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expectedGR := []Goroutine{
 		{
 			Signature: Signature{State: "running"},
@@ -758,7 +779,7 @@ func TestParseDumpJunk(t *testing.T) {
 			First:     true,
 		},
 	}
-	ut.AssertEqual(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, goroutines)
 }
 
 func TestParseCCode(t *testing.T) {
@@ -783,7 +804,9 @@ func TestParseCCode(t *testing.T) {
 		"",
 	}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expectedGR := []Goroutine{
 		{
 			Signature: Signature{
@@ -846,7 +869,7 @@ func TestParseCCode(t *testing.T) {
 			First: true,
 		},
 	}
-	ut.AssertEqual(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, goroutines)
 }
 
 func TestParseWithCarriageReturn(t *testing.T) {
@@ -865,7 +888,9 @@ func TestParseWithCarriageReturn(t *testing.T) {
 	}
 
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\r\n")), ioutil.Discard)
-	ut.AssertEqual(t, nil, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -900,7 +925,7 @@ func TestParseWithCarriageReturn(t *testing.T) {
 			First: true,
 		},
 	}
-	ut.AssertEqual(t, expected, goroutines)
+	compareGoroutines(t, expected, goroutines)
 }
 
 func TestCallPkg1(t *testing.T) {
@@ -913,15 +938,15 @@ func TestCallPkg1(t *testing.T) {
 		Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
 		Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
-	ut.AssertEqual(t, "yaml.go", c.SourceName())
-	ut.AssertEqual(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
-	ut.AssertEqual(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
-	ut.AssertEqual(t, "handleErr", c.Func.Name())
+	compareString(t, "yaml.go", c.SourceName())
+	compareString(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
+	compareString(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
+	compareString(t, "handleErr", c.Func.Name())
 	// This is due to directory name not matching the package name.
-	ut.AssertEqual(t, "yaml.v2", c.Func.PkgName())
-	ut.AssertEqual(t, false, c.Func.IsExported())
-	ut.AssertEqual(t, false, c.IsStdlib())
-	ut.AssertEqual(t, false, c.IsPkgMain())
+	compareString(t, "yaml.v2", c.Func.PkgName())
+	compareBool(t, false, c.Func.IsExported())
+	compareBool(t, false, c.IsStdlib())
+	compareBool(t, false, c.IsPkgMain())
 }
 
 func TestCallPkg2(t *testing.T) {
@@ -934,17 +959,17 @@ func TestCallPkg2(t *testing.T) {
 		Func:       Function{"gopkg.in/yaml%2ev2.(*decoder).unmarshal"},
 		Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
-	ut.AssertEqual(t, "yaml.go", c.SourceName())
-	ut.AssertEqual(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
+	compareString(t, "yaml.go", c.SourceName())
+	compareString(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
 	// TODO(maruel): Using '/' for this function is inconsistent on Windows
 	// w.r.t. other functions.
-	ut.AssertEqual(t, "gopkg.in/yaml.v2.(*decoder).unmarshal", c.Func.String())
-	ut.AssertEqual(t, "(*decoder).unmarshal", c.Func.Name())
+	compareString(t, "gopkg.in/yaml.v2.(*decoder).unmarshal", c.Func.String())
+	compareString(t, "(*decoder).unmarshal", c.Func.Name())
 	// This is due to directory name not matching the package name.
-	ut.AssertEqual(t, "yaml.v2", c.Func.PkgName())
-	ut.AssertEqual(t, false, c.Func.IsExported())
-	ut.AssertEqual(t, false, c.IsStdlib())
-	ut.AssertEqual(t, false, c.IsPkgMain())
+	compareString(t, "yaml.v2", c.Func.PkgName())
+	compareBool(t, false, c.Func.IsExported())
+	compareBool(t, false, c.IsStdlib())
+	compareBool(t, false, c.IsPkgMain())
 }
 
 func TestCallStdlib(t *testing.T) {
@@ -956,15 +981,15 @@ func TestCallStdlib(t *testing.T) {
 		Func:       Function{"reflect.Value.assignTo"},
 		Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 	}
-	ut.AssertEqual(t, "value.go", c.SourceName())
-	ut.AssertEqual(t, "value.go:2125", c.SourceLine())
-	ut.AssertEqual(t, filepath.Join("reflect", "value.go"), c.PkgSource())
-	ut.AssertEqual(t, "reflect.Value.assignTo", c.Func.String())
-	ut.AssertEqual(t, "Value.assignTo", c.Func.Name())
-	ut.AssertEqual(t, "reflect", c.Func.PkgName())
-	ut.AssertEqual(t, false, c.Func.IsExported())
-	ut.AssertEqual(t, true, c.IsStdlib())
-	ut.AssertEqual(t, false, c.IsPkgMain())
+	compareString(t, "value.go", c.SourceName())
+	compareString(t, "value.go:2125", c.SourceLine())
+	compareString(t, filepath.Join("reflect", "value.go"), c.PkgSource())
+	compareString(t, "reflect.Value.assignTo", c.Func.String())
+	compareString(t, "Value.assignTo", c.Func.Name())
+	compareString(t, "reflect", c.Func.PkgName())
+	compareBool(t, false, c.Func.IsExported())
+	compareBool(t, true, c.IsStdlib())
+	compareBool(t, false, c.IsPkgMain())
 }
 
 func TestCallMain(t *testing.T) {
@@ -976,15 +1001,15 @@ func TestCallMain(t *testing.T) {
 		Line:       428,
 		Func:       Function{"main.main"},
 	}
-	ut.AssertEqual(t, "main.go", c.SourceName())
-	ut.AssertEqual(t, "main.go:428", c.SourceLine())
-	ut.AssertEqual(t, filepath.Join("pp", "main.go"), c.PkgSource())
-	ut.AssertEqual(t, "main.main", c.Func.String())
-	ut.AssertEqual(t, "main", c.Func.Name())
-	ut.AssertEqual(t, "main", c.Func.PkgName())
-	ut.AssertEqual(t, true, c.Func.IsExported())
-	ut.AssertEqual(t, false, c.IsStdlib())
-	ut.AssertEqual(t, true, c.IsPkgMain())
+	compareString(t, "main.go", c.SourceName())
+	compareString(t, "main.go:428", c.SourceLine())
+	compareString(t, filepath.Join("pp", "main.go"), c.PkgSource())
+	compareString(t, "main.main", c.Func.String())
+	compareString(t, "main", c.Func.Name())
+	compareString(t, "main", c.Func.PkgName())
+	compareBool(t, true, c.Func.IsExported())
+	compareBool(t, false, c.IsStdlib())
+	compareBool(t, true, c.IsPkgMain())
 }
 
 func TestCallC(t *testing.T) {
@@ -997,15 +1022,15 @@ func TestCallC(t *testing.T) {
 		Func:       Function{"findrunnable"},
 		Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
 	}
-	ut.AssertEqual(t, "proc.c", c.SourceName())
-	ut.AssertEqual(t, "proc.c:1472", c.SourceLine())
-	ut.AssertEqual(t, filepath.Join("runtime", "proc.c"), c.PkgSource())
-	ut.AssertEqual(t, "findrunnable", c.Func.String())
-	ut.AssertEqual(t, "findrunnable", c.Func.Name())
-	ut.AssertEqual(t, "", c.Func.PkgName())
-	ut.AssertEqual(t, false, c.Func.IsExported())
-	ut.AssertEqual(t, true, c.IsStdlib())
-	ut.AssertEqual(t, false, c.IsPkgMain())
+	compareString(t, "proc.c", c.SourceName())
+	compareString(t, "proc.c:1472", c.SourceLine())
+	compareString(t, filepath.Join("runtime", "proc.c"), c.PkgSource())
+	compareString(t, "findrunnable", c.Func.String())
+	compareString(t, "findrunnable", c.Func.Name())
+	compareString(t, "", c.Func.PkgName())
+	compareBool(t, false, c.Func.IsExported())
+	compareBool(t, true, c.IsStdlib())
+	compareBool(t, false, c.IsPkgMain())
 }
 
 func TestArgs(t *testing.T) {
@@ -1024,25 +1049,25 @@ func TestArgs(t *testing.T) {
 		},
 		Elided: true,
 	}
-	ut.AssertEqual(t, "0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...", a.String())
+	compareString(t, "0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...", a.String())
 }
 
 func TestFunctionAnonymous(t *testing.T) {
 	f := Function{"main.func·001"}
-	ut.AssertEqual(t, "main.func·001", f.String())
-	ut.AssertEqual(t, "main.func·001", f.PkgDotName())
-	ut.AssertEqual(t, "func·001", f.Name())
-	ut.AssertEqual(t, "main", f.PkgName())
-	ut.AssertEqual(t, false, f.IsExported())
+	compareString(t, "main.func·001", f.String())
+	compareString(t, "main.func·001", f.PkgDotName())
+	compareString(t, "func·001", f.Name())
+	compareString(t, "main", f.PkgName())
+	compareBool(t, false, f.IsExported())
 }
 
 func TestFunctionGC(t *testing.T) {
 	f := Function{"gc"}
-	ut.AssertEqual(t, "gc", f.String())
-	ut.AssertEqual(t, "gc", f.PkgDotName())
-	ut.AssertEqual(t, "gc", f.Name())
-	ut.AssertEqual(t, "", f.PkgName())
-	ut.AssertEqual(t, false, f.IsExported())
+	compareString(t, "gc", f.String())
+	compareString(t, "gc", f.PkgDotName())
+	compareString(t, "gc", f.Name())
+	compareString(t, "", f.PkgName())
+	compareBool(t, false, f.IsExported())
 }
 
 //
@@ -1050,4 +1075,28 @@ func TestFunctionGC(t *testing.T) {
 func reset() {
 	goroot = ""
 	gopaths = nil
+}
+
+func compareBool(t *testing.T, expected, actual bool) {
+	if expected != actual {
+		t.Fatalf("%t != %t", expected, actual)
+	}
+}
+
+func compareErr(t *testing.T, expected, actual error) {
+	if expected.Error() != actual.Error() {
+		t.Fatalf("%v != %v", expected, actual)
+	}
+}
+
+func compareGoroutines(t *testing.T, expected, actual []Goroutine) {
+	if !reflect.DeepEqual(expected, actual) {
+		t.Fatalf("%v != %v", expected, actual)
+	}
+}
+
+func compareBuckets(t *testing.T, expected, actual Buckets) {
+	if !reflect.DeepEqual(expected, actual) {
+		t.Fatalf("%v != %v", expected, actual)
+	}
 }
