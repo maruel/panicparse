@@ -128,9 +128,10 @@ func compareLines(t *testing.T, expected, actual []string) {
 func TestProcessMatch(t *testing.T) {
 	out := &bytes.Buffer{}
 	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &stack.Palette{}, stack.AnyPointer,
-		false, false, nil, regexp.MustCompile(`batchArchiveRun`),
-	)
-	ut.AssertEqual(t, nil, err)
+		false, false, true, "", nil, regexp.MustCompile(`batchArchiveRun`))
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := []string{
 		"panic: runtime error: index out of range",
 		"",
@@ -142,18 +143,16 @@ func TestProcessMatch(t *testing.T) {
 		"",
 	}
 	actual := strings.Split(out.String(), "\n")
-	for i := 0; i < len(actual) && i < len(expected); i++ {
-		ut.AssertEqualIndex(t, i, expected[i], actual[i])
-	}
-	ut.AssertEqual(t, expected, actual)
+	compareLines(t, expected, actual)
 }
 
 func TestProcessFilter(t *testing.T) {
 	out := &bytes.Buffer{}
 	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &stack.Palette{}, stack.AnyPointer,
-		false, false, regexp.MustCompile(`batchArchiveRun`), nil,
-	)
-	ut.AssertEqual(t, nil, err)
+		false, false, true, "", regexp.MustCompile(`batchArchiveRun`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	expected := []string{
 		"panic: runtime error: index out of range",
 		"",
@@ -164,8 +163,5 @@ func TestProcessFilter(t *testing.T) {
 		"",
 	}
 	actual := strings.Split(out.String(), "\n")
-	for i := 0; i < len(actual) && i < len(expected); i++ {
-		ut.AssertEqualIndex(t, i, expected[i], actual[i])
-	}
-	ut.AssertEqual(t, expected, actual)
+	compareLines(t, expected, actual)
 }
