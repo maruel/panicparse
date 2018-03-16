@@ -984,3 +984,9 @@ func compareBuckets(t *testing.T, expected, actual Buckets) {
 		}
 	}
 }
+
+func compareString(t *testing.T, expected, actual string) {
+	if expected != actual {
+		t.Fatalf("%q != %q", expected, actual)
+	}
+}

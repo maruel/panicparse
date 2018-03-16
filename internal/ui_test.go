@@ -2,10 +2,12 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package stack
+package internal
 
 import (
 	"testing"
+
+	"github.com/maruel/panicparse/stack"
 )
 
 var testPalette = &Palette{
@@ -24,9 +26,19 @@ var testPalette = &Palette{
 }
 
 func TestCalcLengths(t *testing.T) {
-	b := Buckets{
+	b := stack.Buckets{
 		{
-			Signature{Stack: Stack{Calls: []Call{{SourcePath: "/gopath/foo/baz.go", Line: 123, Func: Function{"foo.func·001"}}}}},
+			stack.Signature{
+				Stack: stack.Stack{
+					Calls: []stack.Call{
+						{
+							SourcePath: "/gopath/foo/baz.go",
+							Line:       123,
+							Func:       stack.Function{Raw: "main.func·001"},
+						},
+					},
+				},
+			},
 			nil,
 		},
 	}
@@ -43,18 +55,18 @@ func TestCalcLengths(t *testing.T) {
 }
 
 func TestBucketHeader(t *testing.T) {
-	b := &Bucket{
-		Signature{
+	b := &stack.Bucket{
+		stack.Signature{
 			State: "chan receive",
-			CreatedBy: Call{
+			CreatedBy: stack.Call{
 				SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
 				Line:       74,
-				Func:       Function{"main.mainImpl"},
+				Func:       stack.Function{Raw: "main.mainImpl"},
 			},
 			SleepMax: 6,
 			SleepMin: 2,
 		},
-		[]Goroutine{
+		[]stack.Goroutine{
 			{
 				First: true,
 			},
@@ -67,8 +79,8 @@ func TestBucketHeader(t *testing.T) {
 	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, false, true))
 	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, false, false))
 
-	b = &Bucket{
-		Signature{
+	b = &stack.Bucket{
+		stack.Signature{
 			State:    "b0rked",
 			SleepMax: 6,
 			SleepMin: 6,
@@ -80,16 +92,16 @@ func TestBucketHeader(t *testing.T) {
 }
 
 func TestStackLines(t *testing.T) {
-	s := &Signature{
+	s := &stack.Signature{
 		State: "idle",
-		Stack: Stack{
-			Calls: []Call{
+		Stack: stack.Stack{
+			Calls: []stack.Call{
 				{
 					SourcePath: "/goroot/src/runtime/sys_linux_amd64.s",
 					Line:       400,
-					Func:       Function{"runtime.Epollwait"},
-					Args: Args{
-						Values: []Arg{
+					Func:       stack.Function{Raw: "runtime.Epollwait"},
+					Args: stack.Args{
+						Values: []stack.Arg{
 							{Value: 0x4},
 							{Value: 0x7fff671c7118},
 							{Value: 0xffffffff00000080},
@@ -108,25 +120,25 @@ func TestStackLines(t *testing.T) {
 				{
 					SourcePath: "/goroot/src/runtime/netpoll_epoll.go",
 					Line:       68,
-					Func:       Function{"runtime.netpoll"},
-					Args:       Args{Values: []Arg{{Value: 0x901b01}, {}}},
+					Func:       stack.Function{Raw: "runtime.netpoll"},
+					Args:       stack.Args{Values: []stack.Arg{{Value: 0x901b01}, {}}},
 					IsStdlib:   true,
 				},
 				{
 					SourcePath: "/gopath/src/main.go",
 					Line:       1472,
-					Func:       Function{"main.Main"},
-					Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
+					Func:       stack.Function{Raw: "main.Main"},
+					Args:       stack.Args{Values: []stack.Arg{{Value: 0xc208012000}}},
 				},
 				{
 					SourcePath: "/gopath/src/foo/bar.go",
 					Line:       1575,
-					Func:       Function{"foo.OtherExported"},
+					Func:       stack.Function{Raw: "foo.OtherExported"},
 				},
 				{
 					SourcePath: "/gopath/src/foo/bar.go",
 					Line:       10,
-					Func:       Function{"foo.otherPrivate"},
+					Func:       stack.Function{Raw: "foo.otherPrivate"},
 				},
 			},
 			Elided: true,

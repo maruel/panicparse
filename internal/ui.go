@@ -2,11 +2,13 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package stack
+package internal
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/maruel/panicparse/stack"
 )
 
 // Palette defines the color used.
@@ -32,7 +34,7 @@ type Palette struct {
 }
 
 // CalcLengths returns the maximum length of the source lines and package names.
-func CalcLengths(buckets Buckets, fullPath bool) (int, int) {
+func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
 	srcLen := 0
 	pkgLen := 0
 	for _, bucket := range buckets {
@@ -57,7 +59,7 @@ func CalcLengths(buckets Buckets, fullPath bool) (int, int) {
 
 // functionColor returns the color to be used for the function name based on
 // the type of package the function is in.
-func (p *Palette) functionColor(line *Call) string {
+func (p *Palette) functionColor(line *stack.Call) string {
 	if line.IsStdlib {
 		if line.Func.IsExported() {
 			return p.FunctionStdLibExported
@@ -72,7 +74,7 @@ func (p *Palette) functionColor(line *Call) string {
 }
 
 // routineColor returns the color for the header of the goroutines bucket.
-func (p *Palette) routineColor(bucket *Bucket, multipleBuckets bool) string {
+func (p *Palette) routineColor(bucket *stack.Bucket, multipleBuckets bool) string {
 	if bucket.First() && multipleBuckets {
 		return p.RoutineFirst
 	}
@@ -80,7 +82,7 @@ func (p *Palette) routineColor(bucket *Bucket, multipleBuckets bool) string {
 }
 
 // BucketHeader prints the header of a goroutine signature.
-func (p *Palette) BucketHeader(bucket *Bucket, fullPath, multipleBuckets bool) string {
+func (p *Palette) BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets bool) string {
 	extra := ""
 	if s := bucket.SleepString(); s != "" {
 		extra += " [" + s + "]"
@@ -99,7 +101,7 @@ func (p *Palette) BucketHeader(bucket *Bucket, fullPath, multipleBuckets bool) s
 }
 
 // callLine prints one stack line.
-func (p *Palette) callLine(line *Call, srcLen, pkgLen int, fullPath bool) string {
+func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
 	src := ""
 	if fullPath {
 		src = line.FullSourceLine()
@@ -116,7 +118,7 @@ func (p *Palette) callLine(line *Call, srcLen, pkgLen int, fullPath bool) string
 }
 
 // StackLines prints one complete stack trace, without the header.
-func (p *Palette) StackLines(signature *Signature, srcLen, pkgLen int, fullPath bool) string {
+func (p *Palette) StackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) string {
 	out := make([]string, len(signature.Stack.Calls))
 	for i := range signature.Stack.Calls {
 		out[i] = p.callLine(&signature.Stack.Calls[i], srcLen, pkgLen, fullPath)

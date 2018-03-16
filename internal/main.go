@@ -41,7 +41,7 @@ import (
 const resetFG = ansi.DefaultFG + "\033[m"
 
 // defaultPalette is the default recommended palette.
-var defaultPalette = stack.Palette{
+var defaultPalette = Palette{
 	EOLReset:               resetFG,
 	RoutineFirst:           ansi.ColorCode("magenta+b"),
 	CreatedBy:              ansi.LightBlack,
@@ -55,11 +55,11 @@ var defaultPalette = stack.Palette{
 	Arguments:              resetFG,
 }
 
-func writeToConsole(out io.Writer, p *stack.Palette, buckets stack.Buckets, fullPath, needsEnv bool, filter, match *regexp.Regexp) error {
+func writeToConsole(out io.Writer, p *Palette, buckets stack.Buckets, fullPath, needsEnv bool, filter, match *regexp.Regexp) error {
 	if needsEnv {
 		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#gotraceback\n\n")
 	}
-	srcLen, pkgLen := stack.CalcLengths(buckets, fullPath)
+	srcLen, pkgLen := CalcLengths(buckets, fullPath)
 	for _, bucket := range buckets {
 		header := p.BucketHeader(&bucket, fullPath, len(buckets) > 1)
 		if filter != nil && filter.MatchString(header) {
@@ -77,7 +77,7 @@ func writeToConsole(out io.Writer, p *stack.Palette, buckets stack.Buckets, full
 // process copies stdin to stdout and processes any "panic: " line found.
 //
 // If html is used, a stack trace is written to this file instead.
-func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
+func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPath, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
 	c, err := stack.ParseDump(in, out, rebase)
 	if c == nil || err != nil {
 		return err
@@ -152,7 +152,7 @@ func Main() error {
 	p := &defaultPalette
 	if *html == "" {
 		if *noColor && !*forceColor {
-			p = &stack.Palette{}
+			p = &Palette{}
 		} else {
 			out = colorable.NewColorableStdout()
 		}
