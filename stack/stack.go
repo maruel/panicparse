@@ -11,7 +11,6 @@ package stack
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -648,6 +647,7 @@ type scanningState struct {
 func (s *scanningState) scan(line string) (string, error) {
 	if line == "\n" || line == "\r\n" {
 		if s.goroutine != nil {
+			// goroutines are separated by an empty line.
 			s.goroutine = nil
 			return "", nil
 		}
@@ -699,7 +699,7 @@ func (s *scanningState) scan(line string) (string, error) {
 				// Triggers after a reFunc or a reCreated.
 				num, err := strconv.Atoi(match[2])
 				if err != nil {
-					return "", fmt.Errorf("failed to parse int on line: \"%s\"", line)
+					return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
 				}
 				if s.created {
 					s.created = false
@@ -708,7 +708,7 @@ func (s *scanningState) scan(line string) (string, error) {
 				} else {
 					i := len(s.goroutine.Stack.Calls) - 1
 					if i < 0 {
-						return "", errors.New("unexpected order")
+						return "", fmt.Errorf("unexpected order on line: %q", strings.TrimSpace(line))
 					}
 					s.goroutine.Stack.Calls[i].SourcePath = match[1]
 					s.goroutine.Stack.Calls[i].Line = num
@@ -735,7 +735,7 @@ func (s *scanningState) scan(line string) (string, error) {
 					}
 					v, err := strconv.ParseUint(a, 0, 64)
 					if err != nil {
-						return "", fmt.Errorf("failed to parse int on line: \"%s\"", line)
+						return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
 					}
 					args.Values = append(args.Values, Arg{Value: v})
 				}

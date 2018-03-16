@@ -253,7 +253,7 @@ func TestParseDumpLineErr(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	compareErr(t, errors.New("failed to parse int on line: \"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890\n\""), err)
+	compareErr(t, errors.New("failed to parse int on line: \"/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890\""), err)
 	expected := []Goroutine{
 		{
 			Signature: Signature{
@@ -280,7 +280,7 @@ func TestParseDumpValueErr(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	compareErr(t, errors.New("failed to parse int on line: \"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)\n\""), err)
+	compareErr(t, errors.New("failed to parse int on line: \"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)\""), err)
 	expected := []Goroutine{
 		{
 			Signature: Signature{State: "running"},
@@ -305,7 +305,7 @@ func TestParseDumpOrderErr(t *testing.T) {
 	}
 	extra := &bytes.Buffer{}
 	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
-	compareErr(t, errors.New("unexpected order"), err)
+	compareErr(t, errors.New("unexpected order on line: \"/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6\""), err)
 	expected := []Goroutine{
 		{
 			Signature: Signature{State: "garbage collection"},
