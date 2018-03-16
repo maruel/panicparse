@@ -569,31 +569,18 @@ type Goroutine struct {
 // It supports piping from another command and assumes there is junk before the
 // actual stack trace. The junk is streamed to out.
 func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
-	goroutines := make([]Goroutine, 0, 16)
-	var goroutine *Goroutine
 	scanner := bufio.NewScanner(r)
 	scanner.Split(scanLines)
-	// TODO(maruel): Use a formal state machine. Patterns follows:
-	// - reRoutineHeader
-	//   Either:
-	//     - reUnavail
-	//     - reFunc + reFile in a loop
-	//     - reElided
-	//   Optionally ends with:
-	//     - reCreated + reFile
-	// Between each goroutine stack dump: an empty line
-	created := false
-	// firstLine is the first line after the reRoutineHeader header line.
-	firstLine := false
+	s := scanningState{}
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "\n" || line == "\r\n" {
-			if goroutine != nil {
-				goroutine = nil
+			if s.goroutine != nil {
+				s.goroutine = nil
 				continue
 			}
 		} else if line[len(line)-1] == '\n' {
-			if goroutine == nil {
+			if s.goroutine == nil {
 				if match := reRoutineHeader.FindStringSubmatch(line); match != nil {
 					if id, err := strconv.Atoi(match[1]); err == nil {
 						// See runtime/traceback.go.
@@ -611,7 +598,7 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 								sleep, _ = strconv.Atoi(match2[1])
 							}
 						}
-						goroutines = append(goroutines, Goroutine{
+						s.goroutines = append(s.goroutines, Goroutine{
 							Signature: Signature{
 								State:    items[0],
 								SleepMin: sleep,
@@ -619,19 +606,19 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 								Locked:   locked,
 							},
 							ID:    id,
-							First: len(goroutines) == 0,
+							First: len(s.goroutines) == 0,
 						})
-						goroutine = &goroutines[len(goroutines)-1]
-						firstLine = true
+						s.goroutine = &s.goroutines[len(s.goroutines)-1]
+						s.firstLine = true
 						continue
 					}
 				}
 			} else {
-				if firstLine {
-					firstLine = false
+				if s.firstLine {
+					s.firstLine = false
 					if match := reUnavail.FindStringSubmatch(line); match != nil {
 						// Generate a fake stack entry.
-						goroutine.Stack.Calls = []Call{{SourcePath: "<unavailable>"}}
+						s.goroutine.Stack.Calls = []Call{{SourcePath: "<unavailable>"}}
 						continue
 					}
 				}
@@ -640,26 +627,26 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 					// Triggers after a reFunc or a reCreated.
 					num, err := strconv.Atoi(match[2])
 					if err != nil {
-						return goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
+						return s.goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
 					}
-					if created {
-						created = false
-						goroutine.CreatedBy.SourcePath = match[1]
-						goroutine.CreatedBy.Line = num
+					if s.created {
+						s.created = false
+						s.goroutine.CreatedBy.SourcePath = match[1]
+						s.goroutine.CreatedBy.Line = num
 					} else {
-						i := len(goroutine.Stack.Calls) - 1
+						i := len(s.goroutine.Stack.Calls) - 1
 						if i < 0 {
-							return goroutines, errors.New("unexpected order")
+							return s.goroutines, errors.New("unexpected order")
 						}
-						goroutine.Stack.Calls[i].SourcePath = match[1]
-						goroutine.Stack.Calls[i].Line = num
+						s.goroutine.Stack.Calls[i].SourcePath = match[1]
+						s.goroutine.Stack.Calls[i].Line = num
 					}
 					continue
 				}
 
 				if match := reCreated.FindStringSubmatch(line); match != nil {
-					created = true
-					goroutine.CreatedBy.Func.Raw = match[1]
+					s.created = true
+					s.goroutine.CreatedBy.Func.Raw = match[1]
 					continue
 				}
 
@@ -676,30 +663,30 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 						}
 						v, err := strconv.ParseUint(a, 0, 64)
 						if err != nil {
-							return goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
+							return s.goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
 						}
 						args.Values = append(args.Values, Arg{Value: v})
 					}
-					goroutine.Stack.Calls = append(goroutine.Stack.Calls, Call{Func: Function{match[1]}, Args: args})
+					s.goroutine.Stack.Calls = append(s.goroutine.Stack.Calls, Call{Func: Function{match[1]}, Args: args})
 					continue
 				}
 
 				if match := reElided.FindStringSubmatch(line); match != nil {
-					goroutine.Stack.Elided = true
+					s.goroutine.Stack.Elided = true
 					continue
 				}
 			}
 		}
 		_, _ = io.WriteString(out, line)
-		goroutine = nil
+		s.goroutine = nil
 	}
-	nameArguments(goroutines)
+	nameArguments(s.goroutines)
 	// Mutate global state.
 	// TODO(maruel): Make this part of the context instead of a global.
 	if goroot == "" {
-		findRoots(goroutines)
+		findRoots(s.goroutines)
 	}
-	return goroutines, scanner.Err()
+	return s.goroutines, scanner.Err()
 }
 
 // NoRebase disables GOROOT and GOPATH guessing in ParseDump().
@@ -737,6 +724,24 @@ func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		return len(data), data, nil
 	}
 	return 0, nil, nil
+}
+
+// scanningState is the state of the scan to detect and process a stack trace.
+//
+// TODO(maruel): Use a formal state machine. Patterns follows:
+// - reRoutineHeader
+//   Either:
+//     - reUnavail
+//     - reFunc + reFile in a loop
+//     - reElided
+//   Optionally ends with:
+//     - reCreated + reFile
+type scanningState struct {
+	goroutines []Goroutine
+	goroutine  *Goroutine
+
+	created   bool
+	firstLine bool // firstLine is the first line after the reRoutineHeader header line.
 }
 
 func nameArguments(goroutines []Goroutine) {
