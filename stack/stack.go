@@ -564,29 +564,6 @@ type Goroutine struct {
 	First     bool // First is the goroutine first printed, normally the one that crashed.
 }
 
-// scanLines is similar to bufio.ScanLines except that it:
-//     - doesn't drop '\n'
-//     - doesn't strip '\r'
-//     - returns when the data is bufio.MaxScanTokenSize bytes
-func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-	if i := bytes.IndexByte(data, '\n'); i >= 0 {
-		return i + 1, data[0 : i+1], nil
-	}
-	if atEOF {
-		return len(data), data, nil
-	}
-	if len(data) >= bufio.MaxScanTokenSize {
-		// Returns the line even if it is not at EOF nor has a '\n', otherwise the
-		// scanner will return bufio.ErrTooLong which is definitely not what we
-		// want.
-		return len(data), data, nil
-	}
-	return 0, nil, nil
-}
-
 // ParseDump processes the output from runtime.Stack().
 //
 // It supports piping from another command and assumes there is junk before the
@@ -738,6 +715,29 @@ func NoRebase() {
 }
 
 // Private stuff.
+
+// scanLines is similar to bufio.ScanLines except that it:
+//     - doesn't drop '\n'
+//     - doesn't strip '\r'
+//     - returns when the data is bufio.MaxScanTokenSize bytes
+func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexByte(data, '\n'); i >= 0 {
+		return i + 1, data[0 : i+1], nil
+	}
+	if atEOF {
+		return len(data), data, nil
+	}
+	if len(data) >= bufio.MaxScanTokenSize {
+		// Returns the line even if it is not at EOF nor has a '\n', otherwise the
+		// scanner will return bufio.ErrTooLong which is definitely not what we
+		// want.
+		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
 
 func nameArguments(goroutines []Goroutine) {
 	// Set a name for any pointer occurring more than once.
