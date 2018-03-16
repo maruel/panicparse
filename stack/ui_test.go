@@ -34,6 +34,7 @@ func TestCalcLengths(t *testing.T) {
 			nil,
 		},
 	}
+	b[0].updateLocations(goroot, gopaths)
 	srcLen, pkgLen := CalcLengths(b, true)
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "/gopath/foo/baz.go:123", b[0].Signature.Stack.Calls[0].FullSourceLine())
@@ -69,6 +70,7 @@ func TestBucketHeader(t *testing.T) {
 			{},
 		},
 	}
+	b.updateLocations(goroot, gopaths)
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", p.BucketHeader(b, true, true))
 	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", p.BucketHeader(b, true, false))
@@ -142,6 +144,7 @@ func TestStackLines(t *testing.T) {
 			Elided: true,
 		},
 	}
+	s.updateLocations(goroot, gopaths)
 	// When printing, it prints the remote path, not the transposed local path.
 	expected := "" +
 		"    Eruntime    F/goroot/src/runtime/sys_linux_amd64.s:400 HEpollwaitL(0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +

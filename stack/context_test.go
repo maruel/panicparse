@@ -115,6 +115,7 @@ func TestParseDump1(t *testing.T) {
 			First: true,
 		},
 	}
+	expected[0].updateLocations(goroot, gopaths)
 	compareGoroutines(t, expected, goroutines)
 }
 
@@ -200,6 +201,9 @@ func TestParseDumpLongWait(t *testing.T) {
 			ID: 3,
 		},
 	}
+	for i := range expected {
+		expected[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expected, goroutines)
 }
 
@@ -236,6 +240,9 @@ func TestParseDumpAsm(t *testing.T) {
 			First: true,
 		},
 	}
+	for i := range expected {
+		expected[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expected, goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
@@ -263,7 +270,9 @@ func TestParseDumpLineErr(t *testing.T) {
 			First: true,
 		},
 	}
-
+	for i := range expected {
+		expected[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expected, goroutines)
 }
 
@@ -287,7 +296,9 @@ func TestParseDumpValueErr(t *testing.T) {
 			First:     true,
 		},
 	}
-
+	for i := range expected {
+		expected[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expected, goroutines)
 }
 
@@ -367,6 +378,9 @@ func TestParseDumpElided(t *testing.T) {
 			First: true,
 		},
 	}
+	for i := range expected {
+		expected[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expected, goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
@@ -442,6 +456,9 @@ func TestParseDumpSysCall(t *testing.T) {
 			First: true,
 		},
 	}
+	for i := range expected {
+		expected[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expected, goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
@@ -478,6 +495,9 @@ func TestParseDumpUnavail(t *testing.T) {
 			ID:    24,
 			First: true,
 		},
+	}
+	for i := range expected {
+		expected[i].updateLocations(goroot, gopaths)
 	}
 	compareGoroutines(t, expected, goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
@@ -549,6 +569,9 @@ func TestParseDumpSameBucket(t *testing.T) {
 			ID: 7,
 		},
 	}
+	for i := range expectedGR {
+		expectedGR[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expectedGR, goroutines)
 	expectedBuckets := Buckets{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
 	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
@@ -607,6 +630,9 @@ func TestBucketizeNotAggressive(t *testing.T) {
 			},
 			ID: 7,
 		},
+	}
+	for i := range expectedGR {
+		expectedGR[i].updateLocations(goroot, gopaths)
 	}
 	compareGoroutines(t, expectedGR, goroutines)
 	expectedBuckets := Buckets{
@@ -696,6 +722,9 @@ func TestBucketizeAggressive(t *testing.T) {
 			ID: 8,
 		},
 	}
+	for i := range expectedGR {
+		expectedGR[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expectedGR, goroutines)
 	signature := Signature{
 		State:    "chan receive",
@@ -712,6 +741,7 @@ func TestBucketizeAggressive(t *testing.T) {
 			},
 		},
 	}
+	signature.updateLocations(goroot, gopaths)
 	expectedBuckets := Buckets{{signature, []Goroutine{expectedGR[0], expectedGR[1], expectedGR[2]}}}
 	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(goroutines, AnyPointer)))
 }
@@ -754,6 +784,9 @@ func TestParseDumpNoOffset(t *testing.T) {
 			ID:    37,
 			First: true,
 		},
+	}
+	for i := range expectedGR {
+		expectedGR[i].updateLocations(goroot, gopaths)
 	}
 	compareGoroutines(t, expectedGR, goroutines)
 }
@@ -868,6 +901,9 @@ func TestParseCCode(t *testing.T) {
 			First: true,
 		},
 	}
+	for i := range expectedGR {
+		expectedGR[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expectedGR, goroutines)
 }
 
@@ -924,6 +960,9 @@ func TestParseWithCarriageReturn(t *testing.T) {
 			First: true,
 		},
 	}
+	for i := range expected {
+		expected[i].updateLocations(goroot, gopaths)
+	}
 	compareGoroutines(t, expected, goroutines)
 }
 
@@ -942,7 +981,7 @@ func compareErr(t *testing.T, expected, actual error) {
 
 func compareGoroutines(t *testing.T, expected, actual []Goroutine) {
 	if !reflect.DeepEqual(expected, actual) {
-		t.Fatalf("%v != %v", expected, actual)
+		t.Fatalf("Different goroutines:\n- %v\n- %v", expected, actual)
 	}
 }
 

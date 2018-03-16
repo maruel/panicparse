@@ -45,7 +45,7 @@ func writeToHTML(html string, buckets stack.Buckets, needsEnv bool) error {
 }
 
 func funcClass(line *stack.Call) template.HTML {
-	if line.IsStdlib() {
+	if line.IsStdlib {
 		if line.Func.IsExported() {
 			return "FunctionStdLibExported"
 		}

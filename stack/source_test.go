@@ -449,7 +449,7 @@ func TestAugment(t *testing.T) {
 		zapPaths(&s)
 		clean()
 		if !reflect.DeepEqual(line.expected, s) {
-			t.Fatalf("#%d: %v != %v", i, line.expected, s)
+			t.Fatalf("#%d: Different:\n- %v\n- %v", i, line.expected, s)
 		}
 	}
 }
@@ -569,5 +569,6 @@ func zapPointers(t *testing.T, name string, expected, s *Stack) {
 func zapPaths(s *Stack) {
 	for j := range s.Calls {
 		s.Calls[j].SourcePath = filepath.Base(s.Calls[j].SourcePath)
+		s.Calls[j].LocalSrcPath = ""
 	}
 }

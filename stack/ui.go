@@ -58,7 +58,7 @@ func CalcLengths(buckets Buckets, fullPath bool) (int, int) {
 // functionColor returns the color to be used for the function name based on
 // the type of package the function is in.
 func (p *Palette) functionColor(line *Call) string {
-	if line.IsStdlib() {
+	if line.IsStdlib {
 		if line.Func.IsExported() {
 			return p.FunctionStdLibExported
 		}

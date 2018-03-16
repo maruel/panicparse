@@ -61,6 +61,9 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	if goroot == "" {
 		findRoots(s.goroutines)
 	}
+	for i := range s.goroutines {
+		s.goroutines[i].updateLocations(goroot, gopaths)
+	}
 	return s.goroutines, scanner.Err()
 }
 

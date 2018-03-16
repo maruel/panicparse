@@ -19,6 +19,7 @@ func TestCallPkg1(t *testing.T) {
 		Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
 		Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
+	c.updateLocations(goroot, gopaths)
 	compareString(t, "yaml.go", c.SourceName())
 	compareString(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
 	compareString(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
@@ -26,7 +27,7 @@ func TestCallPkg1(t *testing.T) {
 	// This is due to directory name not matching the package name.
 	compareString(t, "yaml.v2", c.Func.PkgName())
 	compareBool(t, false, c.Func.IsExported())
-	compareBool(t, false, c.IsStdlib())
+	compareBool(t, false, c.IsStdlib)
 	compareBool(t, false, c.IsPkgMain())
 }
 
@@ -40,6 +41,7 @@ func TestCallPkg2(t *testing.T) {
 		Func:       Function{"gopkg.in/yaml%2ev2.(*decoder).unmarshal"},
 		Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
+	c.updateLocations(goroot, gopaths)
 	compareString(t, "yaml.go", c.SourceName())
 	compareString(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
 	// TODO(maruel): Using '/' for this function is inconsistent on Windows
@@ -49,7 +51,7 @@ func TestCallPkg2(t *testing.T) {
 	// This is due to directory name not matching the package name.
 	compareString(t, "yaml.v2", c.Func.PkgName())
 	compareBool(t, false, c.Func.IsExported())
-	compareBool(t, false, c.IsStdlib())
+	compareBool(t, false, c.IsStdlib)
 	compareBool(t, false, c.IsPkgMain())
 }
 
@@ -62,6 +64,7 @@ func TestCallStdlib(t *testing.T) {
 		Func:       Function{"reflect.Value.assignTo"},
 		Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 	}
+	c.updateLocations(goroot, gopaths)
 	compareString(t, "value.go", c.SourceName())
 	compareString(t, "value.go:2125", c.SourceLine())
 	compareString(t, filepath.Join("reflect", "value.go"), c.PkgSource())
@@ -69,7 +72,7 @@ func TestCallStdlib(t *testing.T) {
 	compareString(t, "Value.assignTo", c.Func.Name())
 	compareString(t, "reflect", c.Func.PkgName())
 	compareBool(t, false, c.Func.IsExported())
-	compareBool(t, true, c.IsStdlib())
+	compareBool(t, true, c.IsStdlib)
 	compareBool(t, false, c.IsPkgMain())
 }
 
@@ -82,6 +85,7 @@ func TestCallMain(t *testing.T) {
 		Line:       428,
 		Func:       Function{"main.main"},
 	}
+	c.updateLocations(goroot, gopaths)
 	compareString(t, "main.go", c.SourceName())
 	compareString(t, "main.go:428", c.SourceLine())
 	compareString(t, filepath.Join("pp", "main.go"), c.PkgSource())
@@ -89,7 +93,7 @@ func TestCallMain(t *testing.T) {
 	compareString(t, "main", c.Func.Name())
 	compareString(t, "main", c.Func.PkgName())
 	compareBool(t, true, c.Func.IsExported())
-	compareBool(t, false, c.IsStdlib())
+	compareBool(t, false, c.IsStdlib)
 	compareBool(t, true, c.IsPkgMain())
 }
 
@@ -103,6 +107,7 @@ func TestCallC(t *testing.T) {
 		Func:       Function{"findrunnable"},
 		Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
 	}
+	c.updateLocations(goroot, gopaths)
 	compareString(t, "proc.c", c.SourceName())
 	compareString(t, "proc.c:1472", c.SourceLine())
 	compareString(t, filepath.Join("runtime", "proc.c"), c.PkgSource())
@@ -110,7 +115,7 @@ func TestCallC(t *testing.T) {
 	compareString(t, "findrunnable", c.Func.Name())
 	compareString(t, "", c.Func.PkgName())
 	compareBool(t, false, c.Func.IsExported())
-	compareBool(t, true, c.IsStdlib())
+	compareBool(t, true, c.IsStdlib)
 	compareBool(t, false, c.IsPkgMain())
 }
 

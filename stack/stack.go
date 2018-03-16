@@ -223,10 +223,12 @@ func (a *Args) Merge(r *Args) Args {
 
 // Call is an item in the stack trace.
 type Call struct {
-	SourcePath string   // Full path name of the source file as seen in the trace
-	Line       int      // Line number
-	Func       Function // Fully qualified function name (encoded).
-	Args       Args     // Call arguments
+	SourcePath   string   // Full path name of the source file as seen in the trace
+	LocalSrcPath string   // Full path name of the source file as seen in the host.
+	Line         int      // Line number
+	Func         Function // Fully qualified function name (encoded).
+	Args         Args     // Call arguments
+	IsStdlib     bool     // true if it is a Go standard library function. This includes the 'go test' generated main executable.
 }
 
 // Equal returns true only if both calls are exactly equal.
@@ -243,10 +245,12 @@ func (c *Call) Similar(r *Call, similar Similarity) bool {
 // Merge merges two similar Call, zapping out differences.
 func (c *Call) Merge(r *Call) Call {
 	return Call{
-		SourcePath: c.SourcePath,
-		Line:       c.Line,
-		Func:       c.Func,
-		Args:       c.Args.Merge(&r.Args),
+		SourcePath:   c.SourcePath,
+		Line:         c.Line,
+		Func:         c.Func,
+		Args:         c.Args.Merge(&r.Args),
+		LocalSrcPath: c.LocalSrcPath,
+		IsStdlib:     c.IsStdlib,
 	}
 }
 
@@ -258,20 +262,6 @@ func (c *Call) SourceName() string {
 // SourceLine returns "source.go:line", including only the base file name.
 func (c *Call) SourceLine() string {
 	return fmt.Sprintf("%s:%d", c.SourceName(), c.Line)
-}
-
-// LocalSourcePath is the full path name of the source file as seen in the host.
-func (c *Call) LocalSourcePath() string {
-	// TODO(maruel): Call needs members goroot and gopaths.
-	if strings.HasPrefix(c.SourcePath, goroot) {
-		return filepath.Join(localgoroot, c.SourcePath[len(goroot):])
-	}
-	for prefix, dest := range gopaths {
-		if strings.HasPrefix(c.SourcePath, prefix) {
-			return filepath.Join(dest, c.SourcePath[len(prefix):])
-		}
-	}
-	return c.SourcePath
 }
 
 // FullSourceLine returns "/path/to/source.go:line".
@@ -286,18 +276,30 @@ func (c *Call) PkgSource() string {
 	return filepath.Join(filepath.Base(filepath.Dir(c.SourcePath)), c.SourceName())
 }
 
-const testMainSource = "_test" + string(os.PathSeparator) + "_testmain.go"
-
-// IsStdlib returns true if it is a Go standard library function. This includes
-// the 'go test' generated main executable.
-func (c *Call) IsStdlib() bool {
-	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
-	return (goroot != "" && strings.HasPrefix(c.SourcePath, goroot)) || c.PkgSource() == testMainSource
-}
-
 // IsPkgMain returns true if it is in the main package.
 func (c *Call) IsPkgMain() bool {
 	return c.Func.PkgName() == "main"
+}
+
+const testMainSource = "_test" + string(os.PathSeparator) + "_testmain.go"
+
+// updateLocations initializes LocalSrcPath and IsStdlib.
+func (c *Call) updateLocations(goroot string, gopaths map[string]string) {
+	if c.SourcePath != "" {
+		if strings.HasPrefix(c.SourcePath, goroot) {
+			c.LocalSrcPath = filepath.Join(localgoroot, c.SourcePath[len(goroot):])
+		} else {
+			c.LocalSrcPath = c.SourcePath
+			for prefix, dest := range gopaths {
+				if strings.HasPrefix(c.SourcePath, prefix) {
+					c.LocalSrcPath = filepath.Join(dest, c.SourcePath[len(prefix):])
+					break
+				}
+			}
+		}
+	}
+	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
+	c.IsStdlib = (goroot != "" && strings.HasPrefix(c.SourcePath, goroot)) || c.PkgSource() == testMainSource
 }
 
 // Stack is a call stack.
@@ -354,7 +356,7 @@ func (s *Stack) Less(r *Stack) bool {
 	lStdlib := 0
 	lPrivate := 0
 	for _, c := range s.Calls {
-		if c.IsStdlib() {
+		if c.IsStdlib {
 			lStdlib++
 		} else {
 			lPrivate++
@@ -363,7 +365,7 @@ func (s *Stack) Less(r *Stack) bool {
 	rStdlib := 0
 	rPrivate := 0
 	for _, s := range r.Calls {
-		if s.IsStdlib() {
+		if s.IsStdlib {
 			rStdlib++
 		} else {
 			rPrivate++
@@ -404,6 +406,12 @@ func (s *Stack) Less(r *Stack) bool {
 		}
 	}
 	return false
+}
+
+func (s *Stack) updateLocations(goroot string, gopaths map[string]string) {
+	for i := range s.Calls {
+		s.Calls[i].updateLocations(goroot, gopaths)
+	}
 }
 
 // Signature represents the signature of one or multiple goroutines.
@@ -530,6 +538,11 @@ func (s *Signature) CreatedByString(fullPath bool) string {
 		created += s.CreatedBy.SourceLine()
 	}
 	return created
+}
+
+func (s *Signature) updateLocations(goroot string, gopaths map[string]string) {
+	s.CreatedBy.updateLocations(goroot, gopaths)
+	s.Stack.updateLocations(goroot, gopaths)
 }
 
 // Goroutine represents the state of one goroutine, including the stack trace.
