@@ -573,112 +573,13 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	scanner.Split(scanLines)
 	s := scanningState{}
 	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "\n" || line == "\r\n" {
-			if s.goroutine != nil {
-				s.goroutine = nil
-				continue
-			}
-		} else if line[len(line)-1] == '\n' {
-			if s.goroutine == nil {
-				if match := reRoutineHeader.FindStringSubmatch(line); match != nil {
-					if id, err := strconv.Atoi(match[1]); err == nil {
-						// See runtime/traceback.go.
-						// "<state>, \d+ minutes, locked to thread"
-						items := strings.Split(match[2], ", ")
-						sleep := 0
-						locked := false
-						for i := 1; i < len(items); i++ {
-							if items[i] == lockedToThread {
-								locked = true
-								continue
-							}
-							// Look for duration, if any.
-							if match2 := reMinutes.FindStringSubmatch(items[i]); match2 != nil {
-								sleep, _ = strconv.Atoi(match2[1])
-							}
-						}
-						s.goroutines = append(s.goroutines, Goroutine{
-							Signature: Signature{
-								State:    items[0],
-								SleepMin: sleep,
-								SleepMax: sleep,
-								Locked:   locked,
-							},
-							ID:    id,
-							First: len(s.goroutines) == 0,
-						})
-						s.goroutine = &s.goroutines[len(s.goroutines)-1]
-						s.firstLine = true
-						continue
-					}
-				}
-			} else {
-				if s.firstLine {
-					s.firstLine = false
-					if match := reUnavail.FindStringSubmatch(line); match != nil {
-						// Generate a fake stack entry.
-						s.goroutine.Stack.Calls = []Call{{SourcePath: "<unavailable>"}}
-						continue
-					}
-				}
-
-				if match := reFile.FindStringSubmatch(line); match != nil {
-					// Triggers after a reFunc or a reCreated.
-					num, err := strconv.Atoi(match[2])
-					if err != nil {
-						return s.goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
-					}
-					if s.created {
-						s.created = false
-						s.goroutine.CreatedBy.SourcePath = match[1]
-						s.goroutine.CreatedBy.Line = num
-					} else {
-						i := len(s.goroutine.Stack.Calls) - 1
-						if i < 0 {
-							return s.goroutines, errors.New("unexpected order")
-						}
-						s.goroutine.Stack.Calls[i].SourcePath = match[1]
-						s.goroutine.Stack.Calls[i].Line = num
-					}
-					continue
-				}
-
-				if match := reCreated.FindStringSubmatch(line); match != nil {
-					s.created = true
-					s.goroutine.CreatedBy.Func.Raw = match[1]
-					continue
-				}
-
-				if match := reFunc.FindStringSubmatch(line); match != nil {
-					args := Args{}
-					for _, a := range strings.Split(match[2], ", ") {
-						if a == "..." {
-							args.Elided = true
-							continue
-						}
-						if a == "" {
-							// Remaining values were dropped.
-							break
-						}
-						v, err := strconv.ParseUint(a, 0, 64)
-						if err != nil {
-							return s.goroutines, fmt.Errorf("failed to parse int on line: \"%s\"", line)
-						}
-						args.Values = append(args.Values, Arg{Value: v})
-					}
-					s.goroutine.Stack.Calls = append(s.goroutine.Stack.Calls, Call{Func: Function{match[1]}, Args: args})
-					continue
-				}
-
-				if match := reElided.FindStringSubmatch(line); match != nil {
-					s.goroutine.Stack.Elided = true
-					continue
-				}
-			}
+		line, err := s.scan(scanner.Text())
+		if line != "" {
+			_, _ = io.WriteString(out, line)
 		}
-		_, _ = io.WriteString(out, line)
-		s.goroutine = nil
+		if err != nil {
+			return s.goroutines, err
+		}
 	}
 	nameArguments(s.goroutines)
 	// Mutate global state.
@@ -742,6 +643,114 @@ type scanningState struct {
 
 	created   bool
 	firstLine bool // firstLine is the first line after the reRoutineHeader header line.
+}
+
+func (s *scanningState) scan(line string) (string, error) {
+	if line == "\n" || line == "\r\n" {
+		if s.goroutine != nil {
+			s.goroutine = nil
+			return "", nil
+		}
+	} else if line[len(line)-1] == '\n' {
+		if s.goroutine == nil {
+			if match := reRoutineHeader.FindStringSubmatch(line); match != nil {
+				if id, err := strconv.Atoi(match[1]); err == nil {
+					// See runtime/traceback.go.
+					// "<state>, \d+ minutes, locked to thread"
+					items := strings.Split(match[2], ", ")
+					sleep := 0
+					locked := false
+					for i := 1; i < len(items); i++ {
+						if items[i] == lockedToThread {
+							locked = true
+							continue
+						}
+						// Look for duration, if any.
+						if match2 := reMinutes.FindStringSubmatch(items[i]); match2 != nil {
+							sleep, _ = strconv.Atoi(match2[1])
+						}
+					}
+					s.goroutines = append(s.goroutines, Goroutine{
+						Signature: Signature{
+							State:    items[0],
+							SleepMin: sleep,
+							SleepMax: sleep,
+							Locked:   locked,
+						},
+						ID:    id,
+						First: len(s.goroutines) == 0,
+					})
+					s.goroutine = &s.goroutines[len(s.goroutines)-1]
+					s.firstLine = true
+					return "", nil
+				}
+			}
+		} else {
+			if s.firstLine {
+				s.firstLine = false
+				if match := reUnavail.FindStringSubmatch(line); match != nil {
+					// Generate a fake stack entry.
+					s.goroutine.Stack.Calls = []Call{{SourcePath: "<unavailable>"}}
+					return "", nil
+				}
+			}
+
+			if match := reFile.FindStringSubmatch(line); match != nil {
+				// Triggers after a reFunc or a reCreated.
+				num, err := strconv.Atoi(match[2])
+				if err != nil {
+					return "", fmt.Errorf("failed to parse int on line: \"%s\"", line)
+				}
+				if s.created {
+					s.created = false
+					s.goroutine.CreatedBy.SourcePath = match[1]
+					s.goroutine.CreatedBy.Line = num
+				} else {
+					i := len(s.goroutine.Stack.Calls) - 1
+					if i < 0 {
+						return "", errors.New("unexpected order")
+					}
+					s.goroutine.Stack.Calls[i].SourcePath = match[1]
+					s.goroutine.Stack.Calls[i].Line = num
+				}
+				return "", nil
+			}
+
+			if match := reCreated.FindStringSubmatch(line); match != nil {
+				s.created = true
+				s.goroutine.CreatedBy.Func.Raw = match[1]
+				return "", nil
+			}
+
+			if match := reFunc.FindStringSubmatch(line); match != nil {
+				args := Args{}
+				for _, a := range strings.Split(match[2], ", ") {
+					if a == "..." {
+						args.Elided = true
+						continue
+					}
+					if a == "" {
+						// Remaining values were dropped.
+						break
+					}
+					v, err := strconv.ParseUint(a, 0, 64)
+					if err != nil {
+						return "", fmt.Errorf("failed to parse int on line: \"%s\"", line)
+					}
+					args.Values = append(args.Values, Arg{Value: v})
+				}
+				s.goroutine.Stack.Calls = append(s.goroutine.Stack.Calls, Call{Func: Function{match[1]}, Args: args})
+				return "", nil
+			}
+
+			if match := reElided.FindStringSubmatch(line); match != nil {
+				s.goroutine.Stack.Elided = true
+				return "", nil
+			}
+		}
+	}
+	s.goroutine = nil
+	return line, nil
 }
 
 func nameArguments(goroutines []Goroutine) {
