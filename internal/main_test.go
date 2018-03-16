@@ -118,7 +118,7 @@ func TestProcessNoColor(t *testing.T) {
 func compareLines(t *testing.T, expected, actual []string) {
 	for i := 0; i < len(actual) && i < len(expected); i++ {
 		if expected[i] != actual[i] {
-			t.Fatalf("#%d: %q != %q", i, expected[i], actual[i])
+			t.Fatalf("Different lines #%d:\n- %q\n- %q", i, expected[i], actual[i])
 		}
 	}
 	if len(expected) != len(actual) {

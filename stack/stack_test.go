@@ -10,16 +10,12 @@ import (
 )
 
 func TestCallPkg1(t *testing.T) {
-	defer reset()
-	goroot = "/goroot"
-	gopaths = map[string]string{"/gopath": getGOPATHs()[0]}
 	c := Call{
 		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:       153,
 		Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
 		Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
-	c.updateLocations(goroot, gopaths)
 	compareString(t, "yaml.go", c.SourceName())
 	compareString(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
 	compareString(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
@@ -32,16 +28,12 @@ func TestCallPkg1(t *testing.T) {
 }
 
 func TestCallPkg2(t *testing.T) {
-	defer reset()
-	goroot = "/goroot"
-	gopaths = map[string]string{"/gopath": getGOPATHs()[0]}
 	c := Call{
 		SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:       153,
 		Func:       Function{"gopkg.in/yaml%2ev2.(*decoder).unmarshal"},
 		Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
-	c.updateLocations(goroot, gopaths)
 	compareString(t, "yaml.go", c.SourceName())
 	compareString(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSource())
 	// TODO(maruel): Using '/' for this function is inconsistent on Windows
@@ -56,15 +48,13 @@ func TestCallPkg2(t *testing.T) {
 }
 
 func TestCallStdlib(t *testing.T) {
-	defer reset()
-	goroot = "/goroot"
 	c := Call{
 		SourcePath: "/goroot/src/reflect/value.go",
 		Line:       2125,
 		Func:       Function{"reflect.Value.assignTo"},
 		Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 	}
-	c.updateLocations(goroot, gopaths)
+	c.updateLocations("/goroot", "/goroot", nil)
 	compareString(t, "value.go", c.SourceName())
 	compareString(t, "value.go:2125", c.SourceLine())
 	compareString(t, filepath.Join("reflect", "value.go"), c.PkgSource())
@@ -77,15 +67,11 @@ func TestCallStdlib(t *testing.T) {
 }
 
 func TestCallMain(t *testing.T) {
-	defer reset()
-	goroot = "/goroot"
-	gopaths = map[string]string{"/gopath": getGOPATHs()[0]}
 	c := Call{
 		SourcePath: "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
 		Line:       428,
 		Func:       Function{"main.main"},
 	}
-	c.updateLocations(goroot, gopaths)
 	compareString(t, "main.go", c.SourceName())
 	compareString(t, "main.go:428", c.SourceLine())
 	compareString(t, filepath.Join("pp", "main.go"), c.PkgSource())
@@ -98,16 +84,13 @@ func TestCallMain(t *testing.T) {
 }
 
 func TestCallC(t *testing.T) {
-	defer reset()
-	goroot = "/goroot"
-	gopaths = map[string]string{"/gopath": getGOPATHs()[0]}
 	c := Call{
 		SourcePath: "/goroot/src/runtime/proc.c",
 		Line:       1472,
 		Func:       Function{"findrunnable"},
 		Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
 	}
-	c.updateLocations(goroot, gopaths)
+	c.updateLocations("/goroot", "/goroot", nil)
 	compareString(t, "proc.c", c.SourceName())
 	compareString(t, "proc.c:1472", c.SourceLine())
 	compareString(t, filepath.Join("runtime", "proc.c"), c.PkgSource())

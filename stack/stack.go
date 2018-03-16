@@ -284,12 +284,16 @@ func (c *Call) IsPkgMain() bool {
 const testMainSource = "_test" + string(os.PathSeparator) + "_testmain.go"
 
 // updateLocations initializes LocalSrcPath and IsStdlib.
-func (c *Call) updateLocations(goroot string, gopaths map[string]string) {
+func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
 	if c.SourcePath != "" {
+		// Always check GOROOT first, then GOPATH.
 		if strings.HasPrefix(c.SourcePath, goroot) {
+			// Replace remote GOROOT with local GOROOT.
 			c.LocalSrcPath = filepath.Join(localgoroot, c.SourcePath[len(goroot):])
 		} else {
+			// Replace remote GOPATH with local GOPATH.
 			c.LocalSrcPath = c.SourcePath
+			// TODO(maruel): Sort for deterministic behavior?
 			for prefix, dest := range gopaths {
 				if strings.HasPrefix(c.SourcePath, prefix) {
 					c.LocalSrcPath = filepath.Join(dest, c.SourcePath[len(prefix):])
@@ -408,9 +412,9 @@ func (s *Stack) Less(r *Stack) bool {
 	return false
 }
 
-func (s *Stack) updateLocations(goroot string, gopaths map[string]string) {
+func (s *Stack) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
 	for i := range s.Calls {
-		s.Calls[i].updateLocations(goroot, gopaths)
+		s.Calls[i].updateLocations(goroot, localgoroot, gopaths)
 	}
 }
 
@@ -540,9 +544,9 @@ func (s *Signature) CreatedByString(fullPath bool) string {
 	return created
 }
 
-func (s *Signature) updateLocations(goroot string, gopaths map[string]string) {
-	s.CreatedBy.updateLocations(goroot, gopaths)
-	s.Stack.updateLocations(goroot, gopaths)
+func (s *Signature) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
+	s.CreatedBy.updateLocations(goroot, localgoroot, gopaths)
+	s.Stack.updateLocations(goroot, localgoroot, gopaths)
 }
 
 // Goroutine represents the state of one goroutine, including the stack trace.

@@ -78,18 +78,19 @@ func writeToConsole(out io.Writer, p *stack.Palette, buckets stack.Buckets, full
 //
 // If html is used, a stack trace is written to this file instead.
 func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
-	if !rebase {
-		stack.NoRebase()
-	}
-	goroutines, err := stack.ParseDump(in, out)
+	c, err := stack.ParseDump(in, out, rebase)
 	if err != nil {
 		return err
 	}
-	needsEnv := len(goroutines) == 1 && showBanner()
-	if parse {
-		stack.Augment(goroutines)
+	if rebase {
+		log.Printf("GOROOT=%s", c.GOROOT)
+		log.Printf("GOPATH=%s", c.GOPATHs)
 	}
-	buckets := stack.SortBuckets(stack.Bucketize(goroutines, s))
+	needsEnv := len(c.Goroutines) == 1 && showBanner()
+	if parse {
+		stack.Augment(c.Goroutines)
+	}
+	buckets := stack.SortBuckets(stack.Bucketize(c.Goroutines, s))
 	if html == "" {
 		return writeToConsole(out, p, buckets, fullPath, needsEnv, filter, match)
 	}

@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -28,22 +29,55 @@ main.main()
 `
 
 func Example() {
+	// Optional: Check for GOTRACEBACK being set, in particular if there is only
+	// one goroutine returned.
 	in := bytes.NewBufferString(crash)
-	goroutines, err := ParseDump(in, os.Stdout)
+	c, err := ParseDump(in, os.Stdout, true)
 	if err != nil {
 		return
 	}
 
-	// Optional: Check for GOTRACEBACK being set, in particular if there is only
-	// one goroutine returned.
+	// Find out similar goroutine traces and group them into buckets.
+	buckets := SortBuckets(Bucketize(c.Goroutines, AnyValue))
 
-	// Use a color palette based on ANSI code.
-	p := &Palette{}
-	buckets := SortBuckets(Bucketize(goroutines, AnyValue))
-	srcLen, pkgLen := CalcLengths(buckets, false)
+	// Calculate alignment.
+	srcLen := 0
+	pkgLen := 0
 	for _, bucket := range buckets {
-		io.WriteString(os.Stdout, p.BucketHeader(&bucket, false, len(buckets) > 1))
-		io.WriteString(os.Stdout, p.StackLines(&bucket.Signature, srcLen, pkgLen, false))
+		for _, line := range bucket.Signature.Stack.Calls {
+			if l := len(line.SourceLine()); l > srcLen {
+				srcLen = l
+			}
+			if l := len(line.Func.PkgName()); l > pkgLen {
+				pkgLen = l
+			}
+		}
+	}
+
+	for _, bucket := range buckets {
+		// Print the goroutine header.
+		extra := ""
+		if s := bucket.SleepString(); s != "" {
+			extra += " [" + s + "]"
+		}
+		if bucket.Locked {
+			extra += " [locked]"
+		}
+		if c := bucket.CreatedByString(false); c != "" {
+			extra += " [Created by " + c + "]"
+		}
+		fmt.Printf("%d: %s%s\n", len(bucket.Routines), bucket.State, extra)
+
+		// Print the stack lines.
+		for _, line := range bucket.Stack.Calls {
+			fmt.Printf(
+				"    %-*s %-*s %s(%s)\n",
+				pkgLen, line.Func.PkgName(), srcLen, line.SourceLine(),
+				line.Func.Name(), line.Args)
+		}
+		if bucket.Stack.Elided {
+			io.WriteString(os.Stdout, "    (...)\n")
+		}
 	}
 	// Output:
 	// panic: oh no!
@@ -55,7 +89,6 @@ func Example() {
 }
 
 func TestParseDump1(t *testing.T) {
-	defer reset()
 	// One call from main, one from stdlib, one from third party.
 	// Create a long first line that will be ignored. It is to guard against
 	// https://github.com/maruel/panicparse/issues/17.
@@ -76,7 +109,7 @@ func TestParseDump1(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,12 +148,13 @@ func TestParseDump1(t *testing.T) {
 			First: true,
 		},
 	}
-	expected[0].updateLocations(goroot, gopaths)
-	compareGoroutines(t, expected, goroutines)
+	for i := range expected {
+		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+	}
+	compareGoroutines(t, expected, c.Goroutines)
 }
 
 func TestParseDumpLongWait(t *testing.T) {
-	defer reset()
 	// One call from main, one from stdlib, one from third party.
 	data := []string{
 		"panic: bleh",
@@ -139,7 +173,7 @@ func TestParseDumpLongWait(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,13 +236,12 @@ func TestParseDumpLongWait(t *testing.T) {
 		},
 	}
 	for i := range expected {
-		expected[i].updateLocations(goroot, gopaths)
+		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 }
 
 func TestParseDumpAsm(t *testing.T) {
-	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -218,7 +251,7 @@ func TestParseDumpAsm(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,15 +273,11 @@ func TestParseDumpAsm(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpLineErr(t *testing.T) {
-	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -258,7 +287,7 @@ func TestParseDumpLineErr(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("failed to parse int on line: \"/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890\""), err)
 	expected := []Goroutine{
 		{
@@ -271,13 +300,12 @@ func TestParseDumpLineErr(t *testing.T) {
 		},
 	}
 	for i := range expected {
-		expected[i].updateLocations(goroot, gopaths)
+		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 }
 
 func TestParseDumpValueErr(t *testing.T) {
-	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -287,7 +315,7 @@ func TestParseDumpValueErr(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("failed to parse int on line: \"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)\""), err)
 	expected := []Goroutine{
 		{
@@ -297,13 +325,12 @@ func TestParseDumpValueErr(t *testing.T) {
 		},
 	}
 	for i := range expected {
-		expected[i].updateLocations(goroot, gopaths)
+		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 }
 
 func TestParseDumpOrderErr(t *testing.T) {
-	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -314,7 +341,7 @@ func TestParseDumpOrderErr(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("unexpected order on line: \"/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6\""), err)
 	expected := []Goroutine{
 		{
@@ -323,12 +350,11 @@ func TestParseDumpOrderErr(t *testing.T) {
 			First:     true,
 		},
 	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpElided(t *testing.T) {
-	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -341,7 +367,7 @@ func TestParseDumpElided(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,15 +404,11 @@ func TestParseDumpElided(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpSysCall(t *testing.T) {
-	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -404,7 +426,7 @@ func TestParseDumpSysCall(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -456,15 +478,11 @@ func TestParseDumpSysCall(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpUnavail(t *testing.T) {
-	defer reset()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -475,7 +493,7 @@ func TestParseDumpUnavail(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,15 +514,11 @@ func TestParseDumpUnavail(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
 func TestParseDumpSameBucket(t *testing.T) {
-	defer reset()
 	// 2 goroutines with the same signature
 	data := []string{
 		"panic: runtime error: index out of range",
@@ -522,7 +536,7 @@ func TestParseDumpSameBucket(t *testing.T) {
 		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:74 +0xeb",
 		"",
 	}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -569,16 +583,12 @@ func TestParseDumpSameBucket(t *testing.T) {
 			ID: 7,
 		},
 	}
-	for i := range expectedGR {
-		expectedGR[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, c.Goroutines)
 	expectedBuckets := Buckets{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
-	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
+	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(c.Goroutines, ExactLines)))
 }
 
 func TestBucketizeNotAggressive(t *testing.T) {
-	defer reset()
 	// 2 goroutines with the same signature
 	data := []string{
 		"panic: runtime error: index out of range",
@@ -592,7 +602,7 @@ func TestBucketizeNotAggressive(t *testing.T) {
 		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -631,19 +641,15 @@ func TestBucketizeNotAggressive(t *testing.T) {
 			ID: 7,
 		},
 	}
-	for i := range expectedGR {
-		expectedGR[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, c.Goroutines)
 	expectedBuckets := Buckets{
 		{expectedGR[0].Signature, []Goroutine{expectedGR[0]}},
 		{expectedGR[1].Signature, []Goroutine{expectedGR[1]}},
 	}
-	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(goroutines, ExactLines)))
+	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(c.Goroutines, ExactLines)))
 }
 
 func TestBucketizeAggressive(t *testing.T) {
-	defer reset()
 	// 2 goroutines with the same signature
 	data := []string{
 		"panic: runtime error: index out of range",
@@ -661,7 +667,7 @@ func TestBucketizeAggressive(t *testing.T) {
 		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -722,10 +728,7 @@ func TestBucketizeAggressive(t *testing.T) {
 			ID: 8,
 		},
 	}
-	for i := range expectedGR {
-		expectedGR[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, c.Goroutines)
 	signature := Signature{
 		State:    "chan receive",
 		SleepMin: 10,
@@ -741,13 +744,11 @@ func TestBucketizeAggressive(t *testing.T) {
 			},
 		},
 	}
-	signature.updateLocations(goroot, gopaths)
 	expectedBuckets := Buckets{{signature, []Goroutine{expectedGR[0], expectedGR[1], expectedGR[2]}}}
-	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(goroutines, AnyPointer)))
+	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(c.Goroutines, AnyPointer)))
 }
 
 func TestParseDumpNoOffset(t *testing.T) {
-	defer reset()
 	data := []string{
 		"panic: runtime error: index out of range",
 		"",
@@ -758,7 +759,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:113 +0x43b",
 		"",
 	}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -785,14 +786,10 @@ func TestParseDumpNoOffset(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expectedGR {
-		expectedGR[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, c.Goroutines)
 }
 
 func TestParseDumpJunk(t *testing.T) {
-	defer reset()
 	// For coverage of scanLines.
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -800,7 +797,7 @@ func TestParseDumpJunk(t *testing.T) {
 		"goroutine 1 [running]:",
 		"junk",
 	}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -811,11 +808,10 @@ func TestParseDumpJunk(t *testing.T) {
 			First:     true,
 		},
 	}
-	compareGoroutines(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, c.Goroutines)
 }
 
 func TestParseCCode(t *testing.T) {
-	defer reset()
 	data := []string{
 		"SIGQUIT: quit",
 		"PC=0x43f349",
@@ -835,7 +831,7 @@ func TestParseCCode(t *testing.T) {
 		"        /goroot/src/runtime/asm_amd64.s:186 +0x5a",
 		"",
 	}
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &bytes.Buffer{})
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -901,14 +897,10 @@ func TestParseCCode(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expectedGR {
-		expectedGR[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expectedGR, goroutines)
+	compareGoroutines(t, expectedGR, c.Goroutines)
 }
 
 func TestParseWithCarriageReturn(t *testing.T) {
-	defer reset()
 	data := []string{
 		"goroutine 1 [running]:",
 		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
@@ -922,7 +914,7 @@ func TestParseWithCarriageReturn(t *testing.T) {
 		"",
 	}
 
-	goroutines, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\r\n")), ioutil.Discard)
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\r\n")), ioutil.Discard, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -960,18 +952,10 @@ func TestParseWithCarriageReturn(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(goroot, gopaths)
-	}
-	compareGoroutines(t, expected, goroutines)
+	compareGoroutines(t, expected, c.Goroutines)
 }
 
 //
-
-func reset() {
-	goroot = ""
-	gopaths = nil
-}
 
 func compareErr(t *testing.T, expected, actual error) {
 	if expected.Error() != actual.Error() {
@@ -980,13 +964,23 @@ func compareErr(t *testing.T, expected, actual error) {
 }
 
 func compareGoroutines(t *testing.T, expected, actual []Goroutine) {
-	if !reflect.DeepEqual(expected, actual) {
-		t.Fatalf("Different goroutines:\n- %v\n- %v", expected, actual)
+	if len(expected) != len(actual) {
+		t.Fatalf("Different []Goroutine length:\n- %v\n- %v", expected, actual)
+	}
+	for i := range expected {
+		if !reflect.DeepEqual(expected[i], actual[i]) {
+			t.Fatalf("Different Goroutine:\n- %v\n- %v", expected[i], actual[i])
+		}
 	}
 }
 
 func compareBuckets(t *testing.T, expected, actual Buckets) {
-	if !reflect.DeepEqual(expected, actual) {
-		t.Fatalf("%v != %v", expected, actual)
+	if len(expected) != len(actual) {
+		t.Fatalf("Different Buckets length:\n- %v\n- %v", expected, actual)
+	}
+	for i := range expected {
+		if !reflect.DeepEqual(expected[i], actual[i]) {
+			t.Fatalf("Different Bucket:\n- %#v\n- %#v", expected[i], actual[i])
+		}
 	}
 }

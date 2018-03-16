@@ -17,7 +17,6 @@ import (
 )
 
 func TestAugment(t *testing.T) {
-	defer reset()
 	data := []struct {
 		name     string
 		input    string
@@ -431,8 +430,7 @@ func TestAugment(t *testing.T) {
 	for i, line := range data {
 		extra := bytes.Buffer{}
 		_, content, clean := getCrash(t, line.input)
-		reset()
-		goroutines, err := ParseDump(bytes.NewBuffer(content), &extra)
+		c, err := ParseDump(bytes.NewBuffer(content), &extra, false)
 		if err != nil {
 			clean()
 			t.Fatalf("failed to parse input for test %s: %v", line.name, err)
@@ -443,7 +441,7 @@ func TestAugment(t *testing.T) {
 			clean()
 			t.Fatalf("Unexpected panic output:\n%#v", actual)
 		}
-		s := goroutines[0].Signature.Stack
+		s := c.Goroutines[0].Signature.Stack
 		t.Logf("Test: %v", line.name)
 		zapPointers(t, line.name, &line.expected, &s)
 		zapPaths(&s)

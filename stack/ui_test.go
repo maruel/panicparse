@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-var p = &Palette{
+var testPalette = &Palette{
 	EOLReset:               "A",
 	RoutineFirst:           "B",
 	Routine:                "C",
@@ -24,17 +24,12 @@ var p = &Palette{
 }
 
 func TestCalcLengths(t *testing.T) {
-	defer reset()
-	goroot = "/goroot"
-	dest := getGOPATHs()[0]
-	gopaths = map[string]string{"/gopath": dest}
 	b := Buckets{
 		{
 			Signature{Stack: Stack{Calls: []Call{{SourcePath: "/gopath/foo/baz.go", Line: 123, Func: Function{"foo.func·001"}}}}},
 			nil,
 		},
 	}
-	b[0].updateLocations(goroot, gopaths)
 	srcLen, pkgLen := CalcLengths(b, true)
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "/gopath/foo/baz.go:123", b[0].Signature.Stack.Calls[0].FullSourceLine())
@@ -48,10 +43,6 @@ func TestCalcLengths(t *testing.T) {
 }
 
 func TestBucketHeader(t *testing.T) {
-	defer reset()
-	goroot = "/goroot"
-	dest := getGOPATHs()[0]
-	gopaths = map[string]string{"/gopath": dest}
 	b := &Bucket{
 		Signature{
 			State: "chan receive",
@@ -70,12 +61,11 @@ func TestBucketHeader(t *testing.T) {
 			{},
 		},
 	}
-	b.updateLocations(goroot, gopaths)
 	// When printing, it prints the remote path, not the transposed local path.
-	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", p.BucketHeader(b, true, true))
-	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", p.BucketHeader(b, true, false))
-	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", p.BucketHeader(b, false, true))
-	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", p.BucketHeader(b, false, false))
+	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, true, true))
+	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, true, false))
+	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, false, true))
+	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, false, false))
 
 	b = &Bucket{
 		Signature{
@@ -86,14 +76,10 @@ func TestBucketHeader(t *testing.T) {
 		},
 		nil,
 	}
-	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", p.BucketHeader(b, false, false))
+	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", testPalette.BucketHeader(b, false, false))
 }
 
 func TestStackLines(t *testing.T) {
-	defer reset()
-	goroot = "/goroot"
-	dest := getGOPATHs()[0]
-	gopaths = map[string]string{"/gopath": dest}
 	s := &Signature{
 		State: "idle",
 		Stack: Stack{
@@ -117,12 +103,14 @@ func TestStackLines(t *testing.T) {
 						},
 						Elided: true,
 					},
+					IsStdlib: true,
 				},
 				{
 					SourcePath: "/goroot/src/runtime/netpoll_epoll.go",
 					Line:       68,
 					Func:       Function{"runtime.netpoll"},
 					Args:       Args{Values: []Arg{{Value: 0x901b01}, {}}},
+					IsStdlib:   true,
 				},
 				{
 					SourcePath: "/gopath/src/main.go",
@@ -144,7 +132,6 @@ func TestStackLines(t *testing.T) {
 			Elided: true,
 		},
 	}
-	s.updateLocations(goroot, gopaths)
 	// When printing, it prints the remote path, not the transposed local path.
 	expected := "" +
 		"    Eruntime    F/goroot/src/runtime/sys_linux_amd64.s:400 HEpollwaitL(0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
@@ -153,7 +140,7 @@ func TestStackLines(t *testing.T) {
 		"    Efoo        F/gopath/src/foo/bar.go:1575 KOtherExportedL()A\n" +
 		"    Efoo        F/gopath/src/foo/bar.go:10 JotherPrivateL()A\n" +
 		"    (...)\n"
-	compareString(t, expected, p.StackLines(s, 10, 10, true))
+	compareString(t, expected, testPalette.StackLines(s, 10, 10, true))
 	expected = "" +
 		"    Eruntime    Fsys_linux_amd64.s:400 HEpollwaitL(0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
 		"    Eruntime    Fnetpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
@@ -161,12 +148,16 @@ func TestStackLines(t *testing.T) {
 		"    Efoo        Fbar.go:1575 KOtherExportedL()A\n" +
 		"    Efoo        Fbar.go:10  JotherPrivateL()A\n" +
 		"    (...)\n"
-	compareString(t, expected, p.StackLines(s, 10, 10, false))
+	compareString(t, expected, testPalette.StackLines(s, 10, 10, false))
 }
 
 func compareString(t *testing.T, expected, actual string) {
 	if expected != actual {
-		t.Fatalf("%q != %q", expected, actual)
+		i := 0
+		for i < len(expected) && i < len(actual) && expected[i] == actual[i] {
+			i++
+		}
+		t.Fatalf("Delta at offset %d:\n- %q\n- %q", i, expected, actual)
 	}
 }
 

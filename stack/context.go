@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -19,30 +18,70 @@ import (
 	"strings"
 )
 
-// TODO(maruel): This is a global state, affected by ParseDump(). This will
-// be refactored in v2.
-var (
-	// goroot is the GOROOT as detected in the traceback, not the on the host.
+// Context is a parsing context.
+//
+// It contains the deduced GOROOT and GOPATH, if guesspaths is true.
+type Context struct {
+	// Goroutines is the Goroutines found.
+	Goroutines []Goroutine
+
+	// GOROOT is the GOROOT as detected in the traceback, not the on the host.
 	//
 	// It can be empty if no root was determined, for example the traceback
 	// contains only non-stdlib source references.
-	goroot string
-	// gopaths is the GOPATH as detected in the traceback, with the value being
+	//
+	// Empty is guesspaths was false.
+	GOROOT string
+	// GOPATHs is the GOPATH as detected in the traceback, with the value being
 	// the corresponding path mapped to the host.
 	//
 	// It can be empty if only stdlib code is in the traceback or if no local
-	// sources were matched up. In the general case there is only one.
-	gopaths map[string]string
-	// Corresponding local values on the host.
-	localgoroot  = runtime.GOROOT()
-	localgopaths = getGOPATHs()
-)
+	// sources were matched up. In the general case there is only one entry in
+	// the map.
+	//
+	// Nil is guesspaths was false.
+	GOPATHs map[string]string
+
+	localgoroot  string
+	localgopaths []string
+}
 
 // ParseDump processes the output from runtime.Stack().
 //
-// It supports piping from another command and assumes there is junk before the
-// actual stack trace. The junk is streamed to out.
-func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
+// Returns nil *Context if no stack trace was detected.
+//
+// It pipes anything not detected as a panic stack trace from r into out. It
+// assumes there is junk before the actual stack trace. The junk is streamed to
+// out.
+//
+// If guesspaths is false, no guessing of GOROOT and GOPATH is done, and Call
+// entites do not have LocalSrcPath and IsStdlib filled in.
+func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
+	goroutines, err := parseDump(r, out)
+	if len(goroutines) == 0 {
+		return nil, err
+	}
+	c := &Context{
+		Goroutines:   goroutines,
+		localgoroot:  runtime.GOROOT(),
+		localgopaths: getGOPATHs(),
+	}
+	nameArguments(goroutines)
+	// Corresponding local values on the host for Context.
+	if guesspaths {
+		c.findRoots()
+		for i := range c.Goroutines {
+			// Note that this is important to call it even if
+			// c.GOROOT == c.localgoroot.
+			c.Goroutines[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+		}
+	}
+	return c, err
+}
+
+// Private stuff.
+
+func parseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Split(scanLines)
 	s := scanningState{}
@@ -55,31 +94,8 @@ func ParseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
 			return s.goroutines, err
 		}
 	}
-	nameArguments(s.goroutines)
-	// Mutate global state.
-	// TODO(maruel): Make this part of the context instead of a global.
-	if goroot == "" {
-		findRoots(s.goroutines)
-	}
-	for i := range s.goroutines {
-		s.goroutines[i].updateLocations(goroot, gopaths)
-	}
 	return s.goroutines, scanner.Err()
 }
-
-// NoRebase disables GOROOT and GOPATH guessing in ParseDump().
-//
-// BUG: This function will be removed in v2, as ParseDump() will accept a flag
-// explicitly.
-func NoRebase() {
-	goroot = runtime.GOROOT()
-	gopaths = map[string]string{}
-	for _, p := range getGOPATHs() {
-		gopaths[p] = p
-	}
-}
-
-// Private stuff.
 
 // scanLines is similar to bufio.ScanLines except that it:
 //     - doesn't drop '\n'
@@ -300,35 +316,32 @@ func rootedIn(root string, parts []string) string {
 	return ""
 }
 
-// findRoots sets global variables goroot and gopath.
-//
-// TODO(maruel): In v2, it will be a property of the new struct that will
-// contain the goroutines.
-func findRoots(goroutines []Goroutine) {
-	gopaths = map[string]string{}
-	for _, f := range getFiles(goroutines) {
+// findRoots sets member GOROOT and GOPATHs.
+func (c *Context) findRoots() {
+	c.GOPATHs = map[string]string{}
+	for _, f := range getFiles(c.Goroutines) {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
 		// possible, need to confirm and handle.
 		//log.Printf("  Analyzing %s", f)
-		if goroot != "" && strings.HasPrefix(f, goroot+"/") {
+		if c.GOROOT != "" && strings.HasPrefix(f, c.GOROOT+"/") {
 			continue
 		}
-		if gopaths != nil && hasPathPrefix(f, gopaths) {
+		if hasPathPrefix(f, c.GOPATHs) {
 			continue
 		}
 		parts := splitPath(f)
-		if goroot == "" {
-			if r := rootedIn(localgoroot, parts); r != "" {
-				goroot = r
-				log.Printf("Found GOROOT=%s", goroot)
+		if c.GOROOT == "" {
+			if r := rootedIn(c.localgoroot, parts); r != "" {
+				c.GOROOT = r
+				//log.Printf("Found GOROOT=%s", c.GOROOT)
 				continue
 			}
 		}
 		found := false
-		for _, l := range localgopaths {
+		for _, l := range c.localgopaths {
 			if r := rootedIn(l, parts); r != "" {
-				log.Printf("Found GOPATH=%s", r)
-				gopaths[r] = l
+				//log.Printf("Found GOPATH=%s", r)
+				c.GOPATHs[r] = l
 				found = true
 				break
 			}
