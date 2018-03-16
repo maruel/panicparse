@@ -527,6 +527,36 @@ func (s *Signature) Less(r *Signature) bool {
 	return false
 }
 
+// SleepString returns a string "N-M minutes" if the goroutine(s) slept for a
+// long time.
+//
+// Returns an empty string otherwise.
+func (s *Signature) SleepString() string {
+	if s.SleepMax == 0 {
+		return ""
+	}
+	if s.SleepMin != s.SleepMax {
+		return fmt.Sprintf("%d~%d minutes", s.SleepMin, s.SleepMax)
+	}
+	return fmt.Sprintf("%d minutes", s.SleepMax)
+}
+
+// CreatedByString return a short context about the origin of this goroutine
+// signature.
+func (s *Signature) CreatedByString(fullPath bool) string {
+	created := s.CreatedBy.Func.PkgDotName()
+	if created == "" {
+		return ""
+	}
+	created += " @ "
+	if fullPath {
+		created += s.CreatedBy.FullSourceLine()
+	} else {
+		created += s.CreatedBy.SourceLine()
+	}
+	return created
+}
+
 // Goroutine represents the state of one goroutine, including the stack trace.
 type Goroutine struct {
 	Signature      // It's stack trace, internal bits, state, which call site created it, etc.

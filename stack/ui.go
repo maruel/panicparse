@@ -82,25 +82,14 @@ func (p *Palette) routineColor(bucket *Bucket, multipleBuckets bool) string {
 // BucketHeader prints the header of a goroutine signature.
 func (p *Palette) BucketHeader(bucket *Bucket, fullPath, multipleBuckets bool) string {
 	extra := ""
-	if bucket.SleepMax != 0 {
-		if bucket.SleepMin != bucket.SleepMax {
-			extra += fmt.Sprintf(" [%d~%d minutes]", bucket.SleepMin, bucket.SleepMax)
-		} else {
-			extra += fmt.Sprintf(" [%d minutes]", bucket.SleepMax)
-		}
+	if s := bucket.SleepString(); s != "" {
+		extra += " [" + s + "]"
 	}
 	if bucket.Locked {
 		extra += " [locked]"
 	}
-	created := bucket.CreatedBy.Func.PkgDotName()
-	if created != "" {
-		created += " @ "
-		if fullPath {
-			created += bucket.CreatedBy.FullSourceLine()
-		} else {
-			created += bucket.CreatedBy.SourceLine()
-		}
-		extra += p.CreatedBy + " [Created by " + created + "]"
+	if c := bucket.CreatedByString(fullPath); c != "" {
+		extra += p.CreatedBy + " [Created by " + c + "]"
 	}
 	return fmt.Sprintf(
 		"%s%d: %s%s%s\n",
