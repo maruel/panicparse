@@ -79,7 +79,7 @@ func writeToConsole(out io.Writer, p *stack.Palette, buckets stack.Buckets, full
 // If html is used, a stack trace is written to this file instead.
 func process(in io.Reader, out io.Writer, p *stack.Palette, s stack.Similarity, fullPath, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
 	c, err := stack.ParseDump(in, out, rebase)
-	if err != nil {
+	if c == nil || err != nil {
 		return err
 	}
 	if rebase {
