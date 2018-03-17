@@ -57,11 +57,11 @@ var (
 	reElided  = regexp.MustCompile("^\\.\\.\\.additional frames elided\\.\\.\\.\r?\n$")
 )
 
-// Function is a function call.
+// Func is a function call.
 //
 // Go stack traces print a mangled function call, this wrapper unmangle the
 // string before printing and adds other filtering methods.
-type Function struct {
+type Func struct {
 	Raw string
 }
 
@@ -70,13 +70,13 @@ type Function struct {
 // Sadly Go is a bit confused when the package name doesn't match the directory
 // containing the source file and will use the directory name instead of the
 // real package name.
-func (f Function) String() string {
+func (f *Func) String() string {
 	s, _ := url.QueryUnescape(f.Raw)
 	return s
 }
 
 // Name is the naked function name.
-func (f Function) Name() string {
+func (f *Func) Name() string {
 	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
 	if len(parts) == 1 {
 		return parts[0]
@@ -85,7 +85,7 @@ func (f Function) Name() string {
 }
 
 // PkgName is the package name for this function reference.
-func (f Function) PkgName() string {
+func (f *Func) PkgName() string {
 	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
 	if len(parts) == 1 {
 		return ""
@@ -95,7 +95,7 @@ func (f Function) PkgName() string {
 }
 
 // PkgDotName returns "<package>.<func>" format.
-func (f Function) PkgDotName() string {
+func (f *Func) PkgDotName() string {
 	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
 	s, _ := url.QueryUnescape(parts[0])
 	if len(parts) == 1 {
@@ -108,7 +108,7 @@ func (f Function) PkgDotName() string {
 }
 
 // IsExported returns true if the function is exported.
-func (f Function) IsExported() bool {
+func (f *Func) IsExported() bool {
 	name := f.Name()
 	parts := strings.Split(name, ".")
 	r, _ := utf8.DecodeRuneInString(parts[len(parts)-1])
@@ -131,7 +131,7 @@ func (a *Arg) IsPtr() bool {
 	return a.Value > 16*1024*1024 && a.Value < math.MaxInt64
 }
 
-func (a Arg) String() string {
+func (a *Arg) String() string {
 	if a.Name != "" {
 		return a.Name
 	}
@@ -148,7 +148,7 @@ type Args struct {
 	Elided    bool     // If set, it means there was a trailing ", ..."
 }
 
-func (a Args) String() string {
+func (a *Args) String() string {
 	var v []string
 	if len(a.Processed) != 0 {
 		v = make([]string, 0, len(a.Processed))
@@ -223,29 +223,29 @@ func (a *Args) Merge(r *Args) Args {
 
 // Call is an item in the stack trace.
 type Call struct {
-	SourcePath   string   // Full path name of the source file as seen in the trace
-	LocalSrcPath string   // Full path name of the source file as seen in the host.
-	Line         int      // Line number
-	Func         Function // Fully qualified function name (encoded).
-	Args         Args     // Call arguments
-	IsStdlib     bool     // true if it is a Go standard library function. This includes the 'go test' generated main executable.
+	SrcPath      string // Full path name of the source file as seen in the trace
+	LocalSrcPath string // Full path name of the source file as seen in the host.
+	Line         int    // Line number
+	Func         Func   // Fully qualified function name (encoded).
+	Args         Args   // Call arguments
+	IsStdlib     bool   // true if it is a Go standard library function. This includes the 'go test' generated main executable.
 }
 
 // Equal returns true only if both calls are exactly equal.
 func (c *Call) Equal(r *Call) bool {
-	return c.SourcePath == r.SourcePath && c.Line == r.Line && c.Func == r.Func && c.Args.Equal(&r.Args)
+	return c.SrcPath == r.SrcPath && c.Line == r.Line && c.Func == r.Func && c.Args.Equal(&r.Args)
 }
 
 // Similar returns true if the two Call are equal or almost but not quite
 // equal.
 func (c *Call) Similar(r *Call, similar Similarity) bool {
-	return c.SourcePath == r.SourcePath && c.Line == r.Line && c.Func == r.Func && c.Args.Similar(&r.Args, similar)
+	return c.SrcPath == r.SrcPath && c.Line == r.Line && c.Func == r.Func && c.Args.Similar(&r.Args, similar)
 }
 
 // Merge merges two similar Call, zapping out differences.
 func (c *Call) Merge(r *Call) Call {
 	return Call{
-		SourcePath:   c.SourcePath,
+		SrcPath:      c.SrcPath,
 		Line:         c.Line,
 		Func:         c.Func,
 		Args:         c.Args.Merge(&r.Args),
@@ -254,26 +254,26 @@ func (c *Call) Merge(r *Call) Call {
 	}
 }
 
-// SourceName returns the base file name of the source file.
-func (c *Call) SourceName() string {
-	return filepath.Base(c.SourcePath)
+// SrcName returns the base file name of the source file.
+func (c *Call) SrcName() string {
+	return filepath.Base(c.SrcPath)
 }
 
-// SourceLine returns "source.go:line", including only the base file name.
-func (c *Call) SourceLine() string {
-	return fmt.Sprintf("%s:%d", c.SourceName(), c.Line)
+// SrcLine returns "source.go:line", including only the base file name.
+func (c *Call) SrcLine() string {
+	return fmt.Sprintf("%s:%d", c.SrcName(), c.Line)
 }
 
-// FullSourceLine returns "/path/to/source.go:line".
+// FullSrcLine returns "/path/to/source.go:line".
 //
 // This file path is mutated to look like the local path.
-func (c *Call) FullSourceLine() string {
-	return fmt.Sprintf("%s:%d", c.SourcePath, c.Line)
+func (c *Call) FullSrcLine() string {
+	return fmt.Sprintf("%s:%d", c.SrcPath, c.Line)
 }
 
-// PkgSource is one directory plus the file name of the source file.
-func (c *Call) PkgSource() string {
-	return filepath.Join(filepath.Base(filepath.Dir(c.SourcePath)), c.SourceName())
+// PkgSrc is one directory plus the file name of the source file.
+func (c *Call) PkgSrc() string {
+	return filepath.Join(filepath.Base(filepath.Dir(c.SrcPath)), c.SrcName())
 }
 
 // IsPkgMain returns true if it is in the main package.
@@ -281,29 +281,29 @@ func (c *Call) IsPkgMain() bool {
 	return c.Func.PkgName() == "main"
 }
 
-const testMainSource = "_test" + string(os.PathSeparator) + "_testmain.go"
+const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 
 // updateLocations initializes LocalSrcPath and IsStdlib.
 func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
-	if c.SourcePath != "" {
+	if c.SrcPath != "" {
 		// Always check GOROOT first, then GOPATH.
-		if strings.HasPrefix(c.SourcePath, goroot) {
+		if strings.HasPrefix(c.SrcPath, goroot) {
 			// Replace remote GOROOT with local GOROOT.
-			c.LocalSrcPath = filepath.Join(localgoroot, c.SourcePath[len(goroot):])
+			c.LocalSrcPath = filepath.Join(localgoroot, c.SrcPath[len(goroot):])
 		} else {
 			// Replace remote GOPATH with local GOPATH.
-			c.LocalSrcPath = c.SourcePath
+			c.LocalSrcPath = c.SrcPath
 			// TODO(maruel): Sort for deterministic behavior?
 			for prefix, dest := range gopaths {
-				if strings.HasPrefix(c.SourcePath, prefix) {
-					c.LocalSrcPath = filepath.Join(dest, c.SourcePath[len(prefix):])
+				if strings.HasPrefix(c.SrcPath, prefix) {
+					c.LocalSrcPath = filepath.Join(dest, c.SrcPath[len(prefix):])
 					break
 				}
 			}
 		}
 	}
 	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
-	c.IsStdlib = (goroot != "" && strings.HasPrefix(c.SourcePath, goroot)) || c.PkgSource() == testMainSource
+	c.IsStdlib = (goroot != "" && strings.HasPrefix(c.SrcPath, goroot)) || c.PkgSrc() == testMainSrc
 }
 
 // Stack is a call stack.
@@ -396,10 +396,10 @@ func (s *Stack) Less(r *Stack) bool {
 		if s.Calls[x].Func.Raw > r.Calls[x].Func.Raw {
 			return true
 		}
-		if s.Calls[x].PkgSource() < r.Calls[x].PkgSource() {
+		if s.Calls[x].PkgSrc() < r.Calls[x].PkgSrc() {
 			return true
 		}
-		if s.Calls[x].PkgSource() > r.Calls[x].PkgSource() {
+		if s.Calls[x].PkgSrc() > r.Calls[x].PkgSrc() {
 			return true
 		}
 		if s.Calls[x].Line < r.Calls[x].Line {
@@ -537,9 +537,9 @@ func (s *Signature) CreatedByString(fullPath bool) string {
 	}
 	created += " @ "
 	if fullPath {
-		created += s.CreatedBy.FullSourceLine()
+		created += s.CreatedBy.FullSrcLine()
 	} else {
-		created += s.CreatedBy.SourceLine()
+		created += s.CreatedBy.SrcLine()
 	}
 	return created
 }

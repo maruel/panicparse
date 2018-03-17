@@ -184,7 +184,7 @@ func (s *scanningState) scan(line string) (string, error) {
 				s.firstLine = false
 				if match := reUnavail.FindStringSubmatch(line); match != nil {
 					// Generate a fake stack entry.
-					s.goroutine.Stack.Calls = []Call{{SourcePath: "<unavailable>"}}
+					s.goroutine.Stack.Calls = []Call{{SrcPath: "<unavailable>"}}
 					return "", nil
 				}
 			}
@@ -197,14 +197,14 @@ func (s *scanningState) scan(line string) (string, error) {
 				}
 				if s.created {
 					s.created = false
-					s.goroutine.CreatedBy.SourcePath = match[1]
+					s.goroutine.CreatedBy.SrcPath = match[1]
 					s.goroutine.CreatedBy.Line = num
 				} else {
 					i := len(s.goroutine.Stack.Calls) - 1
 					if i < 0 {
 						return "", fmt.Errorf("unexpected order on line: %q", strings.TrimSpace(line))
 					}
-					s.goroutine.Stack.Calls[i].SourcePath = match[1]
+					s.goroutine.Stack.Calls[i].SrcPath = match[1]
 					s.goroutine.Stack.Calls[i].Line = num
 				}
 				return "", nil
@@ -233,7 +233,7 @@ func (s *scanningState) scan(line string) (string, error) {
 					}
 					args.Values = append(args.Values, Arg{Value: v})
 				}
-				s.goroutine.Stack.Calls = append(s.goroutine.Stack.Calls, Call{Func: Function{match[1]}, Args: args})
+				s.goroutine.Stack.Calls = append(s.goroutine.Stack.Calls, Call{Func: Func{match[1]}, Args: args})
 				return "", nil
 			}
 
@@ -262,7 +262,7 @@ func getFiles(goroutines []Goroutine) []string {
 	files := map[string]struct{}{}
 	for _, g := range goroutines {
 		for _, c := range g.Stack.Calls {
-			files[c.SourcePath] = struct{}{}
+			files[c.SrcPath] = struct{}{}
 		}
 	}
 	out := make([]string, 0, len(files))

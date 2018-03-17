@@ -38,12 +38,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 7, Func: Function{"main.f"},
+						SrcPath: "main.go", Line: 7, Func: Func{"main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer, Name: ""}, {Value: 0x2}},
 						},
 					},
-					{SourcePath: "main.go", Line: 10, Func: Function{"main.main"}},
+					{SrcPath: "main.go", Line: 10, Func: Func{"main.main"}},
 				},
 			},
 		},
@@ -59,10 +59,10 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{Values: []Arg{{Value: pointer}}},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -78,12 +78,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}, {Value: 0x1}, {Value: 0x1}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -99,12 +99,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}, {Value: 0x5}, {Value: 0x7}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -120,12 +120,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}, {Value: 5}, {Value: 7}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -141,12 +141,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}, {Value: 1}, {Value: 1}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -162,12 +162,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -183,12 +183,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -204,12 +204,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -225,12 +225,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -248,8 +248,8 @@ func TestAugment(t *testing.T) {
 			}`,
 			Stack{
 				Calls: []Call{
-					{SourcePath: "main.go", Line: 5, Func: Function{Raw: "main.S.f"}},
-					{SourcePath: "main.go", Line: 9, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 5, Func: Func{Raw: "main.S.f"}},
+					{SrcPath: "main.go", Line: 9, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -268,10 +268,10 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 5, Func: Function{Raw: "main.(*S).f"},
+						SrcPath: "main.go", Line: 5, Func: Func{Raw: "main.(*S).f"},
 						Args: Args{Values: []Arg{{Value: pointer}}},
 					},
-					{SourcePath: "main.go", Line: 9, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 9, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -287,10 +287,10 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{Values: []Arg{{Value: pointer}, {Value: 0x3}}},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -306,10 +306,10 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{Values: []Arg{{Value: pointer}, {Value: 0x3}, {Value: 42}}},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -325,13 +325,13 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{}, {}, {}, {}, {}, {}, {}, {}, {Value: 42}, {Value: 43}},
 							Elided: true,
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -348,12 +348,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 4, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 4, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}, {Value: pointer}},
 						},
 					},
-					{SourcePath: "main.go", Line: 7, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 7, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -370,12 +370,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 4, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 4, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer}, {Value: pointer}},
 						},
 					},
-					{SourcePath: "main.go", Line: 7, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 7, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -391,14 +391,14 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							// The value is NOT a pointer but floating point encoding is not
 							// deterministic.
 							Values: []Arg{{Value: pointer}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -414,14 +414,14 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SourcePath: "main.go", Line: 3, Func: Function{Raw: "main.f"},
+						SrcPath: "main.go", Line: 3, Func: Func{Raw: "main.f"},
 						Args: Args{
 							// The value is NOT a pointer but floating point encoding is not
 							// deterministic.
 							Values: []Arg{{Value: pointer}},
 						},
 					},
-					{SourcePath: "main.go", Line: 6, Func: Function{Raw: "main.main"}},
+					{SrcPath: "main.go", Line: 6, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},
@@ -457,7 +457,7 @@ func TestAugmentDummy(t *testing.T) {
 		{
 			Signature: Signature{
 				Stack: Stack{
-					Calls: []Call{{SourcePath: "missing.go"}},
+					Calls: []Call{{SrcPath: "missing.go"}},
 				},
 			},
 		},
@@ -485,7 +485,7 @@ func TestLoad(t *testing.T) {
 	if c.parsed["doesnt_exist.go"] != nil {
 		t.Fatalf("doesnt_exist.go is not present; should not have been loaded")
 	}
-	if c.getFuncAST(&Call{SourcePath: "other"}) != nil {
+	if c.getFuncAST(&Call{SrcPath: "other"}) != nil {
 		t.Fatalf("there's no 'other'")
 	}
 }
@@ -566,7 +566,7 @@ func zapPointers(t *testing.T, name string, expected, s *Stack) {
 // zapPaths removes the directory part and only keep the base file name.
 func zapPaths(s *Stack) {
 	for j := range s.Calls {
-		s.Calls[j].SourcePath = filepath.Base(s.Calls[j].SourcePath)
+		s.Calls[j].SrcPath = filepath.Base(s.Calls[j].SrcPath)
 		s.Calls[j].LocalSrcPath = ""
 	}
 }

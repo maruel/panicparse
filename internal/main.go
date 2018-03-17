@@ -42,17 +42,17 @@ const resetFG = ansi.DefaultFG + "\033[m"
 
 // defaultPalette is the default recommended palette.
 var defaultPalette = Palette{
-	EOLReset:               resetFG,
-	RoutineFirst:           ansi.ColorCode("magenta+b"),
-	CreatedBy:              ansi.LightBlack,
-	Package:                ansi.ColorCode("default+b"),
-	SourceFile:             resetFG,
-	FunctionStdLib:         ansi.Green,
-	FunctionStdLibExported: ansi.ColorCode("green+b"),
-	FunctionMain:           ansi.ColorCode("yellow+b"),
-	FunctionOther:          ansi.Red,
-	FunctionOtherExported:  ansi.ColorCode("red+b"),
-	Arguments:              resetFG,
+	EOLReset:           resetFG,
+	RoutineFirst:       ansi.ColorCode("magenta+b"),
+	CreatedBy:          ansi.LightBlack,
+	Package:            ansi.ColorCode("default+b"),
+	SrcFile:            resetFG,
+	FuncStdLib:         ansi.Green,
+	FuncStdLibExported: ansi.ColorCode("green+b"),
+	FuncMain:           ansi.ColorCode("yellow+b"),
+	FuncOther:          ansi.Red,
+	FuncOtherExported:  ansi.ColorCode("red+b"),
+	Arguments:          resetFG,
 }
 
 func writeToConsole(out io.Writer, p *Palette, buckets stack.Buckets, fullPath, needsEnv bool, filter, match *regexp.Regexp) error {

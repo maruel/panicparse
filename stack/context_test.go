@@ -45,7 +45,7 @@ func Example() {
 	pkgLen := 0
 	for _, bucket := range buckets {
 		for _, line := range bucket.Signature.Stack.Calls {
-			if l := len(line.SourceLine()); l > srcLen {
+			if l := len(line.SrcLine()); l > srcLen {
 				srcLen = l
 			}
 			if l := len(line.Func.PkgName()); l > pkgLen {
@@ -72,8 +72,8 @@ func Example() {
 		for _, line := range bucket.Stack.Calls {
 			fmt.Printf(
 				"    %-*s %-*s %s(%s)\n",
-				pkgLen, line.Func.PkgName(), srcLen, line.SourceLine(),
-				line.Func.Name(), line.Args)
+				pkgLen, line.Func.PkgName(), srcLen, line.SrcLine(),
+				line.Func.Name(), &line.Args)
 		}
 		if bucket.Stack.Elided {
 			io.WriteString(os.Stdout, "    (...)\n")
@@ -121,25 +121,25 @@ func TestParseDump1(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "??",
-							Func:       Function{"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"},
+							SrcPath: "??",
+							Func:    Func{"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"},
 						},
 						{
-							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-							Line:       153,
-							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-							Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
+							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:    153,
+							Func:    Func{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 						},
 						{
-							SourcePath: "/goroot/src/reflect/value.go",
-							Line:       2125,
-							Func:       Function{"reflect.Value.assignTo"},
-							Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+							SrcPath: "/goroot/src/reflect/value.go",
+							Line:    2125,
+							Func:    Func{"reflect.Value.assignTo"},
+							Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 						},
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       428,
-							Func:       Function{"main.main"},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    428,
+							Func:    Func{"main.main"},
 						},
 					},
 				},
@@ -187,10 +187,10 @@ func TestParseDumpLongWait(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-							Line:       153,
-							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-							Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
+							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:    153,
+							Func:    Func{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 						},
 					},
 				},
@@ -205,10 +205,10 @@ func TestParseDumpLongWait(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-							Line:       153,
-							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-							Args:       Args{Values: []Arg{{Value: 0xc208033b21, Name: "#1"}}},
+							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:    153,
+							Func:    Func{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:    Args{Values: []Arg{{Value: 0xc208033b21, Name: "#1"}}},
 						},
 					},
 				},
@@ -223,10 +223,10 @@ func TestParseDumpLongWait(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-							Line:       153,
-							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-							Args:       Args{Values: []Arg{{Value: 0xc208033b22, Name: "#2"}}},
+							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:    153,
+							Func:    Func{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:    Args{Values: []Arg{{Value: 0xc208033b22, Name: "#2"}}},
 						},
 					},
 				},
@@ -262,9 +262,9 @@ func TestParseDumpAsm(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/goroot/src/runtime/asm_amd64.s",
-							Line:       198,
-							Func:       Function{Raw: "runtime.switchtoM"},
+							SrcPath: "/goroot/src/runtime/asm_amd64.s",
+							Line:    198,
+							Func:    Func{Raw: "runtime.switchtoM"},
 						},
 					},
 				},
@@ -293,7 +293,7 @@ func TestParseDumpLineErr(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				Stack: Stack{Calls: []Call{{Func: Function{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"}}}},
+				Stack: Stack{Calls: []Call{{Func: Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"}}}},
 			},
 			ID:    1,
 			First: true,
@@ -378,9 +378,9 @@ func TestParseDumpElided(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       53,
-							Func:       Function{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    53,
+							Func:    Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"},
 							Args: Args{
 								Values: []Arg{
 									{Value: 0x7f4fa9a3ec70},
@@ -395,9 +395,9 @@ func TestParseDumpElided(t *testing.T) {
 					Elided: true,
 				},
 				CreatedBy: Call{
-					SourcePath: "/goroot/src/testing/testing.go",
-					Line:       555,
-					Func:       Function{Raw: "testing.RunTests"},
+					SrcPath: "/goroot/src/testing/testing.go",
+					Line:    555,
+					Func:    Func{Raw: "testing.RunTests"},
 				},
 			},
 			ID:    16,
@@ -437,9 +437,9 @@ func TestParseDumpSysCall(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/goroot/src/runtime/lock_futex.go",
-							Line:       201,
-							Func:       Function{Raw: "runtime.notetsleepg"},
+							SrcPath: "/goroot/src/runtime/lock_futex.go",
+							Line:    201,
+							Func:    Func{Raw: "runtime.notetsleepg"},
 							Args: Args{
 								Values: []Arg{
 									{Value: 0x918100},
@@ -449,29 +449,29 @@ func TestParseDumpSysCall(t *testing.T) {
 							},
 						},
 						{
-							SourcePath: "/goroot/src/runtime/sigqueue.go",
-							Line:       109,
-							Func:       Function{Raw: "runtime.signal_recv"},
+							SrcPath: "/goroot/src/runtime/sigqueue.go",
+							Line:    109,
+							Func:    Func{Raw: "runtime.signal_recv"},
 							Args: Args{
 								Values: []Arg{{}},
 							},
 						},
 						{
-							SourcePath: "/goroot/src/os/signal/signal_unix.go",
-							Line:       21,
-							Func:       Function{Raw: "os/signal.loop"},
+							SrcPath: "/goroot/src/os/signal/signal_unix.go",
+							Line:    21,
+							Func:    Func{Raw: "os/signal.loop"},
 						},
 						{
-							SourcePath: "/goroot/src/runtime/asm_amd64.s",
-							Line:       2232,
-							Func:       Function{Raw: "runtime.goexit"},
+							SrcPath: "/goroot/src/runtime/asm_amd64.s",
+							Line:    2232,
+							Func:    Func{Raw: "runtime.goexit"},
 						},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/goroot/src/os/signal/signal_unix.go",
-					Line:       27,
-					Func:       Function{Raw: "os/signal.init·1"},
+					SrcPath: "/goroot/src/os/signal/signal_unix.go",
+					Line:    27,
+					Func:    Func{Raw: "os/signal.init·1"},
 				},
 			},
 			ID:    5,
@@ -502,12 +502,12 @@ func TestParseDumpUnavail(t *testing.T) {
 			Signature: Signature{
 				State: "running",
 				Stack: Stack{
-					Calls: []Call{{SourcePath: "<unavailable>"}},
+					Calls: []Call{{SrcPath: "<unavailable>"}},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:       131,
-					Func:       Function{Raw: "github.com/maruel/panicparse/stack.New"},
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    131,
+					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
 				},
 			},
 			ID:    24,
@@ -547,16 +547,16 @@ func TestParseDumpSameBucket(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       72,
-							Func:       Function{"main.func·001"},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    72,
+							Func:    Func{"main.func·001"},
 						},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:       74,
-					Func:       Function{"main.mainImpl"},
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    74,
+					Func:    Func{"main.mainImpl"},
 				},
 			},
 			ID:    6,
@@ -568,16 +568,16 @@ func TestParseDumpSameBucket(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       72,
-							Func:       Function{"main.func·001"},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    72,
+							Func:    Func{"main.func·001"},
 						},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:       74,
-					Func:       Function{"main.mainImpl"},
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    74,
+					Func:    Func{"main.mainImpl"},
 				},
 			},
 			ID: 7,
@@ -613,10 +613,10 @@ func TestBucketizeNotAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       72,
-							Func:       Function{"main.func·001"},
-							Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    72,
+							Func:    Func{"main.func·001"},
+							Args:    Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
 						},
 					},
 				},
@@ -630,10 +630,10 @@ func TestBucketizeNotAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       72,
-							Func:       Function{"main.func·001"},
-							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    72,
+							Func:    Func{"main.func·001"},
+							Args:    Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
 						},
 					},
 				},
@@ -680,10 +680,10 @@ func TestBucketizeAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       72,
-							Func:       Function{"main.func·001"},
-							Args:       Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    72,
+							Func:    Func{"main.func·001"},
+							Args:    Args{Values: []Arg{{0x11000000, ""}, {Value: 2}}},
 						},
 					},
 				},
@@ -699,10 +699,10 @@ func TestBucketizeAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       72,
-							Func:       Function{"main.func·001"},
-							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    72,
+							Func:    Func{"main.func·001"},
+							Args:    Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
 						},
 					},
 				},
@@ -717,10 +717,10 @@ func TestBucketizeAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       72,
-							Func:       Function{"main.func·001"},
-							Args:       Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    72,
+							Func:    Func{"main.func·001"},
+							Args:    Args{Values: []Arg{{0x21000000, "#1"}, {Value: 2}}},
 						},
 					},
 				},
@@ -736,10 +736,10 @@ func TestBucketizeAggressive(t *testing.T) {
 		Stack: Stack{
 			Calls: []Call{
 				{
-					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:       72,
-					Func:       Function{"main.func·001"},
-					Args:       Args{Values: []Arg{{0x11000000, "*"}, {Value: 2}}},
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    72,
+					Func:    Func{"main.func·001"},
+					Args:    Args{Values: []Arg{{0x11000000, "*"}, {Value: 2}}},
 				},
 			},
 		},
@@ -770,16 +770,16 @@ func TestParseDumpNoOffset(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       110,
-							Func:       Function{"github.com/maruel/panicparse/stack.func·002"},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    110,
+							Func:    Func{"github.com/maruel/panicparse/stack.func·002"},
 						},
 					},
 				},
 				CreatedBy: Call{
-					SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:       113,
-					Func:       Function{"github.com/maruel/panicparse/stack.New"},
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    113,
+					Func:    Func{"github.com/maruel/panicparse/stack.New"},
 				},
 			},
 			ID:    37,
@@ -842,9 +842,9 @@ func TestParseCCode(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "/goroot/src/runtime/sys_linux_amd64.s",
-							Line:       400,
-							Func:       Function{"runtime.epollwait"},
+							SrcPath: "/goroot/src/runtime/sys_linux_amd64.s",
+							Line:    400,
+							Func:    Func{"runtime.epollwait"},
 							Args: Args{
 								Values: []Arg{
 									{Value: 0x4},
@@ -862,33 +862,33 @@ func TestParseCCode(t *testing.T) {
 							},
 						},
 						{
-							SourcePath: "/goroot/src/runtime/netpoll_epoll.go",
-							Line:       68,
-							Func:       Function{"runtime.netpoll"},
-							Args:       Args{Values: []Arg{{Value: 0x901b01}, {}}},
+							SrcPath: "/goroot/src/runtime/netpoll_epoll.go",
+							Line:    68,
+							Func:    Func{"runtime.netpoll"},
+							Args:    Args{Values: []Arg{{Value: 0x901b01}, {}}},
 						},
 						{
-							SourcePath: "/goroot/src/runtime/proc.c",
-							Line:       1472,
-							Func:       Function{"findrunnable"},
-							Args:       Args{Values: []Arg{{Value: 0xc208012000}}},
+							SrcPath: "/goroot/src/runtime/proc.c",
+							Line:    1472,
+							Func:    Func{"findrunnable"},
+							Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
 						},
 						{
-							SourcePath: "/goroot/src/runtime/proc.c",
-							Line:       1575,
-							Func:       Function{"schedule"},
+							SrcPath: "/goroot/src/runtime/proc.c",
+							Line:    1575,
+							Func:    Func{"schedule"},
 						},
 						{
-							SourcePath: "/goroot/src/runtime/proc.c",
-							Line:       1654,
-							Func:       Function{"runtime.park_m"},
-							Args:       Args{Values: []Arg{{Value: 0xc2080017a0}}},
+							SrcPath: "/goroot/src/runtime/proc.c",
+							Line:    1654,
+							Func:    Func{"runtime.park_m"},
+							Args:    Args{Values: []Arg{{Value: 0xc2080017a0}}},
 						},
 						{
-							SourcePath: "/goroot/src/runtime/asm_amd64.s",
-							Line:       186,
-							Func:       Function{"runtime.mcall"},
-							Args:       Args{Values: []Arg{{Value: 0x432684}}},
+							SrcPath: "/goroot/src/runtime/asm_amd64.s",
+							Line:    186,
+							Func:    Func{"runtime.mcall"},
+							Args:    Args{Values: []Arg{{Value: 0x432684}}},
 						},
 					},
 				},
@@ -925,25 +925,25 @@ func TestParseWithCarriageReturn(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SourcePath: "??",
-							Func:       Function{"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"},
+							SrcPath: "??",
+							Func:    Func{"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"},
 						},
 						{
-							SourcePath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-							Line:       153,
-							Func:       Function{"gopkg.in/yaml%2ev2.handleErr"},
-							Args:       Args{Values: []Arg{{Value: 0xc208033b20}}},
+							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
+							Line:    153,
+							Func:    Func{"gopkg.in/yaml%2ev2.handleErr"},
+							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 						},
 						{
-							SourcePath: "/goroot/src/reflect/value.go",
-							Line:       2125,
-							Func:       Function{"reflect.Value.assignTo"},
-							Args:       Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+							SrcPath: "/goroot/src/reflect/value.go",
+							Line:    2125,
+							Func:    Func{"reflect.Value.assignTo"},
+							Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 						},
 						{
-							SourcePath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:       428,
-							Func:       Function{"main.main"},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    428,
+							Func:    Func{"main.main"},
 						},
 					},
 				},

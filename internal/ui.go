@@ -23,14 +23,14 @@ type Palette struct {
 	CreatedBy    string
 
 	// Call line.
-	Package                string
-	SourceFile             string
-	FunctionStdLib         string
-	FunctionStdLibExported string
-	FunctionMain           string
-	FunctionOther          string
-	FunctionOtherExported  string
-	Arguments              string
+	Package            string
+	SrcFile            string
+	FuncStdLib         string
+	FuncStdLibExported string
+	FuncMain           string
+	FuncOther          string
+	FuncOtherExported  string
+	Arguments          string
 }
 
 // CalcLengths returns the maximum length of the source lines and package names.
@@ -41,9 +41,9 @@ func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
 		for _, line := range bucket.Signature.Stack.Calls {
 			l := 0
 			if fullPath {
-				l = len(line.FullSourceLine())
+				l = len(line.FullSrcLine())
 			} else {
-				l = len(line.SourceLine())
+				l = len(line.SrcLine())
 			}
 			if l > srcLen {
 				srcLen = l
@@ -62,15 +62,15 @@ func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
 func (p *Palette) functionColor(line *stack.Call) string {
 	if line.IsStdlib {
 		if line.Func.IsExported() {
-			return p.FunctionStdLibExported
+			return p.FuncStdLibExported
 		}
-		return p.FunctionStdLib
+		return p.FuncStdLib
 	} else if line.IsPkgMain() {
-		return p.FunctionMain
+		return p.FuncMain
 	} else if line.Func.IsExported() {
-		return p.FunctionOtherExported
+		return p.FuncOtherExported
 	}
-	return p.FunctionOther
+	return p.FuncOther
 }
 
 // routineColor returns the color for the header of the goroutines bucket.
@@ -104,16 +104,16 @@ func (p *Palette) BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets b
 func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
 	src := ""
 	if fullPath {
-		src = line.FullSourceLine()
+		src = line.FullSrcLine()
 	} else {
-		src = line.SourceLine()
+		src = line.SrcLine()
 	}
 	return fmt.Sprintf(
 		"    %s%-*s %s%-*s %s%s%s(%s)%s",
 		p.Package, pkgLen, line.Func.PkgName(),
-		p.SourceFile, srcLen, src,
+		p.SrcFile, srcLen, src,
 		p.functionColor(line), line.Func.Name(),
-		p.Arguments, line.Args,
+		p.Arguments, &line.Args,
 		p.EOLReset)
 }
 

@@ -15,18 +15,18 @@ import (
 )
 
 var testPalette = &Palette{
-	EOLReset:               "A",
-	RoutineFirst:           "B",
-	Routine:                "C",
-	CreatedBy:              "D",
-	Package:                "E",
-	SourceFile:             "F",
-	FunctionStdLib:         "G",
-	FunctionStdLibExported: "H",
-	FunctionMain:           "I",
-	FunctionOther:          "J",
-	FunctionOtherExported:  "K",
-	Arguments:              "L",
+	EOLReset:           "A",
+	RoutineFirst:       "B",
+	Routine:            "C",
+	CreatedBy:          "D",
+	Package:            "E",
+	SrcFile:            "F",
+	FuncStdLib:         "G",
+	FuncStdLibExported: "H",
+	FuncMain:           "I",
+	FuncOther:          "J",
+	FuncOtherExported:  "K",
+	Arguments:          "L",
 }
 
 func TestCalcLengths(t *testing.T) {
@@ -36,9 +36,9 @@ func TestCalcLengths(t *testing.T) {
 				Stack: stack.Stack{
 					Calls: []stack.Call{
 						{
-							SourcePath: "/gopath/foo/baz.go",
-							Line:       123,
-							Func:       stack.Function{Raw: "main.func·001"},
+							SrcPath: "/gopath/foo/baz.go",
+							Line:    123,
+							Func:    stack.Func{Raw: "main.func·001"},
 						},
 					},
 				},
@@ -48,13 +48,13 @@ func TestCalcLengths(t *testing.T) {
 	}
 	srcLen, pkgLen := CalcLengths(b, true)
 	// When printing, it prints the remote path, not the transposed local path.
-	compareString(t, "/gopath/foo/baz.go:123", b[0].Signature.Stack.Calls[0].FullSourceLine())
+	compareString(t, "/gopath/foo/baz.go:123", b[0].Signature.Stack.Calls[0].FullSrcLine())
 	compareInt(t, len("/gopath/foo/baz.go:123"), srcLen)
 	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.PkgName())
 	compareInt(t, len("main"), pkgLen)
 
 	srcLen, pkgLen = CalcLengths(b, false)
-	compareString(t, "baz.go:123", b[0].Signature.Stack.Calls[0].SourceLine())
+	compareString(t, "baz.go:123", b[0].Signature.Stack.Calls[0].SrcLine())
 	compareInt(t, len("baz.go:123"), srcLen)
 	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.PkgName())
 	compareInt(t, len("main"), pkgLen)
@@ -65,9 +65,9 @@ func TestBucketHeader(t *testing.T) {
 		stack.Signature{
 			State: "chan receive",
 			CreatedBy: stack.Call{
-				SourcePath: "/gopath/src/github.com/foo/bar/baz.go",
-				Line:       74,
-				Func:       stack.Function{Raw: "main.mainImpl"},
+				SrcPath: "/gopath/src/github.com/foo/bar/baz.go",
+				Line:    74,
+				Func:    stack.Func{Raw: "main.mainImpl"},
 			},
 			SleepMax: 6,
 			SleepMin: 2,
@@ -103,9 +103,9 @@ func TestStackLines(t *testing.T) {
 		Stack: stack.Stack{
 			Calls: []stack.Call{
 				{
-					SourcePath: "/goroot/src/runtime/sys_linux_amd64.s",
-					Line:       400,
-					Func:       stack.Function{Raw: "runtime.Epollwait"},
+					SrcPath: "/goroot/src/runtime/sys_linux_amd64.s",
+					Line:    400,
+					Func:    stack.Func{Raw: "runtime.Epollwait"},
 					Args: stack.Args{
 						Values: []stack.Arg{
 							{Value: 0x4},
@@ -124,27 +124,27 @@ func TestStackLines(t *testing.T) {
 					IsStdlib: true,
 				},
 				{
-					SourcePath: "/goroot/src/runtime/netpoll_epoll.go",
-					Line:       68,
-					Func:       stack.Function{Raw: "runtime.netpoll"},
-					Args:       stack.Args{Values: []stack.Arg{{Value: 0x901b01}, {}}},
-					IsStdlib:   true,
+					SrcPath:  "/goroot/src/runtime/netpoll_epoll.go",
+					Line:     68,
+					Func:     stack.Func{Raw: "runtime.netpoll"},
+					Args:     stack.Args{Values: []stack.Arg{{Value: 0x901b01}, {}}},
+					IsStdlib: true,
 				},
 				{
-					SourcePath: "/gopath/src/main.go",
-					Line:       1472,
-					Func:       stack.Function{Raw: "main.Main"},
-					Args:       stack.Args{Values: []stack.Arg{{Value: 0xc208012000}}},
+					SrcPath: "/gopath/src/main.go",
+					Line:    1472,
+					Func:    stack.Func{Raw: "main.Main"},
+					Args:    stack.Args{Values: []stack.Arg{{Value: 0xc208012000}}},
 				},
 				{
-					SourcePath: "/gopath/src/foo/bar.go",
-					Line:       1575,
-					Func:       stack.Function{Raw: "foo.OtherExported"},
+					SrcPath: "/gopath/src/foo/bar.go",
+					Line:    1575,
+					Func:    stack.Func{Raw: "foo.OtherExported"},
 				},
 				{
-					SourcePath: "/gopath/src/foo/bar.go",
-					Line:       10,
-					Func:       stack.Function{Raw: "foo.otherPrivate"},
+					SrcPath: "/gopath/src/foo/bar.go",
+					Line:    10,
+					Func:    stack.Func{Raw: "foo.otherPrivate"},
 				},
 			},
 			Elided: true,

@@ -47,15 +47,15 @@ func writeToHTML(html string, buckets stack.Buckets, needsEnv bool) error {
 func funcClass(line *stack.Call) template.HTML {
 	if line.IsStdlib {
 		if line.Func.IsExported() {
-			return "FunctionStdLibExported"
+			return "FuncStdLibExported"
 		}
-		return "FunctionStdLib"
+		return "FuncStdLib"
 	} else if line.IsPkgMain() {
-		return "FunctionMain"
+		return "FuncMain"
 	} else if line.Func.IsExported() {
-		return "FunctionOtherExported"
+		return "FuncOtherExported"
 	}
-	return "FunctionOther"
+	return "FuncOther"
 }
 
 func routineClass(bucket *stack.Bucket) template.HTML {
@@ -68,7 +68,7 @@ func routineClass(bucket *stack.Bucket) template.HTML {
 const htmlTpl = `<!DOCTYPE html>
 
 {{- define "RenderCall" -}}
-{{.SourceLine}} <span class="{{funcClass .}}">{{.Func.Name}}</span>({{.Args}})
+{{.SrcLine}} <span class="{{funcClass .}}">{{.Func.Name}}</span>({{.Args}})
 {{- end -}}
 
 <meta charset="UTF-8">
@@ -84,19 +84,19 @@ const htmlTpl = `<!DOCTYPE html>
 		font-family: Menlo, monospace;
 		font-weight: bold;
 	}
-	.FunctionStdLibExported {
+	.FuncStdLibExported {
 		color: #7CFC00;
 	}
-	.FunctionStdLib {
+	.FuncStdLib {
 		color: #008000;
 	}
-	.FunctionMain {
+	.FuncMain {
 		color: #C0C000;
 	}
-	.FunctionOtherExported {
+	.FuncOtherExported {
 		color: #FF0000;
 	}
-	.FunctionOther {
+	.FuncOther {
 		color: #A00000;
 	}
 	.RoutineFirst {
@@ -121,7 +121,7 @@ href=https://github.com/maruel/panicparse#gotraceback>github.com/maruel/panicpar
 	{{- end}}
 	{{if .Locked}} <span class="locked">[locked]</span>
 	{{- end -}}
-	{{- if .CreatedBy.SourcePath}} <span class="created">[Created by {{template "RenderCall" .CreatedBy}}]</span>
+	{{- if .CreatedBy.SrcPath}} <span class="created">[Created by {{template "RenderCall" .CreatedBy}}]</span>
 	{{- end -}}
 	<h2>Stack</h2>
 	{{range .Signature.Stack.Calls}}
