@@ -5,6 +5,10 @@
 package stack
 
 import (
+	"flag"
+	"io/ioutil"
+	"log"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -145,4 +149,12 @@ func compareBool(t *testing.T, expected, actual bool) {
 	if expected != actual {
 		t.Fatalf("%t != %t", expected, actual)
 	}
+}
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+	os.Exit(m.Run())
 }

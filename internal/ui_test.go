@@ -5,6 +5,10 @@
 package internal
 
 import (
+	"flag"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/maruel/panicparse/stack"
@@ -46,12 +50,14 @@ func TestCalcLengths(t *testing.T) {
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "/gopath/foo/baz.go:123", b[0].Signature.Stack.Calls[0].FullSourceLine())
 	compareInt(t, len("/gopath/foo/baz.go:123"), srcLen)
-	compareInt(t, len("foo"), pkgLen)
+	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.PkgName())
+	compareInt(t, len("main"), pkgLen)
 
 	srcLen, pkgLen = CalcLengths(b, false)
 	compareString(t, "baz.go:123", b[0].Signature.Stack.Calls[0].SourceLine())
 	compareInt(t, len("baz.go:123"), srcLen)
-	compareInt(t, len("foo"), pkgLen)
+	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.PkgName())
+	compareInt(t, len("main"), pkgLen)
 }
 
 func TestBucketHeader(t *testing.T) {
@@ -177,4 +183,12 @@ func compareInt(t *testing.T, expected, actual int) {
 	if expected != actual {
 		t.Fatalf("%d != %d", expected, actual)
 	}
+}
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+	os.Exit(m.Run())
 }
