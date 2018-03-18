@@ -23,64 +23,66 @@ const (
 	AnyValue
 )
 
-// Bucketize merges similar goroutines into buckets.
+// Aggregate merges similar goroutines into buckets.
 //
-// The buckets are ordering in order of relevancy.
-func Bucketize(goroutines []Goroutine, similar Similarity) []Bucket {
-	b := map[*Signature][]Goroutine{}
+// The buckets are ordered in library provided order of relevancy. You can
+// reorder at your chosing.
+func Aggregate(goroutines []Goroutine, similar Similarity) []*Bucket {
+	type count struct {
+		ids   []int
+		first bool
+	}
+	b := map[*Signature]*count{}
 	// O(n²). Fix eventually.
 	for _, routine := range goroutines {
 		found := false
-		for key := range b {
+		for key, c := range b {
 			// When a match is found, this effectively drops the other goroutine ID.
 			if key.similar(&routine.Signature, similar) {
 				found = true
+				c.ids = append(c.ids, routine.ID)
+				c.first = c.first || routine.First
 				if !key.equal(&routine.Signature) {
 					// Almost but not quite equal. There's different pointers passed
 					// around but the same values. Zap out the different values.
 					newKey := key.merge(&routine.Signature)
-					b[newKey] = append(b[key], routine)
+					b[newKey] = c
 					delete(b, key)
-				} else {
-					b[key] = append(b[key], routine)
 				}
 				break
 			}
 		}
 		if !found {
+			// Create a copy of the Signature, since it will be mutated.
 			key := &Signature{}
 			*key = routine.Signature
-			b[key] = []Goroutine{routine}
+			b[key] = &count{ids: []int{routine.ID}, first: routine.First}
 		}
 	}
-	return sortBuckets(b)
+	out := make(buckets, 0, len(b))
+	for signature, c := range b {
+		sort.Ints(c.ids)
+		out = append(out, &Bucket{Signature: *signature, IDs: c.ids, First: c.first})
+	}
+	sort.Sort(out)
+	return out
 }
 
 // Bucket is a stack trace signature and the list of goroutines that fits this
 // signature.
 type Bucket struct {
 	Signature
-	Routines []Goroutine
-}
-
-// First returns true if it contains the first goroutine, e.g. the ones that
-// likely generated the panic() call, if any.
-func (b *Bucket) First() bool {
-	for _, r := range b.Routines {
-		if r.First {
-			return true
-		}
-	}
-	return false
+	// IDs is the ID of each Goroutine with this Signature.
+	IDs []int
+	// First is true if this Bucket contains the first goroutine, e.g. the one
+	// Signature that likely generated the panic() call, if any.
+	First bool
 }
 
 // less does reverse sort.
 func (b *Bucket) less(r *Bucket) bool {
-	if b.First() {
-		return true
-	}
-	if r.First() {
-		return false
+	if b.First || r.First {
+		return b.First
 	}
 	return b.Signature.less(&r.Signature)
 }
@@ -88,26 +90,16 @@ func (b *Bucket) less(r *Bucket) bool {
 //
 
 // buckets is a list of Bucket sorted by repeation count.
-type buckets []Bucket
+type buckets []*Bucket
 
 func (b buckets) Len() int {
 	return len(b)
 }
 
 func (b buckets) Less(i, j int) bool {
-	return b[i].less(&b[j])
+	return b[i].less(b[j])
 }
 
 func (b buckets) Swap(i, j int) {
 	b[j], b[i] = b[i], b[j]
-}
-
-// sortBuckets creates a list of Bucket from each goroutine stack trace count.
-func sortBuckets(b map[*Signature][]Goroutine) []Bucket {
-	out := make(buckets, 0, len(b))
-	for signature, count := range b {
-		out = append(out, Bucket{*signature, count})
-	}
-	sort.Sort(out)
-	return out
 }

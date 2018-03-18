@@ -7,11 +7,12 @@ package stack
 import (
 	"bytes"
 	"io/ioutil"
+	"reflect"
 	"strings"
 	"testing"
 )
 
-func TestBucketizeNotAggressive(t *testing.T) {
+func TestAggregateNotAggressive(t *testing.T) {
 	// 2 goroutines with similar but not exact same signature.
 	data := []string{
 		"panic: runtime error: index out of range",
@@ -29,7 +30,8 @@ func TestBucketizeNotAggressive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedGR := []Goroutine{
+	actual := Aggregate(c.Goroutines, ExactLines)
+	expected := []*Bucket{
 		{
 			Signature: Signature{
 				State: "chan receive",
@@ -44,7 +46,7 @@ func TestBucketizeNotAggressive(t *testing.T) {
 					},
 				},
 			},
-			ID:    6,
+			IDs:   []int{6},
 			First: true,
 		},
 		{
@@ -61,18 +63,13 @@ func TestBucketizeNotAggressive(t *testing.T) {
 					},
 				},
 			},
-			ID: 7,
+			IDs: []int{7},
 		},
 	}
-	compareGoroutines(t, expectedGR, c.Goroutines)
-	expectedBuckets := []Bucket{
-		{expectedGR[0].Signature, []Goroutine{expectedGR[0]}},
-		{expectedGR[1].Signature, []Goroutine{expectedGR[1]}},
-	}
-	compareBuckets(t, expectedBuckets, Bucketize(c.Goroutines, ExactLines))
+	compareBuckets(t, expected, actual)
 }
 
-func TestBucketizeExactMatching(t *testing.T) {
+func TestAggregateExactMatching(t *testing.T) {
 	// 2 goroutines with the exact same signature.
 	data := []string{
 		"panic: runtime error: index out of range",
@@ -94,7 +91,8 @@ func TestBucketizeExactMatching(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedGR := []Goroutine{
+	actual := Aggregate(c.Goroutines, ExactLines)
+	expected := []*Bucket{
 		{
 			Signature: Signature{
 				State: "chan receive",
@@ -113,36 +111,14 @@ func TestBucketizeExactMatching(t *testing.T) {
 					Func:    Func{Raw: "main.mainImpl"},
 				},
 			},
-			ID:    6,
+			IDs:   []int{6, 7},
 			First: true,
 		},
-		{
-			Signature: Signature{
-				State: "chan receive",
-				Stack: Stack{
-					Calls: []Call{
-						{
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    72,
-							Func:    Func{Raw: "main.func·001"},
-						},
-					},
-				},
-				CreatedBy: Call{
-					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:    74,
-					Func:    Func{Raw: "main.mainImpl"},
-				},
-			},
-			ID: 7,
-		},
 	}
-	compareGoroutines(t, expectedGR, c.Goroutines)
-	expectedBuckets := []Bucket{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
-	compareBuckets(t, expectedBuckets, Bucketize(c.Goroutines, ExactLines))
+	compareBuckets(t, expected, actual)
 }
 
-func TestBucketizeAggressive(t *testing.T) {
+func TestAggregateAggressive(t *testing.T) {
 	// 3 goroutines with similar signatures.
 	data := []string{
 		"panic: runtime error: index out of range",
@@ -164,48 +140,12 @@ func TestBucketizeAggressive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedGR := []Goroutine{
+	actual := Aggregate(c.Goroutines, AnyPointer)
+	expected := []*Bucket{
 		{
 			Signature: Signature{
 				State:    "chan receive",
 				SleepMin: 10,
-				SleepMax: 10,
-				Stack: Stack{
-					Calls: []Call{
-						{
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    72,
-							Func:    Func{Raw: "main.func·001"},
-							Args:    Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
-						},
-					},
-				},
-			},
-			ID:    6,
-			First: true,
-		},
-		{
-			Signature: Signature{
-				State:    "chan receive",
-				SleepMin: 50,
-				SleepMax: 50,
-				Stack: Stack{
-					Calls: []Call{
-						{
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    72,
-							Func:    Func{Raw: "main.func·001"},
-							Args:    Args{Values: []Arg{{Value: 0x21000000, Name: "#1"}, {Value: 2}}},
-						},
-					},
-				},
-			},
-			ID: 7,
-		},
-		{
-			Signature: Signature{
-				State:    "chan receive",
-				SleepMin: 100,
 				SleepMax: 100,
 				Stack: Stack{
 					Calls: []Call{
@@ -213,30 +153,25 @@ func TestBucketizeAggressive(t *testing.T) {
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    72,
 							Func:    Func{Raw: "main.func·001"},
-							Args:    Args{Values: []Arg{{Value: 0x21000000, Name: "#1"}, {Value: 2}}},
+							Args:    Args{Values: []Arg{{Value: 0x11000000, Name: "*"}, {Value: 2}}},
 						},
 					},
 				},
 			},
-			ID: 8,
+			IDs:   []int{6, 7, 8},
+			First: true,
 		},
 	}
-	compareGoroutines(t, expectedGR, c.Goroutines)
-	signature := Signature{
-		State:    "chan receive",
-		SleepMin: 10,
-		SleepMax: 100,
-		Stack: Stack{
-			Calls: []Call{
-				{
-					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:    72,
-					Func:    Func{Raw: "main.func·001"},
-					Args:    Args{Values: []Arg{{Value: 0x11000000, Name: "*"}, {Value: 2}}},
-				},
-			},
-		},
+	compareBuckets(t, expected, actual)
+}
+
+func compareBuckets(t *testing.T, expected, actual []*Bucket) {
+	if len(expected) != len(actual) {
+		t.Fatalf("Different []Bucket length:\n- %v\n- %v", expected, actual)
 	}
-	expectedBuckets := []Bucket{{signature, []Goroutine{expectedGR[0], expectedGR[1], expectedGR[2]}}}
-	compareBuckets(t, expectedBuckets, Bucketize(c.Goroutines, AnyPointer))
+	for i := range expected {
+		if !reflect.DeepEqual(expected[i], actual[i]) {
+			t.Fatalf("Different Bucket:\n- %#v\n- %#v", expected[i], actual[i])
+		}
+	}
 }

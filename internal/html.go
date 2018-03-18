@@ -12,7 +12,7 @@ import (
 	"github.com/maruel/panicparse/stack"
 )
 
-func writeToHTML(html string, buckets []stack.Bucket, needsEnv bool) error {
+func writeToHTML(html string, buckets []*stack.Bucket, needsEnv bool) error {
 	m := template.FuncMap{
 		"funcClass":           funcClass,
 		"notoColorEmoji1F4A3": notoColorEmoji1F4A3,
@@ -27,7 +27,7 @@ func writeToHTML(html string, buckets []stack.Bucket, needsEnv bool) error {
 		return err
 	}
 	data := struct {
-		Buckets  []stack.Bucket
+		Buckets  []*stack.Bucket
 		Now      time.Time
 		NeedsEnv bool
 	}{buckets, time.Now().Truncate(time.Second), needsEnv}
@@ -59,7 +59,7 @@ func funcClass(line *stack.Call) template.HTML {
 }
 
 func routineClass(bucket *stack.Bucket) template.HTML {
-	if bucket.First() {
+	if bucket.First {
 		return "RoutineFirst"
 	}
 	return "Routine"

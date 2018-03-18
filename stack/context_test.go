@@ -38,7 +38,7 @@ func Example() {
 	}
 
 	// Find out similar goroutine traces and group them into buckets.
-	buckets := Bucketize(c.Goroutines, AnyValue)
+	buckets := Aggregate(c.Goroutines, AnyValue)
 
 	// Calculate alignment.
 	srcLen := 0
@@ -66,7 +66,7 @@ func Example() {
 		if c := bucket.CreatedByString(false); c != "" {
 			extra += " [Created by " + c + "]"
 		}
-		fmt.Printf("%d: %s%s\n", len(bucket.Routines), bucket.State, extra)
+		fmt.Printf("%d: %s%s\n", len(bucket.IDs), bucket.State, extra)
 
 		// Print the stack lines.
 		for _, line := range bucket.Stack.Calls {
@@ -740,17 +740,6 @@ func compareGoroutines(t *testing.T, expected, actual []Goroutine) {
 	for i := range expected {
 		if !reflect.DeepEqual(expected[i], actual[i]) {
 			t.Fatalf("Different Goroutine:\n- %v\n- %v", expected[i], actual[i])
-		}
-	}
-}
-
-func compareBuckets(t *testing.T, expected, actual []Bucket) {
-	if len(expected) != len(actual) {
-		t.Fatalf("Different []Bucket length:\n- %v\n- %v", expected, actual)
-	}
-	for i := range expected {
-		if !reflect.DeepEqual(expected[i], actual[i]) {
-			t.Fatalf("Different Bucket:\n- %#v\n- %#v", expected[i], actual[i])
 		}
 	}
 }

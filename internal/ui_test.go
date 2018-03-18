@@ -30,7 +30,7 @@ var testPalette = &Palette{
 }
 
 func TestCalcLengths(t *testing.T) {
-	b := []stack.Bucket{
+	b := []*stack.Bucket{
 		{
 			Signature: stack.Signature{
 				Stack: stack.Stack{
@@ -43,7 +43,8 @@ func TestCalcLengths(t *testing.T) {
 					},
 				},
 			},
-			Routines: nil,
+			IDs:   []int{},
+			First: true,
 		},
 	}
 	srcLen, pkgLen := CalcLengths(b, true)
@@ -72,12 +73,8 @@ func TestBucketHeader(t *testing.T) {
 			SleepMax: 6,
 			SleepMin: 2,
 		},
-		Routines: []stack.Goroutine{
-			{
-				First: true,
-			},
-			{},
-		},
+		IDs:   []int{1, 2},
+		First: true,
 	}
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, true, true))
@@ -92,7 +89,8 @@ func TestBucketHeader(t *testing.T) {
 			SleepMin: 6,
 			Locked:   true,
 		},
-		Routines: nil,
+		IDs:   []int{},
+		First: true,
 	}
 	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", testPalette.BucketHeader(b, false, false))
 }

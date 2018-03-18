@@ -34,7 +34,7 @@ type Palette struct {
 }
 
 // CalcLengths returns the maximum length of the source lines and package names.
-func CalcLengths(buckets []stack.Bucket, fullPath bool) (int, int) {
+func CalcLengths(buckets []*stack.Bucket, fullPath bool) (int, int) {
 	srcLen := 0
 	pkgLen := 0
 	for _, bucket := range buckets {
@@ -75,7 +75,7 @@ func (p *Palette) functionColor(line *stack.Call) string {
 
 // routineColor returns the color for the header of the goroutines bucket.
 func (p *Palette) routineColor(bucket *stack.Bucket, multipleBuckets bool) string {
-	if bucket.First() && multipleBuckets {
+	if bucket.First && multipleBuckets {
 		return p.RoutineFirst
 	}
 	return p.Routine
@@ -95,7 +95,7 @@ func (p *Palette) BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets b
 	}
 	return fmt.Sprintf(
 		"%s%d: %s%s%s\n",
-		p.routineColor(bucket, multipleBuckets), len(bucket.Routines),
+		p.routineColor(bucket, multipleBuckets), len(bucket.IDs),
 		bucket.State, extra,
 		p.EOLReset)
 }
