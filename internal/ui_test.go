@@ -32,7 +32,7 @@ var testPalette = &Palette{
 func TestCalcLengths(t *testing.T) {
 	b := stack.Buckets{
 		{
-			stack.Signature{
+			Signature: stack.Signature{
 				Stack: stack.Stack{
 					Calls: []stack.Call{
 						{
@@ -43,7 +43,7 @@ func TestCalcLengths(t *testing.T) {
 					},
 				},
 			},
-			nil,
+			Routines: nil,
 		},
 	}
 	srcLen, pkgLen := CalcLengths(b, true)
@@ -62,7 +62,7 @@ func TestCalcLengths(t *testing.T) {
 
 func TestBucketHeader(t *testing.T) {
 	b := &stack.Bucket{
-		stack.Signature{
+		Signature: stack.Signature{
 			State: "chan receive",
 			CreatedBy: stack.Call{
 				SrcPath: "/gopath/src/github.com/foo/bar/baz.go",
@@ -72,7 +72,7 @@ func TestBucketHeader(t *testing.T) {
 			SleepMax: 6,
 			SleepMin: 2,
 		},
-		[]stack.Goroutine{
+		Routines: []stack.Goroutine{
 			{
 				First: true,
 			},
@@ -86,13 +86,13 @@ func TestBucketHeader(t *testing.T) {
 	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, false, false))
 
 	b = &stack.Bucket{
-		stack.Signature{
+		Signature: stack.Signature{
 			State:    "b0rked",
 			SleepMax: 6,
 			SleepMin: 6,
 			Locked:   true,
 		},
-		nil,
+		Routines: nil,
 	}
 	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", testPalette.BucketHeader(b, false, false))
 }

@@ -233,7 +233,7 @@ func (s *scanningState) scan(line string) (string, error) {
 					}
 					args.Values = append(args.Values, Arg{Value: v})
 				}
-				s.goroutine.Stack.Calls = append(s.goroutine.Stack.Calls, Call{Func: Func{match[1]}, Args: args})
+				s.goroutine.Stack.Calls = append(s.goroutine.Stack.Calls, Call{Func: Func{Raw: match[1]}, Args: args})
 				return "", nil
 			}
 

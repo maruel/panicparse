@@ -38,12 +38,12 @@ func TestAugment(t *testing.T) {
 			Stack{
 				Calls: []Call{
 					{
-						SrcPath: "main.go", Line: 7, Func: Func{"main.f"},
+						SrcPath: "main.go", Line: 7, Func: Func{Raw: "main.f"},
 						Args: Args{
 							Values: []Arg{{Value: pointer, Name: ""}, {Value: 0x2}},
 						},
 					},
-					{SrcPath: "main.go", Line: 10, Func: Func{"main.main"}},
+					{SrcPath: "main.go", Line: 10, Func: Func{Raw: "main.main"}},
 				},
 			},
 		},

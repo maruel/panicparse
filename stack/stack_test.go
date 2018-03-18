@@ -17,7 +17,7 @@ func TestCallPkg1(t *testing.T) {
 	c := Call{
 		SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:    153,
-		Func:    Func{"gopkg.in/yaml%2ev2.handleErr"},
+		Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
 		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
 	compareString(t, "yaml.go", c.SrcName())
@@ -35,7 +35,7 @@ func TestCallPkg2(t *testing.T) {
 	c := Call{
 		SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:    153,
-		Func:    Func{"gopkg.in/yaml%2ev2.(*decoder).unmarshal"},
+		Func:    Func{Raw: "gopkg.in/yaml%2ev2.(*decoder).unmarshal"},
 		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
 	compareString(t, "yaml.go", c.SrcName())
@@ -55,7 +55,7 @@ func TestCallStdlib(t *testing.T) {
 	c := Call{
 		SrcPath: "/goroot/src/reflect/value.go",
 		Line:    2125,
-		Func:    Func{"reflect.Value.assignTo"},
+		Func:    Func{Raw: "reflect.Value.assignTo"},
 		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 	}
 	c.updateLocations("/goroot", "/goroot", nil)
@@ -74,7 +74,7 @@ func TestCallMain(t *testing.T) {
 	c := Call{
 		SrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
 		Line:    428,
-		Func:    Func{"main.main"},
+		Func:    Func{Raw: "main.main"},
 	}
 	compareString(t, "main.go", c.SrcName())
 	compareString(t, "main.go:428", c.SrcLine())
@@ -91,7 +91,7 @@ func TestCallC(t *testing.T) {
 	c := Call{
 		SrcPath: "/goroot/src/runtime/proc.c",
 		Line:    1472,
-		Func:    Func{"findrunnable"},
+		Func:    Func{Raw: "findrunnable"},
 		Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
 	}
 	c.updateLocations("/goroot", "/goroot", nil)
@@ -126,7 +126,7 @@ func TestArgs(t *testing.T) {
 }
 
 func TestFuncAnonymous(t *testing.T) {
-	f := Func{"main.func·001"}
+	f := Func{Raw: "main.func·001"}
 	compareString(t, "main.func·001", f.String())
 	compareString(t, "main.func·001", f.PkgDotName())
 	compareString(t, "func·001", f.Name())
@@ -135,7 +135,7 @@ func TestFuncAnonymous(t *testing.T) {
 }
 
 func TestFuncGC(t *testing.T) {
-	f := Func{"gc"}
+	f := Func{Raw: "gc"}
 	compareString(t, "gc", f.String())
 	compareString(t, "gc", f.PkgDotName())
 	compareString(t, "gc", f.Name())
