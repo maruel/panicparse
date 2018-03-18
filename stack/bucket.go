@@ -74,15 +74,15 @@ func (b *Bucket) First() bool {
 	return false
 }
 
-// Less does reverse sort.
-func (b *Bucket) Less(r *Bucket) bool {
+// less does reverse sort.
+func (b *Bucket) less(r *Bucket) bool {
 	if b.First() {
 		return true
 	}
 	if r.First() {
 		return false
 	}
-	return b.Signature.Less(&r.Signature)
+	return b.Signature.less(&r.Signature)
 }
 
 //
@@ -95,7 +95,7 @@ func (b buckets) Len() int {
 }
 
 func (b buckets) Less(i, j int) bool {
-	return b[i].Less(&b[j])
+	return b[i].less(&b[j])
 }
 
 func (b buckets) Swap(i, j int) {

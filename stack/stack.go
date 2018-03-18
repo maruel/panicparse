@@ -352,11 +352,13 @@ func (s *Stack) merge(r *Stack) *Stack {
 	return out
 }
 
-// Less compares two Stack, where the ones that are less are more
-// important, so they come up front. A Stack with more private functions is
-// 'less' so it is at the top. Inversely, a Stack with only public
-// functions is 'more' so it is at the bottom.
-func (s *Stack) Less(r *Stack) bool {
+// less compares two Stack, where the ones that are less are more
+// important, so they come up front.
+//
+// A Stack with more private functions is 'less' so it is at the top.
+// Inversely, a Stack with only public functions is 'more' so it is at the
+// bottom.
+func (s *Stack) less(r *Stack) bool {
 	lStdlib := 0
 	lPrivate := 0
 	for _, c := range s.Calls {
@@ -488,15 +490,15 @@ func (s *Signature) merge(r *Signature) *Signature {
 	}
 }
 
-// Less compares two Signature, where the ones that are less are more
+// less compares two Signature, where the ones that are less are more
 // important, so they come up front. A Signature with more private functions is
 // 'less' so it is at the top. Inversely, a Signature with only public
 // functions is 'more' so it is at the bottom.
-func (s *Signature) Less(r *Signature) bool {
-	if s.Stack.Less(&r.Stack) {
+func (s *Signature) less(r *Signature) bool {
+	if s.Stack.less(&r.Stack) {
 		return true
 	}
-	if r.Stack.Less(&s.Stack) {
+	if r.Stack.less(&s.Stack) {
 		return false
 	}
 	if s.Locked && !r.Locked {
