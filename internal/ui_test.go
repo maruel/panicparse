@@ -30,7 +30,7 @@ var testPalette = &Palette{
 }
 
 func TestCalcLengths(t *testing.T) {
-	b := stack.Buckets{
+	b := []stack.Bucket{
 		{
 			Signature: stack.Signature{
 				Stack: stack.Stack{

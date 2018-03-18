@@ -27,7 +27,8 @@ type cache struct {
 
 // Augment processes source files to improve calls to be more descriptive.
 //
-// It modifies goroutines in place.
+// It modifies goroutines in place. It requires calling ParseDump() with
+// guesspaths set to true to work properly.
 func Augment(goroutines []Goroutine) {
 	c := &cache{}
 	for i := range goroutines {

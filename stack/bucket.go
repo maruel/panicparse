@@ -23,13 +23,15 @@ const (
 	AnyValue
 )
 
-// Bucketize returns the number of similar goroutines.
-func Bucketize(goroutines []Goroutine, similar Similarity) map[*Signature][]Goroutine {
-	out := map[*Signature][]Goroutine{}
+// Bucketize merges similar goroutines into buckets.
+//
+// The buckets are ordering in order of relevancy.
+func Bucketize(goroutines []Goroutine, similar Similarity) []Bucket {
+	b := map[*Signature][]Goroutine{}
 	// O(n²). Fix eventually.
 	for _, routine := range goroutines {
 		found := false
-		for key := range out {
+		for key := range b {
 			// When a match is found, this effectively drops the other goroutine ID.
 			if key.similar(&routine.Signature, similar) {
 				found = true
@@ -37,10 +39,10 @@ func Bucketize(goroutines []Goroutine, similar Similarity) map[*Signature][]Goro
 					// Almost but not quite equal. There's different pointers passed
 					// around but the same values. Zap out the different values.
 					newKey := key.merge(&routine.Signature)
-					out[newKey] = append(out[key], routine)
-					delete(out, key)
+					b[newKey] = append(b[key], routine)
+					delete(b, key)
 				} else {
-					out[key] = append(out[key], routine)
+					b[key] = append(b[key], routine)
 				}
 				break
 			}
@@ -48,10 +50,10 @@ func Bucketize(goroutines []Goroutine, similar Similarity) map[*Signature][]Goro
 		if !found {
 			key := &Signature{}
 			*key = routine.Signature
-			out[key] = []Goroutine{routine}
+			b[key] = []Goroutine{routine}
 		}
 	}
-	return out
+	return sortBuckets(b)
 }
 
 // Bucket is a stack trace signature and the list of goroutines that fits this
@@ -83,25 +85,27 @@ func (b *Bucket) Less(r *Bucket) bool {
 	return b.Signature.Less(&r.Signature)
 }
 
-// Buckets is a list of Bucket sorted by repeation count.
-type Buckets []Bucket
+//
 
-func (b Buckets) Len() int {
+// buckets is a list of Bucket sorted by repeation count.
+type buckets []Bucket
+
+func (b buckets) Len() int {
 	return len(b)
 }
 
-func (b Buckets) Less(i, j int) bool {
+func (b buckets) Less(i, j int) bool {
 	return b[i].Less(&b[j])
 }
 
-func (b Buckets) Swap(i, j int) {
+func (b buckets) Swap(i, j int) {
 	b[j], b[i] = b[i], b[j]
 }
 
-// SortBuckets creates a list of Bucket from each goroutine stack trace count.
-func SortBuckets(buckets map[*Signature][]Goroutine) Buckets {
-	out := make(Buckets, 0, len(buckets))
-	for signature, count := range buckets {
+// sortBuckets creates a list of Bucket from each goroutine stack trace count.
+func sortBuckets(b map[*Signature][]Goroutine) []Bucket {
+	out := make(buckets, 0, len(b))
+	for signature, count := range b {
 		out = append(out, Bucket{*signature, count})
 	}
 	sort.Sort(out)

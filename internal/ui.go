@@ -34,7 +34,7 @@ type Palette struct {
 }
 
 // CalcLengths returns the maximum length of the source lines and package names.
-func CalcLengths(buckets stack.Buckets, fullPath bool) (int, int) {
+func CalcLengths(buckets []stack.Bucket, fullPath bool) (int, int) {
 	srcLen := 0
 	pkgLen := 0
 	for _, bucket := range buckets {

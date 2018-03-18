@@ -38,7 +38,7 @@ func Example() {
 	}
 
 	// Find out similar goroutine traces and group them into buckets.
-	buckets := SortBuckets(Bucketize(c.Goroutines, AnyValue))
+	buckets := Bucketize(c.Goroutines, AnyValue)
 
 	// Calculate alignment.
 	srcLen := 0
@@ -584,8 +584,8 @@ func TestParseDumpSameBucket(t *testing.T) {
 		},
 	}
 	compareGoroutines(t, expectedGR, c.Goroutines)
-	expectedBuckets := Buckets{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
-	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(c.Goroutines, ExactLines)))
+	expectedBuckets := []Bucket{{expectedGR[0].Signature, []Goroutine{expectedGR[0], expectedGR[1]}}}
+	compareBuckets(t, expectedBuckets, Bucketize(c.Goroutines, ExactLines))
 }
 
 func TestBucketizeNotAggressive(t *testing.T) {
@@ -642,11 +642,11 @@ func TestBucketizeNotAggressive(t *testing.T) {
 		},
 	}
 	compareGoroutines(t, expectedGR, c.Goroutines)
-	expectedBuckets := Buckets{
+	expectedBuckets := []Bucket{
 		{expectedGR[0].Signature, []Goroutine{expectedGR[0]}},
 		{expectedGR[1].Signature, []Goroutine{expectedGR[1]}},
 	}
-	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(c.Goroutines, ExactLines)))
+	compareBuckets(t, expectedBuckets, Bucketize(c.Goroutines, ExactLines))
 }
 
 func TestBucketizeAggressive(t *testing.T) {
@@ -744,8 +744,8 @@ func TestBucketizeAggressive(t *testing.T) {
 			},
 		},
 	}
-	expectedBuckets := Buckets{{signature, []Goroutine{expectedGR[0], expectedGR[1], expectedGR[2]}}}
-	compareBuckets(t, expectedBuckets, SortBuckets(Bucketize(c.Goroutines, AnyPointer)))
+	expectedBuckets := []Bucket{{signature, []Goroutine{expectedGR[0], expectedGR[1], expectedGR[2]}}}
+	compareBuckets(t, expectedBuckets, Bucketize(c.Goroutines, AnyPointer))
 }
 
 func TestParseDumpNoOffset(t *testing.T) {
@@ -974,9 +974,9 @@ func compareGoroutines(t *testing.T, expected, actual []Goroutine) {
 	}
 }
 
-func compareBuckets(t *testing.T, expected, actual Buckets) {
+func compareBuckets(t *testing.T, expected, actual []Bucket) {
 	if len(expected) != len(actual) {
-		t.Fatalf("Different Buckets length:\n- %v\n- %v", expected, actual)
+		t.Fatalf("Different []Bucket length:\n- %v\n- %v", expected, actual)
 	}
 	for i := range expected {
 		if !reflect.DeepEqual(expected[i], actual[i]) {
