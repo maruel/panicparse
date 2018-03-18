@@ -114,7 +114,7 @@ func TestParseDump1(t *testing.T) {
 		t.Fatal(err)
 	}
 	compareString(t, long+"\npanic: reflect.Set: value of type\n\n", extra.String())
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -178,7 +178,7 @@ func TestParseDumpLongWait(t *testing.T) {
 		t.Fatal(err)
 	}
 	compareString(t, "panic: bleh\n\n", extra.String())
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{
 				State:    "chan send",
@@ -255,7 +255,7 @@ func TestParseDumpAsm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "garbage collection",
@@ -289,7 +289,7 @@ func TestParseDumpLineErr(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("failed to parse int on line: \"/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890\""), err)
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -317,7 +317,7 @@ func TestParseDumpValueErr(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("failed to parse int on line: \"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)\""), err)
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{State: "running"},
 			ID:        1,
@@ -343,7 +343,7 @@ func TestParseDumpOrderErr(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("unexpected order on line: \"/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6\""), err)
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{State: "garbage collection"},
 			ID:        16,
@@ -371,7 +371,7 @@ func TestParseDumpElided(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "garbage collection",
@@ -430,7 +430,7 @@ func TestParseDumpSysCall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "syscall",
@@ -497,7 +497,7 @@ func TestParseDumpUnavail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -533,7 +533,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedGR := []Goroutine{
+	expectedGR := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "runnable",
@@ -571,7 +571,7 @@ func TestParseDumpJunk(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedGR := []Goroutine{
+	expectedGR := []*Goroutine{
 		{
 			Signature: Signature{State: "running"},
 			ID:        1,
@@ -605,7 +605,7 @@ func TestParseDumpCCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedGR := []Goroutine{
+	expectedGR := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "idle",
@@ -688,7 +688,7 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []Goroutine{
+	expected := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -733,9 +733,9 @@ func compareErr(t *testing.T, expected, actual error) {
 	}
 }
 
-func compareGoroutines(t *testing.T, expected, actual []Goroutine) {
+func compareGoroutines(t *testing.T, expected, actual []*Goroutine) {
 	if len(expected) != len(actual) {
-		t.Fatalf("Different []Goroutine length:\n- %v\n- %v", expected, actual)
+		t.Fatalf("Different []*Goroutine length:\n- %v\n- %v", expected, actual)
 	}
 	for i := range expected {
 		if !reflect.DeepEqual(expected[i], actual[i]) {

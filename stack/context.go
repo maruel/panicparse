@@ -23,7 +23,9 @@ import (
 // It contains the deduced GOROOT and GOPATH, if guesspaths is true.
 type Context struct {
 	// Goroutines is the Goroutines found.
-	Goroutines []Goroutine
+	//
+	// They are in the order that they were printed.
+	Goroutines []*Goroutine
 
 	// GOROOT is the GOROOT as detected in the traceback, not the on the host.
 	//
@@ -70,10 +72,10 @@ func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 	// Corresponding local values on the host for Context.
 	if guesspaths {
 		c.findRoots()
-		for i := range c.Goroutines {
+		for _, r := range c.Goroutines {
 			// Note that this is important to call it even if
 			// c.GOROOT == c.localgoroot.
-			c.Goroutines[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+			r.updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 		}
 	}
 	return c, err
@@ -81,7 +83,7 @@ func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 
 // Private stuff.
 
-func parseDump(r io.Reader, out io.Writer) ([]Goroutine, error) {
+func parseDump(r io.Reader, out io.Writer) ([]*Goroutine, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Split(scanLines)
 	s := scanningState{}
@@ -131,7 +133,7 @@ func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 //   Optionally ends with:
 //     - reCreated + reFile
 type scanningState struct {
-	goroutines []Goroutine
+	goroutines []*Goroutine
 	goroutine  *Goroutine
 
 	created   bool
@@ -164,7 +166,7 @@ func (s *scanningState) scan(line string) (string, error) {
 							sleep, _ = strconv.Atoi(match2[1])
 						}
 					}
-					s.goroutines = append(s.goroutines, Goroutine{
+					g := &Goroutine{
 						Signature: Signature{
 							State:    items[0],
 							SleepMin: sleep,
@@ -173,8 +175,9 @@ func (s *scanningState) scan(line string) (string, error) {
 						},
 						ID:    id,
 						First: len(s.goroutines) == 0,
-					})
-					s.goroutine = &s.goroutines[len(s.goroutines)-1]
+					}
+					s.goroutines = append(s.goroutines, g)
+					s.goroutine = g
 					s.firstLine = true
 					return "", nil
 				}
@@ -258,7 +261,7 @@ func hasPathPrefix(p string, s map[string]string) bool {
 }
 
 // getFiles returns all the source files deduped and ordered.
-func getFiles(goroutines []Goroutine) []string {
+func getFiles(goroutines []*Goroutine) []string {
 	files := map[string]struct{}{}
 	for _, g := range goroutines {
 		for _, c := range g.Stack.Calls {

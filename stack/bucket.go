@@ -27,7 +27,7 @@ const (
 //
 // The buckets are ordered in library provided order of relevancy. You can
 // reorder at your chosing.
-func Aggregate(goroutines []Goroutine, similar Similarity) []*Bucket {
+func Aggregate(goroutines []*Goroutine, similar Similarity) []*Bucket {
 	type count struct {
 		ids   []int
 		first bool

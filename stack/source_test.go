@@ -453,7 +453,7 @@ func TestAugment(t *testing.T) {
 }
 
 func TestAugmentDummy(t *testing.T) {
-	goroutines := []Goroutine{
+	goroutines := []*Goroutine{
 		{
 			Signature: Signature{
 				Stack: Stack{

@@ -561,7 +561,7 @@ type Goroutine struct {
 // Private stuff.
 
 // nameArguments is a post-processing step where Args are 'named' with numbers.
-func nameArguments(goroutines []Goroutine) {
+func nameArguments(goroutines []*Goroutine) {
 	// Set a name for any pointer occurring more than once.
 	type object struct {
 		args      []*Arg
