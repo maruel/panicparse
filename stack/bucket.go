@@ -31,12 +31,12 @@ func Bucketize(goroutines []Goroutine, similar Similarity) map[*Signature][]Goro
 		found := false
 		for key := range out {
 			// When a match is found, this effectively drops the other goroutine ID.
-			if key.Similar(&routine.Signature, similar) {
+			if key.similar(&routine.Signature, similar) {
 				found = true
-				if !key.Equal(&routine.Signature) {
+				if !key.equal(&routine.Signature) {
 					// Almost but not quite equal. There's different pointers passed
 					// around but the same values. Zap out the different values.
-					newKey := key.Merge(&routine.Signature)
+					newKey := key.merge(&routine.Signature)
 					out[newKey] = append(out[key], routine)
 					delete(out, key)
 				} else {

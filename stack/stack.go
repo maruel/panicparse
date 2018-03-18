@@ -167,8 +167,8 @@ func (a *Args) String() string {
 	return strings.Join(v, ", ")
 }
 
-// Equal returns true only if both arguments are exactly equal.
-func (a *Args) Equal(r *Args) bool {
+// equal returns true only if both arguments are exactly equal.
+func (a *Args) equal(r *Args) bool {
 	if a.Elided != r.Elided || len(a.Values) != len(r.Values) {
 		return false
 	}
@@ -180,9 +180,9 @@ func (a *Args) Equal(r *Args) bool {
 	return true
 }
 
-// Similar returns true if the two Args are equal or almost but not quite
+// similar returns true if the two Args are equal or almost but not quite
 // equal.
-func (a *Args) Similar(r *Args, similar Similarity) bool {
+func (a *Args) similar(r *Args, similar Similarity) bool {
 	if a.Elided != r.Elided || len(a.Values) != len(r.Values) {
 		return false
 	}
@@ -204,8 +204,8 @@ func (a *Args) Similar(r *Args, similar Similarity) bool {
 	return true
 }
 
-// Merge merges two similar Args, zapping out differences.
-func (a *Args) Merge(r *Args) Args {
+// merge merges two similar Args, zapping out differences.
+func (a *Args) merge(r *Args) Args {
 	out := Args{
 		Values: make([]Arg, len(a.Values)),
 		Elided: a.Elided,
@@ -231,24 +231,24 @@ type Call struct {
 	IsStdlib     bool   // true if it is a Go standard library function. This includes the 'go test' generated main executable.
 }
 
-// Equal returns true only if both calls are exactly equal.
-func (c *Call) Equal(r *Call) bool {
-	return c.SrcPath == r.SrcPath && c.Line == r.Line && c.Func == r.Func && c.Args.Equal(&r.Args)
+// equal returns true only if both calls are exactly equal.
+func (c *Call) equal(r *Call) bool {
+	return c.SrcPath == r.SrcPath && c.Line == r.Line && c.Func == r.Func && c.Args.equal(&r.Args)
 }
 
-// Similar returns true if the two Call are equal or almost but not quite
+// similar returns true if the two Call are equal or almost but not quite
 // equal.
-func (c *Call) Similar(r *Call, similar Similarity) bool {
-	return c.SrcPath == r.SrcPath && c.Line == r.Line && c.Func == r.Func && c.Args.Similar(&r.Args, similar)
+func (c *Call) similar(r *Call, similar Similarity) bool {
+	return c.SrcPath == r.SrcPath && c.Line == r.Line && c.Func == r.Func && c.Args.similar(&r.Args, similar)
 }
 
-// Merge merges two similar Call, zapping out differences.
-func (c *Call) Merge(r *Call) Call {
+// merge merges two similar Call, zapping out differences.
+func (c *Call) merge(r *Call) Call {
 	return Call{
 		SrcPath:      c.SrcPath,
 		Line:         c.Line,
 		Func:         c.Func,
-		Args:         c.Args.Merge(&r.Args),
+		Args:         c.Args.merge(&r.Args),
 		LocalSrcPath: c.LocalSrcPath,
 		IsStdlib:     c.IsStdlib,
 	}
@@ -312,42 +312,42 @@ type Stack struct {
 	Elided bool   // Happens when there's >100 items in Stack, currently hardcoded in package runtime.
 }
 
-// Equal returns true on if both call stacks are exactly equal.
-func (s *Stack) Equal(r *Stack) bool {
+// equal returns true on if both call stacks are exactly equal.
+func (s *Stack) equal(r *Stack) bool {
 	if len(s.Calls) != len(r.Calls) || s.Elided != r.Elided {
 		return false
 	}
 	for i := range s.Calls {
-		if !s.Calls[i].Equal(&r.Calls[i]) {
+		if !s.Calls[i].equal(&r.Calls[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-// Similar returns true if the two Stack are equal or almost but not quite
+// similar returns true if the two Stack are equal or almost but not quite
 // equal.
-func (s *Stack) Similar(r *Stack, similar Similarity) bool {
+func (s *Stack) similar(r *Stack, similar Similarity) bool {
 	if len(s.Calls) != len(r.Calls) || s.Elided != r.Elided {
 		return false
 	}
 	for i := range s.Calls {
-		if !s.Calls[i].Similar(&r.Calls[i], similar) {
+		if !s.Calls[i].similar(&r.Calls[i], similar) {
 			return false
 		}
 	}
 	return true
 }
 
-// Merge merges two similar Stack, zapping out differences.
-func (s *Stack) Merge(r *Stack) *Stack {
+// merge merges two similar Stack, zapping out differences.
+func (s *Stack) merge(r *Stack) *Stack {
 	// Assumes similar stacks have the same length.
 	out := &Stack{
 		Calls:  make([]Call, len(s.Calls)),
 		Elided: s.Elided,
 	}
 	for i := range s.Calls {
-		out.Calls[i] = s.Calls[i].Merge(&r.Calls[i])
+		out.Calls[i] = s.Calls[i].merge(&r.Calls[i])
 	}
 	return out
 }
@@ -448,28 +448,28 @@ type Signature struct {
 	Locked    bool // Locked to an OS thread.
 }
 
-// Equal returns true only if both signatures are exactly equal.
-func (s *Signature) Equal(r *Signature) bool {
-	if s.State != r.State || !s.CreatedBy.Equal(&r.CreatedBy) || s.Locked != r.Locked || s.SleepMin != r.SleepMin || s.SleepMax != r.SleepMax {
+// equal returns true only if both signatures are exactly equal.
+func (s *Signature) equal(r *Signature) bool {
+	if s.State != r.State || !s.CreatedBy.equal(&r.CreatedBy) || s.Locked != r.Locked || s.SleepMin != r.SleepMin || s.SleepMax != r.SleepMax {
 		return false
 	}
-	return s.Stack.Equal(&r.Stack)
+	return s.Stack.equal(&r.Stack)
 }
 
-// Similar returns true if the two Signature are equal or almost but not quite
+// similar returns true if the two Signature are equal or almost but not quite
 // equal.
-func (s *Signature) Similar(r *Signature, similar Similarity) bool {
-	if s.State != r.State || !s.CreatedBy.Similar(&r.CreatedBy, similar) {
+func (s *Signature) similar(r *Signature, similar Similarity) bool {
+	if s.State != r.State || !s.CreatedBy.similar(&r.CreatedBy, similar) {
 		return false
 	}
 	if similar == ExactFlags && s.Locked != r.Locked {
 		return false
 	}
-	return s.Stack.Similar(&r.Stack, similar)
+	return s.Stack.similar(&r.Stack, similar)
 }
 
-// Merge merges two similar Signature, zapping out differences.
-func (s *Signature) Merge(r *Signature) *Signature {
+// merge merges two similar Signature, zapping out differences.
+func (s *Signature) merge(r *Signature) *Signature {
 	min := s.SleepMin
 	if r.SleepMin < min {
 		min = r.SleepMin
@@ -483,7 +483,7 @@ func (s *Signature) Merge(r *Signature) *Signature {
 		CreatedBy: s.CreatedBy, // Drop right side.
 		SleepMin:  min,
 		SleepMax:  max,
-		Stack:     *s.Stack.Merge(&r.Stack),
+		Stack:     *s.Stack.merge(&r.Stack),
 		Locked:    s.Locked || r.Locked, // TODO(maruel): This is weirdo.
 	}
 }
