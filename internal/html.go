@@ -113,7 +113,7 @@ href=https://github.com/maruel/panicparse#gotraceback>github.com/maruel/panicpar
 <div id="content">
 {{range .Buckets}}
 	<h1>{{if .First}}Panicking {{end}}Routine</h1>
-	<span class="{{routineClass .}}">{{len .Routines}}: <span class="state">{{.State}}</span>
+	<span class="{{routineClass .}}">{{len .IDs}}: <span class="state">{{.State}}</span>
 	{{if .SleepMax -}}
 	  {{- if ne .SleepMin .SleepMax}} <span class="sleep">[{{.SleepMin}}~{{.SleepMax}} minutes]</span>
 		{{- else}} <span class="sleep">[{{.SleepMax}} minutes]</span>
