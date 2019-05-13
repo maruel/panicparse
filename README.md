@@ -1,5 +1,4 @@
-panicparse
-==========
+# panicparse
 
 Parses panic stack traces, densifies and deduplicates goroutines with similar
 stack traces. Helps debugging crashes and deadlocks in heavily parallelized
@@ -13,8 +12,7 @@ panicparse helps make sense of Go crash dumps:
 ![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/parse.gif "Screencast")
 
 
-Features
---------
+## Features
 
    * &gt;50% more compact output than original stack dump yet more readable.
    * Exported symbols are bold, private symbols are darker.
@@ -31,14 +29,12 @@ Features
    * Works on Windows.
 
 
-Installation
-------------
+## Installation
 
     go get github.com/maruel/panicparse/cmd/pp
 
 
-Usage
------
+## Usage
 
 ### Piping a stack trace from another process
 
@@ -97,8 +93,21 @@ To dump to a file then parse, pass the file path of a stack trace
     pp stack.txt
 
 
-Tips
-----
+## Tips
+
+### Disable inlining
+
+Starting with go1.11, the toolchain starts to inline more often. This causes
+traces to be less informative. You can use the following to help diagnosing
+issues:
+
+    go install -gcflags '-N -l' path/to/foo
+    foo |& pp
+
+or
+
+    go test -gcflags '-N -l' ./... |& pp
+
 
 ### GOTRACEBACK
 
