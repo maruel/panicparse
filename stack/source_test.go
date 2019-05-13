@@ -18,14 +18,19 @@ import (
 
 func TestAugment(t *testing.T) {
 	data := []struct {
-		name     string
-		input    string
-		expected Stack
+		name  string
+		input string
+		// Starting with go1.11, the stack trace do not contain much information
+		// about the arguments and shows as elided.
+		workaroundGo111Elided bool
+		// Starting with go1.11, non-pointer call shows an elided argument, while
+		// there was no argument listed before.
+		workaroundGo111Extra bool
+		expected             Stack
 	}{
 		{
 			"Local function doesn't interfere",
-			`package main
-			func f(s string) {
+			`func f(s string) {
 				a := func(i int) int {
 					return 1 + i
 				}
@@ -35,6 +40,8 @@ func TestAugment(t *testing.T) {
 			func main() {
 				f("yo")
 			}`,
+			false,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -49,13 +56,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"func",
-			`package main
-			func f(a func() string) {
+			`func f(a func() string) {
 				panic(a())
 			}
 			func main() {
 				f(func() string { return "ooh" })
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -68,13 +76,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"func ellipsis",
-			`package main
-			func f(a ...func() string) {
+			`func f(a ...func() string) {
 				panic(a[0]())
 			}
 			func main() {
 				f(func() string { return "ooh" })
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -89,13 +98,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"interface{}",
-			`package main
-			func f(a []interface{}) {
+			`func f(a []interface{}) {
 				panic("ooh")
 			}
 			func main() {
 				f(make([]interface{}, 5, 7))
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -110,13 +120,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"[]int",
-			`package main
-			func f(a []int) {
+			`func f(a []int) {
 				panic("ooh")
 			}
 			func main() {
 				f(make([]int, 5, 7))
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -131,13 +142,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"[]interface{}",
-			`package main
-			func f(a []interface{}) {
+			`func f(a []interface{}) {
 				panic(a[0].(string))
 			}
 			func main() {
 				f([]interface{}{"ooh"})
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -152,13 +164,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"map[int]int",
-			`package main
-			func f(a map[int]int) {
+			`func f(a map[int]int) {
 				panic("ooh")
 			}
 			func main() {
 				f(map[int]int{1: 2})
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -173,13 +186,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"map[interface{}]interface{}",
-			`package main
-			func f(a map[interface{}]interface{}) {
+			`func f(a map[interface{}]interface{}) {
 				panic("ooh")
 			}
 			func main() {
 				f(make(map[interface{}]interface{}))
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -194,13 +208,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"chan int",
-			`package main
-			func f(a chan int) {
+			`func f(a chan int) {
 				panic("ooh")
 			}
 			func main() {
 				f(make(chan int))
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -215,13 +230,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"chan interface{}",
-			`package main
-			func f(a chan interface{}) {
+			`func f(a chan interface{}) {
 				panic("ooh")
 			}
 			func main() {
 				f(make(chan interface{}))
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -236,16 +252,17 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"non-pointer method",
-			`package main
-			type S struct {
-			}
-			func (s S) f() {
-				panic("ooh")
-			}
-			func main() {
-				var s S
-				s.f()
-			}`,
+			`type S struct {
+				}
+				func (s S) f() {
+					panic("ooh")
+				}
+				func main() {
+					var s S
+					s.f()
+				}`,
+			true,
+			true,
 			Stack{
 				Calls: []Call{
 					{SrcPath: "main.go", Line: 5, Func: Func{Raw: "main.S.f"}},
@@ -255,8 +272,7 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"pointer method",
-			`package main
-			type S struct {
+			`type S struct {
 			}
 			func (s *S) f() {
 				panic("ooh")
@@ -265,6 +281,8 @@ func TestAugment(t *testing.T) {
 				var s S
 				s.f()
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -277,13 +295,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"string",
-			`package main
-			func f(s string) {
+			`func f(s string) {
 				panic(s)
 			}
 			func main() {
 			  f("ooh")
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -296,13 +315,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"string and int",
-			`package main
-			func f(s string, i int) {
+			`func f(s string, i int) {
 				panic(s)
 			}
 			func main() {
 			  f("ooh", 42)
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -315,13 +335,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"values are elided",
-			`package main
-			func f(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12 int, s13 interface{}) {
+			`func f(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12 int, s13 interface{}) {
 				panic("ooh")
 			}
 			func main() {
 				f(0, 0, 0, 0, 0, 0, 0, 0, 42, 43, 44, 45, nil)
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -337,14 +358,15 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"error",
-			`package main
-			import "errors"
+			`import "errors"
 			func f(err error) {
 				panic(err.Error())
 			}
 			func main() {
 				f(errors.New("ooh"))
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -359,14 +381,15 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"error unnamed",
-			`package main
-			import "errors"
+			`import "errors"
 			func f(error) {
 				panic("ooh")
 			}
 			func main() {
 				f(errors.New("ooh"))
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -381,13 +404,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"float32",
-			`package main
-			func f(v float32) {
+			`func f(v float32) {
 				panic("ooh")
 			}
 			func main() {
 				f(0.5)
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -404,13 +428,14 @@ func TestAugment(t *testing.T) {
 		},
 		{
 			"float64",
-			`package main
-			func f(v float64) {
+			`func f(v float64) {
 				panic("ooh")
 			}
 			func main() {
 				f(0.5)
 			}`,
+			true,
+			false,
 			Stack{
 				Calls: []Call{
 					{
@@ -428,8 +453,23 @@ func TestAugment(t *testing.T) {
 	}
 
 	for i, line := range data {
+		// Marshal the code a bit to make it nicer. Inject 'package main'.
+		lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)
+		for i := 2; i < len(lines); i++ {
+			// Strip the 3 first tab characters. It's very adhoc but good enough here
+			// and makes test failure much more readable.
+			if lines[i][:3] != "\t\t\t" {
+				t.Fatal("expected line to start with 3 tab characters")
+			}
+			lines[i] = lines[i][3:]
+		}
+		input := strings.Join(lines, "\n")
+
+		// Run the command.
+		_, content, clean := getCrash(t, input)
+
+		// Analyze it.
 		extra := bytes.Buffer{}
-		_, content, clean := getCrash(t, line.input)
 		c, err := ParseDump(bytes.NewBuffer(content), &extra, false)
 		if err != nil {
 			clean()
@@ -441,13 +481,23 @@ func TestAugment(t *testing.T) {
 			clean()
 			t.Fatalf("Unexpected panic output:\n%#v", actual)
 		}
+
+		// On go1.11 with non-pointer method, it shows elided argument where there
+		// used to be none before. It's only for test case "non-pointer method".
+		if line.workaroundGo111Extra && zapArguments() {
+			line.expected.Calls[0].Args.Elided = true
+		}
+
 		s := c.Goroutines[0].Signature.Stack
-		t.Logf("Test: %v", line.name)
-		zapPointers(t, line.name, &line.expected, &s)
+		t.Logf("Test #%d: %v", i, line.name)
+		zapPointers(t, line.name, line.workaroundGo111Elided, &line.expected, &s)
 		zapPaths(&s)
 		clean()
 		if !reflect.DeepEqual(line.expected, s) {
-			t.Fatalf("#%d: Different:\n- %v\n- %v", i, line.expected, s)
+			t.Logf("Different (expected, then actual):\n- %#v\n- %#v", line.expected, s)
+			t.Logf("Source code:\n%s", input)
+			t.Logf("Output:\n%s", content)
+			t.FailNow()
 		}
 	}
 }
@@ -535,7 +585,7 @@ func getCrash(t *testing.T, content string) (string, []byte, func()) {
 }
 
 // zapPointers zaps out pointers.
-func zapPointers(t *testing.T, name string, expected, s *Stack) {
+func zapPointers(t *testing.T, name string, workaroundGo111Elided bool, expected, s *Stack) {
 	for i := range s.Calls {
 		if i >= len(expected.Calls) {
 			// When using GOTRACEBACK=2, it'll include runtime.main() and
@@ -543,6 +593,14 @@ func zapPointers(t *testing.T, name string, expected, s *Stack) {
 			// version.
 			s.Calls = s.Calls[:len(expected.Calls)]
 			break
+		}
+		if workaroundGo111Elided && zapArguments() {
+			// See https://github.com/maruel/panicparse/issues/42 for explanation.
+			if len(expected.Calls[i].Args.Values) != 0 {
+				expected.Calls[i].Args.Elided = true
+			}
+			expected.Calls[i].Args.Values = nil
+			continue
 		}
 		for j := range s.Calls[i].Args.Values {
 			if j >= len(expected.Calls[i].Args.Values) {
