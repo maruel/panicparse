@@ -10,10 +10,10 @@ go:
 - 1.x
 
 before_install:
-- if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then go get github.com/maruel/pre-commit-go/cmd/pcg; fi
+- if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then GO111MODULE=off go get github.com/maruel/pre-commit-go/cmd/pcg; fi
 
 script:
-- if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then pcg; fi
+- if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then GO111MODULE=off pcg; fi
 # Only run a short suite on go1.8.7. For example goimports doesn't build on
 # go1.8 anymore.
 - if [[ $TRAVIS_GO_VERSION == 1.8.7 ]]; then go test ./...; fi
