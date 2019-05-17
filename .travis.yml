@@ -5,15 +5,20 @@
 sudo: false
 language: go
 
+cache:
+  directories:
+    - $GOPATH/pkg/mod
+    - $GOPATH/bin
+
+env:
+- GO111MODULE=on
+
 go:
-- 1.8.7
 - 1.x
 
 before_install:
-- if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then GO111MODULE=off go get github.com/maruel/pre-commit-go/cmd/pcg; fi
+- GO111MODULE=off go get github.com/maruel/pre-commit-go/cmd/pcg
 
 script:
-- if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then GO111MODULE=off pcg; fi
-# Only run a short suite on go1.8.7. For example goimports doesn't build on
-# go1.8 anymore.
-- if [[ $TRAVIS_GO_VERSION == 1.8.7 ]]; then go test ./...; fi
+- go mod download
+- pcg
