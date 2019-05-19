@@ -7,6 +7,7 @@ package stack
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -159,132 +160,219 @@ func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
-// scanningState is the state of the scan to detect and process a stack trace.
-//
-// TODO(maruel): Use a formal state machine. Patterns follows:
-// - reRoutineHeader
-//   Either:
-//     - reUnavail
-//     - reFunc + reFile in a loop
-//     - reElided
-//   Optionally ends with:
-//     - reCreated + reFile
-type scanningState struct {
-	goroutines []*Goroutine
-	goroutine  *Goroutine
+// state is the state of the scan to detect and process a stack trace.
+type state int
 
-	created   bool
-	firstLine bool // firstLine is the first line after the reRoutineHeader header line.
+// Initial state is normal. Other states are when a stack trace is detected.
+const (
+	// Outside a stack trace.
+	// to: gotRoutineHeader when reRoutineHeader triggers
+	normal state = iota
+
+	// In between goroutines.
+	betweenRoutine
+
+	// Goroutine header was found, e.g. "goroutine 1 [running]:"
+	// from: normal
+	// to: gotUnavail, gotFunc
+	gotRoutineHeader
+	// Function call line was found, e.g. "main.main()"
+	// from: gotRoutineHeader
+	// to: gotFile
+	gotFunc
+	// Goroutine creation line was found, e.g. "created by main.glob..func4"
+	// from: gotFileFunc
+	// to: gotFileCreated
+	gotCreated
+	// File header was found, e.g. "\t/foo/bar/baz.go:116 +0x35"
+	// from: gotFunc
+	// to: gotFunc, gotCreated, betweenRoutine, normal
+	gotFileFunc
+	// File header was found, e.g. "\t/foo/bar/baz.go:116 +0x35"
+	// from: gotCreated
+	// to: betweenRoutine, normal
+	gotFileCreated
+	// State when the goroutine stack is instead is reUnavail.
+	// from: gotRoutineHeader
+	// to: betweenRoutine, gotCreated
+	gotUnavail
+)
+
+// scanningState is the state of the scan to detect and process a stack trace
+// and stores the traces found.
+type scanningState struct {
+	// goroutines contains all the goroutines found.
+	goroutines []*Goroutine
+
+	state state
 }
 
+// scan scans one line, updates goroutines and move to the next state.
 func (s *scanningState) scan(line string) (string, error) {
-	if line == "\n" || line == "\r\n" {
-		if s.goroutine != nil {
-			// goroutines are separated by an empty line.
-			s.goroutine = nil
-			return "", nil
-		}
-	} else if line[len(line)-1] == '\n' {
-		if s.goroutine == nil {
-			if match := reRoutineHeader.FindStringSubmatch(line); match != nil {
-				if id, err := strconv.Atoi(match[1]); err == nil {
-					// See runtime/traceback.go.
-					// "<state>, \d+ minutes, locked to thread"
-					items := strings.Split(match[2], ", ")
-					sleep := 0
-					locked := false
-					for i := 1; i < len(items); i++ {
-						if items[i] == lockedToThread {
-							locked = true
-							continue
-						}
-						// Look for duration, if any.
-						if match2 := reMinutes.FindStringSubmatch(items[i]); match2 != nil {
-							sleep, _ = strconv.Atoi(match2[1])
-						}
-					}
-					g := &Goroutine{
-						Signature: Signature{
-							State:    items[0],
-							SleepMin: sleep,
-							SleepMax: sleep,
-							Locked:   locked,
-						},
-						ID:    id,
-						First: len(s.goroutines) == 0,
-					}
-					s.goroutines = append(s.goroutines, g)
-					s.goroutine = g
-					s.firstLine = true
-					return "", nil
-				}
-			}
-		} else {
-			if s.firstLine {
-				s.firstLine = false
-				if match := reUnavail.FindStringSubmatch(line); match != nil {
-					// Generate a fake stack entry.
-					s.goroutine.Stack.Calls = []Call{{SrcPath: "<unavailable>"}}
-					return "", nil
-				}
-			}
-
-			if match := reFile.FindStringSubmatch(line); match != nil {
-				// Triggers after a reFunc or a reCreated.
-				num, err := strconv.Atoi(match[2])
-				if err != nil {
-					return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
-				}
-				if s.created {
-					s.created = false
-					s.goroutine.CreatedBy.SrcPath = match[1]
-					s.goroutine.CreatedBy.Line = num
-				} else {
-					i := len(s.goroutine.Stack.Calls) - 1
-					if i < 0 {
-						return "", fmt.Errorf("unexpected order on line: %q", strings.TrimSpace(line))
-					}
-					s.goroutine.Stack.Calls[i].SrcPath = match[1]
-					s.goroutine.Stack.Calls[i].Line = num
-				}
-				return "", nil
-			}
-
-			if match := reCreated.FindStringSubmatch(line); match != nil {
-				s.created = true
-				s.goroutine.CreatedBy.Func.Raw = match[1]
-				return "", nil
-			}
-
-			if match := reFunc.FindStringSubmatch(line); match != nil {
-				args := Args{}
-				for _, a := range strings.Split(match[2], ", ") {
-					if a == "..." {
-						args.Elided = true
+	var cur *Goroutine
+	if len(s.goroutines) != 0 {
+		cur = s.goroutines[len(s.goroutines)-1]
+	}
+	switch s.state {
+	case normal:
+		// TODO(maruel): We could look for '^panic:' but this is more risky, there
+		// can be a lot of junk between this and the stack dump.
+		fallthrough
+	case betweenRoutine:
+		// Look for a goroutine header.
+		if match := reRoutineHeader.FindStringSubmatch(line); match != nil {
+			if id, err := strconv.Atoi(match[1]); err == nil {
+				// See runtime/traceback.go.
+				// "<state>, \d+ minutes, locked to thread"
+				items := strings.Split(match[2], ", ")
+				sleep := 0
+				locked := false
+				for i := 1; i < len(items); i++ {
+					if items[i] == lockedToThread {
+						locked = true
 						continue
 					}
-					if a == "" {
-						// Remaining values were dropped.
-						break
+					// Look for duration, if any.
+					if match2 := reMinutes.FindStringSubmatch(items[i]); match2 != nil {
+						sleep, _ = strconv.Atoi(match2[1])
 					}
-					v, err := strconv.ParseUint(a, 0, 64)
-					if err != nil {
-						return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
-					}
-					args.Values = append(args.Values, Arg{Value: v})
 				}
-				s.goroutine.Stack.Calls = append(s.goroutine.Stack.Calls, Call{Func: Func{Raw: match[1]}, Args: args})
-				return "", nil
-			}
-
-			if match := reElided.FindStringSubmatch(line); match != nil {
-				s.goroutine.Stack.Elided = true
+				g := &Goroutine{
+					Signature: Signature{
+						State:    items[0],
+						SleepMin: sleep,
+						SleepMax: sleep,
+						Locked:   locked,
+					},
+					ID:    id,
+					First: len(s.goroutines) == 0,
+				}
+				s.goroutines = append(s.goroutines, g)
+				s.state = gotRoutineHeader
 				return "", nil
 			}
 		}
+		// Fallthrough.
+		s.state = normal
+		return line, nil
+
+	case gotRoutineHeader:
+		if match := reUnavail.FindStringSubmatch(line); match != nil {
+			// Generate a fake stack entry.
+			cur.Stack.Calls = []Call{{SrcPath: "<unavailable>"}}
+			// Next line is expected to be an empty line.
+			s.state = gotUnavail
+			return "", nil
+		}
+		call, err := parseFunc(line)
+		if call != nil {
+			cur.Stack.Calls = append(cur.Stack.Calls, *call)
+			s.state = gotFunc
+			return "", err
+		}
+		return "", fmt.Errorf("expected a function after a goroutine header, got: %q", strings.TrimSpace(line))
+
+	case gotFunc:
+		// Look for a file.
+		if match := reFile.FindStringSubmatch(line); match != nil {
+			num, err := strconv.Atoi(match[2])
+			if err != nil {
+				return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
+			}
+			// cur.Stack.Calls is guaranteed to have at least one item.
+			i := len(cur.Stack.Calls) - 1
+			cur.Stack.Calls[i].SrcPath = match[1]
+			cur.Stack.Calls[i].Line = num
+			s.state = gotFileFunc
+			return "", nil
+		}
+		return "", fmt.Errorf("expected a file after a function, got: %q", strings.TrimSpace(line))
+
+	case gotCreated:
+		// Look for a file.
+		if match := reFile.FindStringSubmatch(line); match != nil {
+			num, err := strconv.Atoi(match[2])
+			if err != nil {
+				return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
+			}
+			cur.CreatedBy.SrcPath = match[1]
+			cur.CreatedBy.Line = num
+			s.state = gotFileCreated
+			return "", nil
+		}
+		return "", fmt.Errorf("expected a file after a created line, got: %q", strings.TrimSpace(line))
+
+	case gotFileFunc:
+		if match := reCreated.FindStringSubmatch(line); match != nil {
+			cur.CreatedBy.Func.Raw = match[1]
+			s.state = gotCreated
+			return "", nil
+		}
+		if match := reElided.FindStringSubmatch(line); match != nil {
+			cur.Stack.Elided = true
+			// TODO(maruel): New state.
+			return "", nil
+		}
+		call, err := parseFunc(line)
+		if call != nil {
+			cur.Stack.Calls = append(cur.Stack.Calls, *call)
+			s.state = gotFunc
+			return "", err
+		}
+		if line == "\n" || line == "\r\n" {
+			s.state = betweenRoutine
+			return "", nil
+		}
+		// Back to normal state.
+		s.state = normal
+		return line, nil
+
+	case gotFileCreated:
+		if line == "\n" || line == "\r\n" {
+			s.state = betweenRoutine
+			return "", nil
+		}
+		s.state = normal
+		return line, nil
+
+	case gotUnavail:
+		if line == "\n" || line == "\r\n" {
+			s.state = betweenRoutine
+			return "", nil
+		}
+		if match := reCreated.FindStringSubmatch(line); match != nil {
+			cur.CreatedBy.Func.Raw = match[1]
+			s.state = gotCreated
+			return "", nil
+		}
+		return "", fmt.Errorf("expected empty line after unavailable stack, got: %q", strings.TrimSpace(line))
+	default:
+		return "", errors.New("internal error")
 	}
-	s.goroutine = nil
-	return line, nil
+}
+
+// parseFunc only return an error if also returning a Call.
+func parseFunc(line string) (*Call, error) {
+	if match := reFunc.FindStringSubmatch(line); match != nil {
+		call := &Call{Func: Func{Raw: match[1]}}
+		for _, a := range strings.Split(match[2], ", ") {
+			if a == "..." {
+				call.Args.Elided = true
+				continue
+			}
+			if a == "" {
+				// Remaining values were dropped.
+				break
+			}
+			v, err := strconv.ParseUint(a, 0, 64)
+			if err != nil {
+				return call, fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
+			}
+			call.Args.Values = append(call.Args.Values, Arg{Value: v})
+		}
+		return call, nil
+	}
+	return nil, nil
 }
 
 // hasPathPrefix returns true if any of s is the prefix of p.
