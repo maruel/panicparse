@@ -185,6 +185,7 @@ var types = map[string]struct {
 		"too many call lines in traceback, causing higher up calls to missing",
 		func() {
 			// Observed limit is 99.
+			// src/runtime/runtime2.go:const _TracebackMaxFrames = 100
 			recurse(100)
 		},
 	},
