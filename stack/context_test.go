@@ -876,6 +876,45 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 	compareGoroutines(t, expected, c.Goroutines)
 }
 
+func TestParseDumpRace(t *testing.T) {
+	// Generated with "panic race":
+	data := []string{
+		"==================",
+		"WARNING: DATA RACE",
+		"Read at 0x00c0000e4030 by goroutine 7:",
+		"  main.panicRace.func1()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main_race.go:37 +0x38",
+		"",
+		"Previous write at 0x00c0000e4030 by goroutine 6:",
+		"  main.panicRace.func1()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main_race.go:37 +0x4e",
+		"",
+		"Goroutine 7 (running) created at:",
+		"  main.panicRace()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main_race.go:35 +0x88",
+		"  main.main()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:252 +0x2d9",
+		"",
+		"Goroutine 6 (running) created at:",
+		"  main.panicRace()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main_race.go:35 +0x88",
+		"  main.main()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:252 +0x2d9",
+		"==================",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Confirm that it doesn't work yet.
+	if c != nil {
+		t.Fatal("expected c to be nil")
+	}
+	compareString(t, strings.Join(data, "\n"), extra.String())
+}
+
 func TestSplitPath(t *testing.T) {
 	if p := splitPath(""); p != nil {
 		t.Fatalf("expected nil, got: %v", p)
