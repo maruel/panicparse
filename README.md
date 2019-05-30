@@ -32,6 +32,13 @@ panicparse helps make sense of Go crash dumps:
    * Works on Windows.
 
 
+## Authors
+
+`panicparse` was created with ❤️️ and passion by [Marc-Antoine
+Ruel](https://github.com/maruel) and
+[friends](https://github.com/maruel/panicparse/graphs/contributors).
+
+
 ## Installation
 
     go get github.com/maruel/panicparse/cmd/pp
