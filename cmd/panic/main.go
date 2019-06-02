@@ -26,6 +26,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -224,9 +225,9 @@ var types = map[string]struct {
 	"stdlib": {
 		"panics with stdlib in the call stack, with both exported and unexpected functions",
 		func() {
-			a := []string{"a", "b"}
-			sort.Slice(a, func(i, j int) bool {
+			strings.FieldsFunc("a", func(rune) bool {
 				panic("allo")
+				return false
 			})
 		},
 	},
@@ -234,8 +235,7 @@ var types = map[string]struct {
 	"stdlib_and_other": {
 		"panics with both other and stdlib packages in the call stack",
 		func() {
-			a := []string{"a", "b"}
-			sort.Slice(a, func(i, j int) bool {
+			strings.FieldsFunc("a", func(rune) bool {
 				internal.Callback(func() {
 					panic("allo")
 				})
