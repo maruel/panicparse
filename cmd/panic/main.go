@@ -179,12 +179,13 @@ var types = map[string]struct {
 	"asleep": {
 		"panics with 'all goroutines are asleep - deadlock'",
 		func() {
-			// When built with the race detector, this hangs!? Without, it's panics as expected.
+			// When built with the race detector, this hangs. I suspect this is due
+			// because the race detector starts a separate goroutine which causes
+			// checkdead() to not trigger. See checkdead() in src/runtime/proc.go.
+			// https://github.com/golang/go/issues/20588
+			//
 			// Repro:
 			//   go install -race github.com/maruel/panicparse/cmd/panic; panic asleep
-			//
-			// TODO(maruel): File a bug.
-			// See checkdead() in src/runtime/proc.go.
 			var mu sync.Mutex
 			mu.Lock()
 			mu.Lock()
