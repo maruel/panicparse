@@ -876,6 +876,71 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 	compareGoroutines(t, expected, c.Goroutines)
 }
 
+func TestParseDumpIndented(t *testing.T) {
+	// goconvey is culprit of this.
+	data := []string{
+		"Failures:",
+		"",
+		"  * /home/maruel/go/src/foo/bar_test.go",
+		"  Line 209:",
+		"  Expected: '(*errors.errorString){s:\"context canceled\"}'",
+		"  Actual:   'nil'",
+		"  (Should resemble)!",
+		"  goroutine 8 [running]:",
+		"  foo/bar.TestArchiveFail.func1.2()",
+		"        /home/maruel/go/foo/bar_test.go:209 +0x469",
+		"  foo/bar.TestArchiveFail(0xc000338200)",
+		"        /home/maruel/go/src/foo/bar_test.go:155 +0xf1",
+		"  testing.tRunner(0xc000338200, 0x1615bf8)",
+		"        /home/maruel/golang/go/src/testing/testing.go:865 +0xc0",
+		"  created by testing.(*T).Run",
+		"        /home/maruel/golang/go/src/testing/testing.go:916 +0x35a",
+		"",
+	}
+	extra := bytes.Buffer{}
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &extra, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareString(t, strings.Join(data[:7], "\n")+"\n", extra.String())
+	expected := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SrcPath: "/home/maruel/go/foo/bar_test.go",
+							Line:    209,
+							Func:    Func{Raw: "foo/bar.TestArchiveFail.func1.2"},
+						},
+						{
+							SrcPath: "/home/maruel/go/src/foo/bar_test.go",
+							Line:    155,
+							Func:    Func{Raw: "foo/bar.TestArchiveFail"},
+							Args:    Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}}},
+						},
+						{
+							SrcPath: "/home/maruel/golang/go/src/testing/testing.go",
+							Line:    865,
+							Func:    Func{Raw: "testing.tRunner"},
+							Args:    Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}, {Value: 0x1615bf8}}},
+						},
+					},
+				},
+				CreatedBy: Call{
+					SrcPath: "/home/maruel/golang/go/src/testing/testing.go",
+					Line:    916,
+					Func:    Func{Raw: "testing.(*T).Run"},
+				},
+			},
+			ID:    8,
+			First: true,
+		},
+	}
+	compareGoroutines(t, expected, c.Goroutines)
+}
+
 func TestParseDumpRace(t *testing.T) {
 	// Generated with "panic race":
 	data := []string{

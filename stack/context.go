@@ -97,7 +97,7 @@ var (
 	// - found next stack barrier at 0x123; expected
 	// - runtime: unexpected return pc for FUNC_NAME called from 0x123
 
-	reRoutineHeader = regexp.MustCompile("^goroutine (\\d+) \\[([^\\]]+)\\]\\:$")
+	reRoutineHeader = regexp.MustCompile("^([ \t]*)goroutine (\\d+) \\[([^\\]]+)\\]\\:$")
 	reMinutes       = regexp.MustCompile("^(\\d+) minutes$")
 	reUnavail       = regexp.MustCompile("^(?:\t| +)goroutine running on other thread; stack unavailable")
 	// See gentraceback() in src/runtime/traceback.go for more information.
@@ -207,7 +207,8 @@ type scanningState struct {
 	// goroutines contains all the goroutines found.
 	goroutines []*Goroutine
 
-	state state
+	state  state
+	prefix string
 }
 
 // scan scans one line, updates goroutines and move to the next state.
@@ -231,18 +232,29 @@ func (s *scanningState) scan(line string) (string, error) {
 		// Let it flow. It's possible the last line was trimmed and we still want to parse it.
 	}
 
+	if s.prefix != "" {
+		// This can only be the case if s.state != normal.
+		if !strings.HasPrefix(trimmed, s.prefix) {
+			prefix := s.prefix
+			s.state = normal
+			s.prefix = ""
+			return "", fmt.Errorf("inconsistent indentation: %q, expected %q", trimmed, prefix)
+		}
+		trimmed = trimmed[len(s.prefix):]
+	}
+
 	switch s.state {
 	case normal:
-		// TODO(maruel): We could look for '^panic:' but this is more risky, there
-		// can be a lot of junk between this and the stack dump.
+		// We could look for '^panic:' but this is more risky, there can be a lot
+		// of junk between this and the stack dump.
 		fallthrough
 	case betweenRoutine:
 		// Look for a goroutine header.
 		if match := reRoutineHeader.FindStringSubmatch(trimmed); match != nil {
-			if id, err := strconv.Atoi(match[1]); err == nil {
+			if id, err := strconv.Atoi(match[2]); err == nil {
 				// See runtime/traceback.go.
 				// "<state>, \d+ minutes, locked to thread"
-				items := strings.Split(match[2], ", ")
+				items := strings.Split(match[3], ", ")
 				sleep := 0
 				locked := false
 				for i := 1; i < len(items); i++ {
@@ -267,11 +279,13 @@ func (s *scanningState) scan(line string) (string, error) {
 				}
 				s.goroutines = append(s.goroutines, g)
 				s.state = gotRoutineHeader
+				s.prefix = match[1]
 				return "", nil
 			}
 		}
 		// Fallthrough.
 		s.state = normal
+		s.prefix = ""
 		return line, nil
 
 	case gotRoutineHeader:
@@ -343,6 +357,7 @@ func (s *scanningState) scan(line string) (string, error) {
 		}
 		// Back to normal state.
 		s.state = normal
+		s.prefix = ""
 		return line, nil
 
 	case gotFileCreated:
@@ -351,6 +366,7 @@ func (s *scanningState) scan(line string) (string, error) {
 			return "", nil
 		}
 		s.state = normal
+		s.prefix = ""
 		return line, nil
 
 	case gotUnavail:
