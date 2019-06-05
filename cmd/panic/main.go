@@ -24,14 +24,19 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/maruel/panicparse/cmd/panic/internal"
 )
+
+// Mocked in test.
+var stdErr io.Writer = os.Stderr
 
 // Utility functions.
 
@@ -57,6 +62,41 @@ func recurse(i int) {
 		return
 	}
 	panic(42)
+}
+
+func panicRaceDisabled() {
+	help := "'panic race' can only be used when built with the race detector.\n" +
+		"To build, use:\n" +
+		"  go install -race github.com/maruel/panicparse/cmd/panic\n"
+	io.WriteString(stdErr, help)
+}
+
+func rerunWithFastCrash() {
+	if os.Getenv("GORACE") != "log_path=stderr halt_on_error=1" {
+		os.Setenv("GORACE", "log_path=stderr halt_on_error=1")
+		c := exec.Command(os.Args[0], os.Args[1:]...)
+		c.Stderr = os.Stderr
+		if err, ok := c.Run().(*exec.ExitError); ok {
+			if status, ok := err.Sys().(syscall.WaitStatus); ok {
+				os.Exit(status.ExitStatus())
+			}
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+}
+
+func panicRaceEnabled() {
+	rerunWithFastCrash()
+	i := 0
+	for j := 0; j < 2; j++ {
+		go func() {
+			for {
+				i++
+			}
+		}()
+	}
+	time.Sleep(time.Minute)
 }
 
 //
@@ -273,8 +313,9 @@ func main() {
 				panic("simple")
 			}
 			f.f()
+			os.Exit(3)
 		}
-		fmt.Fprintf(os.Stderr, "unknown panic style %q\n", n)
+		fmt.Fprintf(stdErr, "unknown panic style %q\n", n)
 		os.Exit(1)
 	}
 	usage()
@@ -291,7 +332,7 @@ Set GOTRACEBACK before running this tool to see how it affects the panic output.
 
 Select the way to panic:
 `
-	io.WriteString(os.Stderr, t)
+	io.WriteString(stdErr, t)
 	names := make([]string, 0, len(types))
 	m := 0
 	for n := range types {
@@ -302,7 +343,7 @@ Select the way to panic:
 	}
 	sort.Strings(names)
 	for _, n := range names {
-		fmt.Fprintf(os.Stderr, "- %-*s  %s\n", m, n, types[n].desc)
+		fmt.Fprintf(stdErr, "- %-*s  %s\n", m, n, types[n].desc)
 	}
 	os.Exit(2)
 }

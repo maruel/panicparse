@@ -18,7 +18,8 @@ matrix:
         - $GOPATH/pkg/mod
         # Cache tools sources. Manually verified that both misspell and ineffassign
         # only depend on the stdlib.
-        - $GOPATH/src/github\.com
+        - $GOPATH/src/github\.com/client9
+        - $GOPATH/src/github\.com/gordonklaus
         # For shadow.
         - $GOPATH/src/golang\.org
   - go: 1.8.7
