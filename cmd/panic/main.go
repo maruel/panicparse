@@ -99,6 +99,14 @@ func panicRaceEnabled() {
 	time.Sleep(time.Minute)
 }
 
+func panicRace() {
+	if raceEnabled {
+		panicRaceEnabled()
+	} else {
+		panicRaceDisabled()
+	}
+}
+
 //
 
 // types is all the supported types of panics.

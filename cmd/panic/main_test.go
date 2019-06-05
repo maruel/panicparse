@@ -5,10 +5,18 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
 func TestMain(t *testing.T) {
+	if !testing.Verbose() {
+		stdErr = ioutil.Discard
+		defer func() {
+			stdErr = os.Stderr
+		}()
+	}
 	for name, l := range types {
 		if name == "simple" {
 			// It's safe.
@@ -21,8 +29,12 @@ func TestMain(t *testing.T) {
 			continue
 		}
 		if name == "race" {
-			// It's not safe, it'll crash the program in a way that cannot be trapped.
-			// TODO(maruel): Run it conditionally when not under race detector.
+			if raceEnabled {
+				// It's not safe, it'll crash the program in a way that cannot be trapped.
+				continue
+			}
+			// It's safe.
+			l.f()
 			continue
 		}
 

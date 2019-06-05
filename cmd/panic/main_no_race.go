@@ -6,6 +6,4 @@
 
 package main
 
-func panicRace() {
-	panicRaceDisabled()
-}
+const raceEnabled = false
