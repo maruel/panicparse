@@ -232,8 +232,8 @@ func (s *scanningState) scan(line string) (string, error) {
 		// Let it flow. It's possible the last line was trimmed and we still want to parse it.
 	}
 
-	if s.prefix != "" {
-		// This can only be the case if s.state != normal.
+	if trimmed != "" && s.prefix != "" {
+		// This can only be the case if s.state != normal or the line is empty.
 		if !strings.HasPrefix(trimmed, s.prefix) {
 			prefix := s.prefix
 			s.state = normal

@@ -896,6 +896,7 @@ func TestParseDumpIndented(t *testing.T) {
 		"  created by testing.(*T).Run",
 		"        /home/maruel/golang/go/src/testing/testing.go:916 +0x35a",
 		"",
+		"",
 	}
 	extra := bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), &extra, false)
