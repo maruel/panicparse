@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -309,6 +310,34 @@ func TestParseDumpValueErr(t *testing.T) {
 		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 	}
 	compareGoroutines(t, expected, c.Goroutines)
+}
+
+func TestParseDumpInconsistentIndent(t *testing.T) {
+	data := []string{
+		"  goroutine 1 [running]:",
+		"  github.com/maruel/panicparse/stack/stack.recurseType()",
+		" \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
+	compareErr(t, errors.New(`inconsistent indentation: " \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1", expected "  "`), err)
+	expected := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{Func: Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"}},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	compareGoroutines(t, expected, c.Goroutines)
+	compareString(t, "", extra.String())
 }
 
 func TestParseDumpOrderErr(t *testing.T) {
@@ -979,6 +1008,88 @@ func TestParseDumpRace(t *testing.T) {
 		t.Fatal("expected c to be nil")
 	}
 	compareString(t, strings.Join(data, "\n"), extra.String())
+}
+
+// This test should be deleted once Context state.raceDetectionEnabled is
+// removed and the race detector results is stored in Context.
+func TestRaceManual(t *testing.T) {
+	// Generated with "panic race":
+	data := []string{
+		"==================",
+		"WARNING: DATA RACE",
+		"Read at 0x00c0000e4030 by goroutine 7:",
+		"  main.panicRace.func1()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main_race.go:37 +0x38",
+		"",
+		"Previous write at 0x00c0000e4030 by goroutine 6:",
+		"  main.panicRace.func1()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main_race.go:37 +0x4e",
+		"",
+		"Goroutine 7 (running) created at:",
+		"  main.panicRace()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main_race.go:35 +0x88",
+		"  main.main()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:252 +0x2d9",
+		"",
+		"Goroutine 6 (running) created at:",
+		"  main.panicRace()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main_race.go:35 +0x88",
+		"  main.main()",
+		"      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:252 +0x2d9",
+		"==================",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	expected := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SrcPath: "/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+							Line:    252,
+							Func:    Func{Raw: "main.panicRace"},
+						},
+					},
+				},
+			},
+			ID:    7,
+			First: true,
+		},
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SrcPath: "/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+							Line:    252,
+							Func:    Func{Raw: "main.panicRace"},
+						},
+					},
+				},
+			},
+			ID: 6,
+		},
+	}
+	scanner := bufio.NewScanner(bytes.NewBufferString(strings.Join(data, "\n")))
+	scanner.Split(scanLines)
+	s := scanningState{raceDetectionEnabled: true}
+	for scanner.Scan() {
+		line, err := s.scan(scanner.Text())
+		if line != "" {
+			_, _ = io.WriteString(extra, line)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	compareGoroutines(t, expected, s.goroutines)
+	expectedOps := []raceOp{{false, 0xc0000e4030, 7}, {true, 0xc0000e4030, 6}}
+	if !reflect.DeepEqual(expectedOps, s.races) {
+		t.Fatalf("%v", s.races)
+	}
 }
 
 func TestSplitPath(t *testing.T) {
