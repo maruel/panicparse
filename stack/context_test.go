@@ -216,6 +216,42 @@ func TestParseDumpAsm(t *testing.T) {
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
+func TestParseDumpAsmGo1dot13(t *testing.T) {
+	data := []string{
+		"panic: reflect.Set: value of type",
+		"",
+		"goroutine 16 [garbage collection]:",
+		"runtime.switchtoM()",
+		"\t/goroot/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0 pc=0x5007be",
+		"",
+	}
+	extra := &bytes.Buffer{}
+	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "garbage collection",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SrcPath: "/goroot/src/runtime/asm_amd64.s",
+							Line:    198,
+							Func:    Func{Raw: "runtime.switchtoM"},
+						},
+					},
+				},
+			},
+			ID:    16,
+			First: true,
+		},
+	}
+	compareGoroutines(t, expected, c.Goroutines)
+	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
+}
+
 func TestParseDumpLineErr(t *testing.T) {
 	data := []string{
 		"panic: reflect.Set: value of type",
