@@ -6,23 +6,43 @@ sudo: false
 language: go
 dist: xenial
 
-matrix:
+services:
+  - docker
+
+env:
+  global:
+    # FUZZIT_API_KEY
+    secure: "FEm1wF/Ttd5RIvDPg5I/aSAhBWuvkvjmkInFxlVKP4BfLsR1B1ogXV4zKFQiZugyppBta+qP4qP+tSbThSvP9JOCr+/ivnTyYLg/DH1RfQnC7rJmAaZwHGHB+NwblRzU621uIZ4RVvaE391YVJf5519gc+M+bxZ6DO0ScdpbIAVV/7JR9c7Tuvoyi57/MEwAS39k7h83ms8JgRYwuvzpVH9nb6AfYs+CzXuRlsG5mHqFnmzLyG0ewnqh18OoWbyKQwBmM+EoIGmckM8NQZaXWBhEuDP7qdl+QatNfZtK3YwBx2plahBXXMee3NpOAEHOkWxNw1uMb1B8ILDrzrx8oX1A4fF/ZeJl7JLZS/fQUMhDnLG5soA0xaEoAvwhQIHFi3e207rsq9UJsnQlRGhRWzMvx85UR5z+yiur8nVUkogu1DGpH/BPdWbTs+d8behSr7t6Sepo7enjJOPJLz6U67JlP31HvnaLICMEXxJy54BAbdu/47vqFp15lcIMHyDzPltHHWi6uGuRFQPYz8pM5ZAKQ945dO/ZELyEHbjUiLTMFeVoANzahuY56BX6hvsygcOlBWB6ukoJANvxgvM/QYkbh9dMBajYsZqHCWOKRVbBakkqPAUqkBNPOADTp5ZgUwmRySIGzX2X+Efl7cFYZVu+IJl968F8hqYajvS/VCs="
+
+jobs:
   include:
-  - go: 1.12.x
-    env: GO111MODULE=on
-    cache:
-      directories:
-        # go1.10+ 'go test' cache on linux (macOS and Windows are # different).
-        - $HOME/.cache/go-build
-        # go1.11+ with GO111MODULE=on
-        - $GOPATH/pkg/mod
-        # Cache tools sources. Manually verified that both misspell and ineffassign
-        # only depend on the stdlib.
-        - $GOPATH/src/github\.com/client9
-        - $GOPATH/src/github\.com/gordonklaus
-        # For shadow.
-        - $GOPATH/src/golang\.org
-  - go: 1.8.7
+    - stage: Test
+      go: 1.12.x
+      env: GO111MODULE=on
+      cache:
+        directories:
+          # go1.10+ 'go test' cache on linux (macOS and Windows are # different).
+          - $HOME/.cache/go-build
+          # go1.11+ with GO111MODULE=on
+          - $GOPATH/pkg/mod
+          # Cache tools sources. Manually verified that both misspell and ineffassign
+          # only depend on the stdlib.
+          - $GOPATH/src/github\.com/client9
+          - $GOPATH/src/github\.com/gordonklaus
+          # For shadow.
+          - $GOPATH/src/golang\.org
+    - go: 1.8.7
+    
+    - stage: Fuzz regression
+      go: 1.12.x
+      dist: bionic
+      script: ./fuzzit.sh local-regression
+
+    - stage: Fuzz
+      if: branch = master AND type IN (push)
+      go: 1.12.x
+      dist: bionic
+      script: ./fuzzit.sh fuzzing
 
 before_script:
   - echo $TRAVIS_GO_VERSION
