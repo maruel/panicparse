@@ -8,6 +8,7 @@ process.
 [![Go Report Card](https://goreportcard.com/badge/github.com/maruel/panicparse)](https://goreportcard.com/report/github.com/maruel/panicparse)
 [![Coverage Status](https://codecov.io/gh/maruel/panicparse/graph/badge.svg)](https://codecov.io/gh/maruel/panicparse)
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg)](https://travis-ci.org/maruel/panicparse)
+[![Fuzzit Status](https://app.fuzzit.dev/badge?org_id=maruel)](https://app.fuzzit.dev/orgs/maruel/dashboard)
 
 
 panicparse helps make sense of Go crash dumps:
