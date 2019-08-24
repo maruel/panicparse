@@ -36,13 +36,29 @@ jobs:
     - stage: Fuzz regression
       go: 1.12.x
       dist: bionic
-      script: ./fuzzit.sh local-regression
+      script:
+        - export GO111MODULE="off"
+        - go get -u github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
+        - go get -d -v -u ./...
+        - wget -q -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/download/v2.4.29/fuzzit_Linux_x86_64
+        - chmod a+x fuzzit
+        - go-fuzz-build -libfuzzer -o fuzzer.a ./stack
+        - clang -fsanitize=fuzzer fuzzer.a -o fuzzer
+        - ./fuzzit create job --type local-regression panicparse fuzzer
 
     - stage: Fuzz
       if: branch = master AND type IN (push)
       go: 1.12.x
       dist: bionic
-      script: ./fuzzit.sh fuzzing
+      script:
+        - export GO111MODULE="off"
+        - go get -u github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
+        - go get -d -v -u ./...
+        - wget -q -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/download/v2.4.29/fuzzit_Linux_x86_64
+        - chmod a+x fuzzit
+        - go-fuzz-build -libfuzzer -o fuzzer.a ./stack
+        - clang -fsanitize=fuzzer fuzzer.a -o fuzzer
+        - ./fuzzit create job --type fuzzing panicparse fuzzer
 
 before_script:
   - echo $TRAVIS_GO_VERSION
