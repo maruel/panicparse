@@ -2,28 +2,16 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package internal
+package htmlstack
 
 import (
-	"io/ioutil"
-	"os"
+	"bytes"
 	"testing"
 
 	"github.com/maruel/panicparse/stack"
 )
 
-func TestWriteToHTML(t *testing.T) {
-	f, err := ioutil.TempFile("", "panicparse")
-	if err != nil {
-		t.Fatal(err)
-	}
-	n := f.Name()
-	f.Close()
-	defer func() {
-		if err := os.Remove(n); err != nil {
-			t.Fatal(err)
-		}
-	}()
+func TestWrite(t *testing.T) {
 	buckets := []*stack.Bucket{
 		{
 			Signature: stack.Signature{
@@ -46,7 +34,14 @@ func TestWriteToHTML(t *testing.T) {
 			IDs: []int{3},
 		},
 	}
-	if err := writeToHTML(n, buckets, true); err != nil {
+	buf := bytes.Buffer{}
+	if err := Write(&buf, buckets, true); err != nil {
 		t.Fatal(err)
+	}
+	// We expect this to be fairly static across Go versions. We want to know if
+	// it changes significantly, thus assert the approximate size. This is being
+	// tested on travis.
+	if l := buf.Len(); l < 4980 || l > 4990 {
+		t.Fatalf("unexpected length %d", l)
 	}
 }

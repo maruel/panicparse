@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"syscall"
 
+	"github.com/maruel/panicparse/internal/htmlstack"
 	"github.com/maruel/panicparse/stack"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
@@ -94,7 +95,15 @@ func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPa
 	if html == "" {
 		return writeToConsole(out, p, buckets, fullPath, needsEnv, filter, match)
 	}
-	return writeToHTML(html, buckets, needsEnv)
+	f, err := os.Create(html)
+	if err != nil {
+		return err
+	}
+	err = htmlstack.Write(f, buckets, needsEnv)
+	if err2 := f.Close(); err == nil {
+		err = err2
+	}
+	return err
 }
 
 func showBanner() bool {

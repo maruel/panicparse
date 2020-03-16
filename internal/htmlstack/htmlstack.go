@@ -2,17 +2,18 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package internal
+package htmlstack
 
 import (
 	"html/template"
-	"os"
+	"io"
 	"time"
 
 	"github.com/maruel/panicparse/stack"
 )
 
-func writeToHTML(html string, buckets []*stack.Bucket, needsEnv bool) error {
+// Write writes buckets as HTML to the writer.
+func Write(w io.Writer, buckets []*stack.Bucket, needsEnv bool) error {
 	m := template.FuncMap{
 		"funcClass":           funcClass,
 		"notoColorEmoji1F4A3": notoColorEmoji1F4A3,
@@ -32,16 +33,7 @@ func writeToHTML(html string, buckets []*stack.Bucket, needsEnv bool) error {
 		NeedsEnv bool
 	}{buckets, time.Now().Truncate(time.Second), needsEnv}
 
-	f, err := os.Create(html)
-	if err != nil {
-		return err
-	}
-	err1 := t.Execute(f, data)
-	err2 := f.Close()
-	if err1 != nil {
-		return err1
-	}
-	return err2
+	return t.Execute(w, data)
 }
 
 func funcClass(line *stack.Call) template.HTML {
