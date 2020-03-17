@@ -1,0 +1,7 @@
+# https://docs.codecov.io/docs/codecovyml-reference
+# and
+# https://docs.codecov.io/docs/coverage-configuration
+coverage:
+  precision: 1
+  range: "40...80"
+  round: nearest

@@ -125,6 +125,7 @@ func compareLines(t *testing.T, expected, actual []string) {
 		t.Fatalf("different length %d != %d", len(expected), len(actual))
 	}
 }
+
 func TestProcessMatch(t *testing.T) {
 	out := &bytes.Buffer{}
 	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &Palette{}, stack.AnyPointer,
@@ -164,4 +165,11 @@ func TestProcessFilter(t *testing.T) {
 	}
 	actual := strings.Split(out.String(), "\n")
 	compareLines(t, expected, actual)
+}
+
+func TestMainFn(t *testing.T) {
+	// It doesn't do anything since stdin is closed.
+	if err := Main(); err != nil {
+		t.Fatal(err)
+	}
 }
