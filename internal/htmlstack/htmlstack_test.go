@@ -24,6 +24,32 @@ func TestWrite(t *testing.T) {
 							Func:    stack.Func{Raw: "main.func·001"},
 							Args:    stack.Args{Values: []stack.Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
 						},
+						{
+							SrcPath:  "/golang/src/sort/slices.go",
+							Line:     72,
+							Func:     stack.Func{Raw: "sliceInternal"},
+							Args:     stack.Args{Values: []stack.Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+							IsStdlib: true,
+						},
+						{
+							SrcPath:  "/golang/src/sort/slices.go",
+							Line:     72,
+							Func:     stack.Func{Raw: "Slice"},
+							Args:     stack.Args{Values: []stack.Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+							IsStdlib: true,
+						},
+						{
+							SrcPath: "/gopath/src/foo/bar.go",
+							Line:    72,
+							Func:    stack.Func{Raw: "DoStuff"},
+							Args:    stack.Args{Values: []stack.Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+						},
+						{
+							SrcPath: "/gopath/src/foo/bar.go",
+							Line:    72,
+							Func:    stack.Func{Raw: "doStuffInternal"},
+							Args:    stack.Args{Values: []stack.Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+						},
 					},
 				},
 			},
@@ -41,7 +67,14 @@ func TestWrite(t *testing.T) {
 	// We expect this to be fairly static across Go versions. We want to know if
 	// it changes significantly, thus assert the approximate size. This is being
 	// tested on travis.
-	if l := buf.Len(); l < 4980 || l > 4990 {
+	if l := buf.Len(); l < 9170 || l > 9900 {
 		t.Fatalf("unexpected length %d", l)
+	}
+
+	// Exercise a condition when there's only one bucket.
+	buf.Reset()
+	buckets = buckets[:1]
+	if err := Write(&buf, buckets, true); err != nil {
+		t.Fatal(err)
 	}
 }
