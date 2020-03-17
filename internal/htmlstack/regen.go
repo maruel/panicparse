@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"text/template"
 )
@@ -33,17 +34,23 @@ const indexHTML = {{.IndexHTML}}
 const favicon template.HTML = "{{.Favicon}}"
 `
 
-func mainImpl() error {
+// loadGoroutines returns "goroutines.tpl" slightly processed for density.
+func loadGoroutines() ([]byte, error) {
 	htmlRaw, err := ioutil.ReadFile("goroutines.tpl")
+	if err != nil {
+		return nil, err
+	}
+	// Strip out leading whitespace.
+	re := regexp.MustCompile("(\\n[ \\t]*)+")
+	htmlRaw = re.ReplaceAll(htmlRaw, []byte("\n"))
+	return htmlRaw, nil
+}
+
+func mainImpl() error {
+	htmlRaw, err := loadGoroutines()
 	if err != nil {
 		return err
 	}
-	/*
-		// Strip out leading whitespace.
-		re := regexp.MustCompile("(\\n[ \\t]*)+")
-		// Temporarily keep the LF's as <pre> is currently used.
-		htmlRaw = re.ReplaceAll(htmlRaw, []byte("\n"))
-	*/
 
 	// See README.md how to retrieve it.
 	iconRaw, err := ioutil.ReadFile("emoji_u1f4a3.png")
