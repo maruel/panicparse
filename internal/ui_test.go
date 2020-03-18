@@ -47,15 +47,15 @@ func TestCalcLengths(t *testing.T) {
 			First: true,
 		},
 	}
-	srcLen, pkgLen := CalcLengths(b, true)
+	srcLen, pkgLen := calcLengths(b, fullPath)
 	// When printing, it prints the remote path, not the transposed local path.
-	compareString(t, "/gopath/foo/baz.go:123", b[0].Signature.Stack.Calls[0].FullSrcLine())
+	compareString(t, "/gopath/foo/baz.go:123", fullPath.formatCall(&b[0].Signature.Stack.Calls[0]))
 	compareInt(t, len("/gopath/foo/baz.go:123"), srcLen)
 	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.PkgName())
 	compareInt(t, len("main"), pkgLen)
 
-	srcLen, pkgLen = CalcLengths(b, false)
-	compareString(t, "baz.go:123", b[0].Signature.Stack.Calls[0].SrcLine())
+	srcLen, pkgLen = calcLengths(b, basePath)
+	compareString(t, "baz.go:123", basePath.formatCall(&b[0].Signature.Stack.Calls[0]))
 	compareInt(t, len("baz.go:123"), srcLen)
 	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.PkgName())
 	compareInt(t, len("main"), pkgLen)
@@ -77,10 +77,10 @@ func TestBucketHeader(t *testing.T) {
 		First: true,
 	}
 	// When printing, it prints the remote path, not the transposed local path.
-	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, true, true))
-	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, true, false))
-	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, false, true))
-	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, false, false))
+	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, fullPath, true))
+	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, fullPath, false))
+	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, basePath, true))
+	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, basePath, false))
 
 	b = &stack.Bucket{
 		Signature: stack.Signature{
@@ -92,7 +92,7 @@ func TestBucketHeader(t *testing.T) {
 		IDs:   []int{},
 		First: true,
 	}
-	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", testPalette.BucketHeader(b, false, false))
+	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", testPalette.BucketHeader(b, basePath, false))
 }
 
 func TestStackLines(t *testing.T) {
@@ -156,7 +156,7 @@ func TestStackLines(t *testing.T) {
 		"    Efoo        F/gopath/src/foo/bar.go:1575 KOtherExportedL()A\n" +
 		"    Efoo        F/gopath/src/foo/bar.go:10 JotherPrivateL()A\n" +
 		"    (...)\n"
-	compareString(t, expected, testPalette.StackLines(s, 10, 10, true))
+	compareString(t, expected, testPalette.StackLines(s, 10, 10, fullPath))
 	expected = "" +
 		"    Eruntime    Fsys_linux_amd64.s:400 HEpollwaitL(0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
 		"    Eruntime    Fnetpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
@@ -164,7 +164,7 @@ func TestStackLines(t *testing.T) {
 		"    Efoo        Fbar.go:1575 KOtherExportedL()A\n" +
 		"    Efoo        Fbar.go:10  JotherPrivateL()A\n" +
 		"    (...)\n"
-	compareString(t, expected, testPalette.StackLines(s, 10, 10, false))
+	compareString(t, expected, testPalette.StackLines(s, 10, 10, basePath))
 }
 
 func compareString(t *testing.T, expected, actual string) {

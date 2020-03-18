@@ -56,13 +56,13 @@ var defaultPalette = Palette{
 	Arguments:          resetFG,
 }
 
-func writeToConsole(out io.Writer, p *Palette, buckets []*stack.Bucket, fullPath, needsEnv bool, filter, match *regexp.Regexp) error {
+func writeToConsole(out io.Writer, p *Palette, buckets []*stack.Bucket, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
 	if needsEnv {
 		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#gotraceback\n\n")
 	}
-	srcLen, pkgLen := CalcLengths(buckets, fullPath)
+	srcLen, pkgLen := calcLengths(buckets, pf)
 	for _, bucket := range buckets {
-		header := p.BucketHeader(bucket, fullPath, len(buckets) > 1)
+		header := p.BucketHeader(bucket, pf, len(buckets) > 1)
 		if filter != nil && filter.MatchString(header) {
 			continue
 		}
@@ -70,7 +70,7 @@ func writeToConsole(out io.Writer, p *Palette, buckets []*stack.Bucket, fullPath
 			continue
 		}
 		_, _ = io.WriteString(out, header)
-		_, _ = io.WriteString(out, p.StackLines(&bucket.Signature, srcLen, pkgLen, fullPath))
+		_, _ = io.WriteString(out, p.StackLines(&bucket.Signature, srcLen, pkgLen, pf))
 	}
 	return nil
 }
@@ -78,7 +78,7 @@ func writeToConsole(out io.Writer, p *Palette, buckets []*stack.Bucket, fullPath
 // process copies stdin to stdout and processes any "panic: " line found.
 //
 // If html is used, a stack trace is written to this file instead.
-func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPath, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
+func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
 	c, err := stack.ParseDump(in, out, rebase)
 	if c == nil || err != nil {
 		return err
@@ -93,7 +93,7 @@ func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, fullPa
 	}
 	buckets := stack.Aggregate(c.Goroutines, s)
 	if html == "" {
-		return writeToConsole(out, p, buckets, fullPath, needsEnv, filter, match)
+		return writeToConsole(out, p, buckets, pf, needsEnv, filter, match)
 	}
 	f, err := os.Create(html)
 	if err != nil {
@@ -125,7 +125,7 @@ func Main() error {
 	filterFlag := flag.String("f", "", "Regexp to filter out headers that match, ex: -f 'IO wait|syscall'")
 	matchFlag := flag.String("m", "", "Regexp to filter by only headers that match, ex: -m 'semacquire'")
 	// Console only.
-	fullPath := flag.Bool("full-path", false, "Print full sources path")
+	fullPathArg := flag.Bool("full-path", false, "Print full sources path")
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
 	// HTML only.
@@ -192,5 +192,9 @@ func Main() error {
 	default:
 		return errors.New("pipe from stdin or specify a single file")
 	}
-	return process(in, out, p, s, *fullPath, *parse, *rebase, *html, filter, match)
+	pf := basePath
+	if *fullPathArg {
+		pf = fullPath
+	}
+	return process(in, out, p, s, pf, *parse, *rebase, *html, filter, match)
 }

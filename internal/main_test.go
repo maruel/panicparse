@@ -48,7 +48,7 @@ var data = []string{
 
 func TestProcess(t *testing.T) {
 	out := &bytes.Buffer{}
-	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyPointer, false, false, true, "", nil, nil); err != nil {
+	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	expected := []string{
@@ -71,7 +71,7 @@ func TestProcess(t *testing.T) {
 
 func TestProcessFullPath(t *testing.T) {
 	out := &bytes.Buffer{}
-	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyValue, true, false, true, "", nil, nil); err != nil {
+	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyValue, fullPath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	expected := []string{
@@ -94,7 +94,7 @@ func TestProcessFullPath(t *testing.T) {
 
 func TestProcessNoColor(t *testing.T) {
 	out := &bytes.Buffer{}
-	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &Palette{}, stack.AnyPointer, false, false, true, "", nil, nil); err != nil {
+	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &Palette{}, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	expected := []string{
@@ -130,7 +130,7 @@ func compareLines(t *testing.T, expected, actual []string) {
 func TestProcessMatch(t *testing.T) {
 	out := &bytes.Buffer{}
 	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &Palette{}, stack.AnyPointer,
-		false, false, true, "", nil, regexp.MustCompile(`batchArchiveRun`))
+		basePath, false, true, "", nil, regexp.MustCompile(`batchArchiveRun`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestProcessMatch(t *testing.T) {
 func TestProcessFilter(t *testing.T) {
 	out := &bytes.Buffer{}
 	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &Palette{}, stack.AnyPointer,
-		false, false, true, "", regexp.MustCompile(`batchArchiveRun`), nil)
+		basePath, false, true, "", regexp.MustCompile(`batchArchiveRun`), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -73,6 +73,9 @@ func (f *Func) PkgDotName() string {
 // IsExported returns true if the function is exported.
 func (f *Func) IsExported() bool {
 	name := f.Name()
+	// TODO(maruel): Something like serverHandler.ServeHTTP in package net/host
+	// should not be considered exported. We need something similar to the
+	// decoding done in symbol() in internal/htmlstack.
 	parts := strings.Split(name, ".")
 	r, _ := utf8.DecodeRuneInString(parts[len(parts)-1])
 	if unicode.ToUpper(r) == r {
@@ -94,6 +97,7 @@ func (a *Arg) IsPtr() bool {
 	return a.Value > 16*1024*1024 && a.Value < math.MaxInt64
 }
 
+// String prints the argument as the name if present, otherwise as the value.
 func (a *Arg) String() string {
 	if a.Name != "" {
 		return a.Name
@@ -209,10 +213,10 @@ func (c *Call) similar(r *Call, similar Similarity) bool {
 func (c *Call) merge(r *Call) Call {
 	return Call{
 		SrcPath:      c.SrcPath,
+		LocalSrcPath: c.LocalSrcPath,
 		Line:         c.Line,
 		Func:         c.Func,
 		Args:         c.Args.merge(&r.Args),
-		LocalSrcPath: c.LocalSrcPath,
 		IsStdlib:     c.IsStdlib,
 	}
 }
@@ -223,6 +227,8 @@ func (c *Call) SrcName() string {
 }
 
 // SrcLine returns "source.go:line", including only the base file name.
+//
+// Deprecated: Format it yourself, will be removed in v2.
 func (c *Call) SrcLine() string {
 	return fmt.Sprintf("%s:%d", c.SrcName(), c.Line)
 }
@@ -230,6 +236,8 @@ func (c *Call) SrcLine() string {
 // FullSrcLine returns "/path/to/source.go:line".
 //
 // This file path is mutated to look like the local path.
+//
+// Deprecated: Format it yourself, will be removed in v2.
 func (c *Call) FullSrcLine() string {
 	return fmt.Sprintf("%s:%d", c.SrcPath, c.Line)
 }
@@ -252,14 +260,16 @@ func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]st
 		// Always check GOROOT first, then GOPATH.
 		if strings.HasPrefix(c.SrcPath, goroot) {
 			// Replace remote GOROOT with local GOROOT.
-			c.LocalSrcPath = filepath.Join(localgoroot, c.SrcPath[len(goroot):])
+			relSrcPath := c.SrcPath[len(goroot)+1:]
+			c.LocalSrcPath = filepath.Join(localgoroot, relSrcPath)
 		} else {
 			// Replace remote GOPATH with local GOPATH.
 			c.LocalSrcPath = c.SrcPath
 			// TODO(maruel): Sort for deterministic behavior?
 			for prefix, dest := range gopaths {
 				if strings.HasPrefix(c.SrcPath, prefix) {
-					c.LocalSrcPath = filepath.Join(dest, c.SrcPath[len(prefix):])
+					relSrcPath := c.SrcPath[len(prefix)+1:]
+					c.LocalSrcPath = filepath.Join(dest, relSrcPath)
 					break
 				}
 			}
@@ -495,6 +505,8 @@ func (s *Signature) SleepString() string {
 
 // CreatedByString return a short context about the origin of this goroutine
 // signature.
+//
+// Deprecated: Format it yourself, will be removed in v2.
 func (s *Signature) CreatedByString(fullPath bool) string {
 	created := s.CreatedBy.Func.PkgDotName()
 	if created == "" {

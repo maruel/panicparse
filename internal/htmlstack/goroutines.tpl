@@ -4,7 +4,7 @@
 {{- /* TODO(maruel): Add link when possible or full path */ -}}
 {{- /* TODO(maruel): Align horizontally SrcList when used in the stack. */ -}}
 {{- /* TODO(maruel): Process Args properly. */ -}}
-<span class="call">{{- .SrcLine}} <span class="{{funcClass .}}">{{.Func.Name}}</span>({{.Args}})</span>
+<span class="call">{{.SrcName}}:{{.Line}} <span class="{{funcClass .}}">{{.Func.Name}}</span>({{.Args}})</span>
 {{- end -}}
 
 <meta charset="UTF-8">

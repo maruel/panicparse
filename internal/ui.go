@@ -33,23 +33,41 @@ type Palette struct {
 	Arguments          string
 }
 
-// CalcLengths returns the maximum length of the source lines and package names.
-func CalcLengths(buckets []*stack.Bucket, fullPath bool) (int, int) {
+// pathFormat determines how much to show.
+type pathFormat int
+
+const (
+	fullPath pathFormat = iota
+	basePath
+)
+
+func (pf pathFormat) formatCall(c *stack.Call) string {
+	switch pf {
+	case fullPath:
+		return fmt.Sprintf("%s:%d", c.SrcPath, c.Line)
+	default:
+		return fmt.Sprintf("%s:%d", c.SrcName(), c.Line)
+	}
+}
+
+func (pf pathFormat) createdByString(s *stack.Signature) string {
+	created := s.CreatedBy.Func.PkgDotName()
+	if created == "" {
+		return ""
+	}
+	return created + " @ " + pf.formatCall(&s.CreatedBy)
+}
+
+// calcLengths returns the maximum length of the source lines and package names.
+func calcLengths(buckets []*stack.Bucket, pf pathFormat) (int, int) {
 	srcLen := 0
 	pkgLen := 0
 	for _, bucket := range buckets {
 		for _, line := range bucket.Signature.Stack.Calls {
-			l := 0
-			if fullPath {
-				l = len(line.FullSrcLine())
-			} else {
-				l = len(line.SrcLine())
-			}
-			if l > srcLen {
+			if l := len(pf.formatCall(&line)); l > srcLen {
 				srcLen = l
 			}
-			l = len(line.Func.PkgName())
-			if l > pkgLen {
+			if l := len(line.Func.PkgName()); l > pkgLen {
 				pkgLen = l
 			}
 		}
@@ -82,7 +100,7 @@ func (p *Palette) routineColor(bucket *stack.Bucket, multipleBuckets bool) strin
 }
 
 // BucketHeader prints the header of a goroutine signature.
-func (p *Palette) BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets bool) string {
+func (p *Palette) BucketHeader(bucket *stack.Bucket, pf pathFormat, multipleBuckets bool) string {
 	extra := ""
 	if s := bucket.SleepString(); s != "" {
 		extra += " [" + s + "]"
@@ -90,7 +108,7 @@ func (p *Palette) BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets b
 	if bucket.Locked {
 		extra += " [locked]"
 	}
-	if c := bucket.CreatedByString(fullPath); c != "" {
+	if c := pf.createdByString(&bucket.Signature); c != "" {
 		extra += p.CreatedBy + " [Created by " + c + "]"
 	}
 	return fmt.Sprintf(
@@ -101,27 +119,21 @@ func (p *Palette) BucketHeader(bucket *stack.Bucket, fullPath, multipleBuckets b
 }
 
 // callLine prints one stack line.
-func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, fullPath bool) string {
-	src := ""
-	if fullPath {
-		src = line.FullSrcLine()
-	} else {
-		src = line.SrcLine()
-	}
+func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, pf pathFormat) string {
 	return fmt.Sprintf(
 		"    %s%-*s %s%-*s %s%s%s(%s)%s",
 		p.Package, pkgLen, line.Func.PkgName(),
-		p.SrcFile, srcLen, src,
+		p.SrcFile, srcLen, pf.formatCall(line),
 		p.functionColor(line), line.Func.Name(),
 		p.Arguments, &line.Args,
 		p.EOLReset)
 }
 
 // StackLines prints one complete stack trace, without the header.
-func (p *Palette) StackLines(signature *stack.Signature, srcLen, pkgLen int, fullPath bool) string {
+func (p *Palette) StackLines(signature *stack.Signature, srcLen, pkgLen int, pf pathFormat) string {
 	out := make([]string, len(signature.Stack.Calls))
 	for i := range signature.Stack.Calls {
-		out[i] = p.callLine(&signature.Stack.Calls[i], srcLen, pkgLen, fullPath)
+		out[i] = p.callLine(&signature.Stack.Calls[i], srcLen, pkgLen, pf)
 	}
 	if signature.Stack.Elided {
 		out = append(out, "    (...)")

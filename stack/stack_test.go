@@ -77,6 +77,7 @@ func TestCallMain(t *testing.T) {
 		Func:    Func{Raw: "main.main"},
 	}
 	compareString(t, "main.go", c.SrcName())
+	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go:428", c.FullSrcLine())
 	compareString(t, "main.go:428", c.SrcLine())
 	compareString(t, filepath.Join("pp", "main.go"), c.PkgSrc())
 	compareString(t, "main.main", c.Func.String())
@@ -143,12 +144,111 @@ func TestFuncGC(t *testing.T) {
 	compareBool(t, false, f.IsExported())
 }
 
+func TestSignature(t *testing.T) {
+	s := getSignature()
+	compareString(t, "", s.SleepString())
+	s.SleepMax = 10
+	compareString(t, "0~10 minutes", s.SleepString())
+	s.SleepMin = 10
+	compareString(t, "10 minutes", s.SleepString())
+	compareString(t, "", s.CreatedByString(true))
+	s.CreatedBy = Call{
+		SrcPath: "/gopath/src/foo/bar.go",
+		Line:    72,
+		Func:    Func{Raw: "DoStuff"},
+		Args:    Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+	}
+	compareString(t, "DoStuff @ bar.go:72", s.CreatedByString(false))
+	compareString(t, "DoStuff @ /gopath/src/foo/bar.go:72", s.CreatedByString(true))
+}
+
+func TestSignature_Equal(t *testing.T) {
+	s1 := getSignature()
+	s2 := getSignature()
+	if !s1.equal(s2) {
+		t.Fatal("equal")
+	}
+	s2.State = "foo"
+	if s1.equal(s2) {
+		t.Fatal("inequal")
+	}
+}
+
+func TestSignature_Similar(t *testing.T) {
+	s1 := getSignature()
+	s2 := getSignature()
+	if !s1.similar(s2, ExactFlags) {
+		t.Fatal("equal")
+	}
+	s2.State = "foo"
+	if s1.similar(s2, ExactFlags) {
+		t.Fatal("inequal")
+	}
+}
+
+func TestSignature_Less(t *testing.T) {
+	s1 := getSignature()
+	s2 := getSignature()
+	if s1.less(s2) {
+		t.Fatal("less")
+	}
+	s2.State = "foo"
+	if !s1.less(s2) {
+		t.Fatal("not less")
+	}
+}
+
 //
 
 func compareBool(t *testing.T, expected, actual bool) {
 	helper(t)()
 	if expected != actual {
 		t.Fatalf("%t != %t", expected, actual)
+	}
+}
+
+func getSignature() *Signature {
+	return &Signature{
+		State: "chan receive",
+		Stack: Stack{
+			Calls: []Call{
+				{
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    72,
+					Func:    Func{Raw: "main.func·001"},
+					Args:    Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+				},
+				{
+					SrcPath:  "/golang/src/sort/slices.go",
+					Line:     72,
+					Func:     Func{Raw: "sliceInternal"},
+					Args:     Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+					IsStdlib: true,
+				},
+				{
+					SrcPath:  "/golang/src/sort/slices.go",
+					Line:     72,
+					Func:     Func{Raw: "Slice"},
+					Args:     Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+					IsStdlib: true,
+				},
+				{
+					SrcPath: "/gopath/src/foo/bar.go",
+					Line:    72,
+					Func:    Func{Raw: "DoStuff"},
+					Args:    Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+				},
+				{
+					SrcPath: "/gopath/src/foo/bar.go",
+					Line:    72,
+					Func:    Func{Raw: "doStuffInternal"},
+					Args: Args{
+						Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}},
+						Elided: true,
+					},
+				},
+			},
+		},
 	}
 }
 
