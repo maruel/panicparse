@@ -9,7 +9,7 @@ dist: xenial
 matrix:
   include:
   - go: 1.14.x
-  - go: 1.12.x
+  - go: 1.12.17
     env: GO111MODULE=on
     cache:
       directories:
@@ -44,4 +44,4 @@ script:
   - if [[ $TRAVIS_GO_VERSION == 1.8.7 ]]; then if find . -path ./.git -prune -o -type f -executable -print | grep -e . ; then echo 'Do not commit executables'; false; fi; fi
 
 after_success:
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then bash <(curl -s https://codecov.io/bash); fi
+  - if [[ $TRAVIS_GO_VERSION == 1.12.17 ]]; then bash <(curl -s https://codecov.io/bash); fi
