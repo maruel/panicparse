@@ -8,6 +8,7 @@ package internal
 
 import "testing"
 
-func helper(t *testing.T) {
+func helper(t *testing.T) func() {
 	// testing.T.Helper() was added in Go 1.9.
+	return func() {}
 }

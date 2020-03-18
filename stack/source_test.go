@@ -557,7 +557,7 @@ func overrideEnv(env []string, key, value string) []string {
 }
 
 func getCrash(t *testing.T, content string) (string, []byte, func()) {
-	helper(t)
+	helper(t)()
 	//p := getGOPATHs()
 	//name, err := ioutil.TempDir(filepath.Join(p[0], "src"), "panicparse")
 	name, err := ioutil.TempDir("", "panicparse")
@@ -587,7 +587,7 @@ func getCrash(t *testing.T, content string) (string, []byte, func()) {
 
 // zapPointers zaps out pointers.
 func zapPointers(t *testing.T, name string, workaroundGo111Elided bool, expected, s *Stack) {
-	helper(t)
+	helper(t)()
 	for i := range s.Calls {
 		if i >= len(expected.Calls) {
 			// When using GOTRACEBACK=2, it'll include runtime.main() and

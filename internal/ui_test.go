@@ -168,7 +168,7 @@ func TestStackLines(t *testing.T) {
 }
 
 func compareString(t *testing.T, expected, actual string) {
-	helper(t)
+	helper(t)()
 	if expected != actual {
 		i := 0
 		for i < len(expected) && i < len(actual) && expected[i] == actual[i] {
@@ -179,7 +179,7 @@ func compareString(t *testing.T, expected, actual string) {
 }
 
 func compareInt(t *testing.T, expected, actual int) {
-	helper(t)
+	helper(t)()
 	if expected != actual {
 		t.Fatalf("%d != %d", expected, actual)
 	}

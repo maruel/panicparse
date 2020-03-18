@@ -8,6 +8,6 @@ package stack
 
 import "testing"
 
-func helper(t *testing.T) {
-	t.Helper()
+func helper(t *testing.T) func() {
+	return t.Helper
 }

@@ -166,7 +166,7 @@ func TestAggregateAggressive(t *testing.T) {
 }
 
 func compareBuckets(t *testing.T, expected, actual []*Bucket) {
-	helper(t)
+	helper(t)()
 	if len(expected) != len(actual) {
 		t.Fatalf("Different []Bucket length:\n- %v\n- %v", expected, actual)
 	}

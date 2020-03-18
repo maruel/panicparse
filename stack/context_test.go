@@ -1148,14 +1148,14 @@ func TestGetGOPATHS(t *testing.T) {
 //
 
 func compareErr(t *testing.T, expected, actual error) {
-	helper(t)
+	helper(t)()
 	if actual == nil || expected.Error() != actual.Error() {
 		t.Fatalf("%v != %v", expected, actual)
 	}
 }
 
 func compareGoroutines(t *testing.T, expected, actual []*Goroutine) {
-	helper(t)
+	helper(t)()
 	if len(expected) != len(actual) {
 		t.Fatalf("Different []*Goroutine length:\n- %v\n- %v", expected, actual)
 	}
@@ -1167,7 +1167,7 @@ func compareGoroutines(t *testing.T, expected, actual []*Goroutine) {
 }
 
 func compareString(t *testing.T, expected, actual string) {
-	helper(t)
+	helper(t)()
 	if expected != actual {
 		t.Fatalf("%q != %q", expected, actual)
 	}

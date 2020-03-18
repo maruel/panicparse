@@ -146,7 +146,7 @@ func TestFuncGC(t *testing.T) {
 //
 
 func compareBool(t *testing.T, expected, actual bool) {
-	helper(t)
+	helper(t)()
 	if expected != actual {
 		t.Fatalf("%t != %t", expected, actual)
 	}
