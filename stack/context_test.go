@@ -16,6 +16,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestParseDumpNothing(t *testing.T) {
@@ -1210,13 +1212,8 @@ func compareErr(t *testing.T, expected, actual error) {
 
 func compareGoroutines(t *testing.T, expected, actual []*Goroutine) {
 	helper(t)()
-	if len(expected) != len(actual) {
-		t.Fatalf("Different []*Goroutine length:\n- %v\n- %v", expected, actual)
-	}
-	for i := range expected {
-		if !reflect.DeepEqual(expected[i], actual[i]) {
-			t.Fatalf("Different Goroutine:\n- %#v\n- %#v", expected[i], actual[i])
-		}
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
 	}
 }
 

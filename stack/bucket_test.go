@@ -7,9 +7,10 @@ package stack
 import (
 	"bytes"
 	"io/ioutil"
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestAggregateNotAggressive(t *testing.T) {
@@ -167,12 +168,7 @@ func TestAggregateAggressive(t *testing.T) {
 
 func compareBuckets(t *testing.T, expected, actual []*Bucket) {
 	helper(t)()
-	if len(expected) != len(actual) {
-		t.Fatalf("Different []Bucket length:\n- %v\n- %v", expected, actual)
-	}
-	for i := range expected {
-		if !reflect.DeepEqual(expected[i], actual[i]) {
-			t.Fatalf("Different Bucket:\n- %#v\n- %#v", expected[i], actual[i])
-		}
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Fatalf("Bucket mismatch (-want +got):\n%s", diff)
 	}
 }
