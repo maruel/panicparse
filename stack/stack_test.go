@@ -329,7 +329,10 @@ func build(race bool) string {
 		out += ".exe"
 	}
 	log.Printf("building %s", out)
-	args := []string{"build", "-o", out}
+	// Disable inlining otherwise the inlining varies between local execution and
+	// remote execution. This can be observed as Elided being true without any
+	// argument.
+	args := []string{"build", "-gcflags", "-l", "-o", out}
 	if race {
 		args = append(args, "-race")
 	}

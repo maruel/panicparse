@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -1153,7 +1154,7 @@ func TestGetGOPATHS(t *testing.T) {
 // Later they'll be used for the actual expectations instead of the hardcoded
 // ones above.
 func TestPanic(t *testing.T) {
-	data := strings.Split(strings.TrimSpace(string(execRun(getPanic(t), "dump_commands"))), "\n")
+	cmds := strings.Split(strings.TrimSpace(string(execRun(getPanic(t), "dump_commands"))), "\n")
 	expected := map[string]int{
 		"chan_receive":              2,
 		"chan_send":                 2,
@@ -1161,7 +1162,34 @@ func TestPanic(t *testing.T) {
 		"goroutine_dedupe_pointers": 101,
 		"goroutine_100":             101,
 	}
-	for _, l := range data {
+
+	// We assume that the working directory is the directory containing this
+	// source. In Go test framework, this normally holds true. If this ever
+	// becomes false, let's fix this.
+	thisDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ppDir := filepath.Dir(thisDir)
+
+	custom := map[string]func(*testing.T, *Context, *bytes.Buffer, string){
+		"str": testPanicStr,
+	}
+	// Make sure all custom handlers are showing up in cmds.
+	for n := range custom {
+		found := false
+		for _, c := range cmds {
+			if c == n {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("untested mode: %s", n)
+		}
+	}
+
+	for _, l := range cmds {
 		l := strings.TrimSpace(l)
 		t.Run(l, func(t *testing.T) {
 			t.Parallel()
@@ -1184,11 +1212,15 @@ func TestPanic(t *testing.T) {
 				return
 			}
 
-			if c.GOROOT != runtime.GOROOT() {
-				t.Logf("GOROOT is %q", c.GOROOT)
-			}
 			if c == nil {
 				t.Fatal("context is nil")
+			}
+			if f := custom[l]; f != nil {
+				f(t, c, &b, ppDir)
+				return
+			}
+			if c.GOROOT != runtime.GOROOT() {
+				//t.Logf("GOROOT is %q", c.GOROOT)
 			}
 			e := expected[l]
 			if e == 0 {
@@ -1201,12 +1233,107 @@ func TestPanic(t *testing.T) {
 	}
 }
 
+func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
+	main := filepath.Join(ppDir, "cmd", "panic", "main.go")
+	if c.GOROOT != "" {
+		t.Fatalf("GOROOT is %q", c.GOROOT)
+	}
+	if b.String() != "GOTRACEBACK=all\npanic: allo\n\n" {
+		t.Fatalf("output: %q", b.String())
+	}
+	if actual := len(c.Goroutines); actual != 1 {
+		t.Fatalf("unexpected Goroutines; expected %d, got %d", 1, actual)
+	}
+	// TODO(maruel): This is a bug, but let's commit first to then diagnose
+	// properly.
+	badMain := filepath.Join(runtime.GOROOT(), main)
+	// TODO(maruel): Hardcoding line numbers is doing to be annoying, we should
+	// aim to not have to hardcode them.
+	expected := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SrcPath:      main,
+							LocalSrcPath: badMain,
+							Line:         50,
+							Func:         Func{Raw: "main.panicstr"},
+							Args: Args{
+								Values: []Arg{{Value: 0x123456}, {Value: 0x04}},
+							},
+						},
+						{
+							SrcPath:      main,
+							LocalSrcPath: badMain,
+							Line:         307,
+							Func:         Func{Raw: "main.glob..func17"},
+						},
+						{
+							SrcPath:      main,
+							LocalSrcPath: badMain,
+							Line:         340,
+							Func:         Func{Raw: "main.main"},
+						},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	similarGoroutines(t, expected, c.Goroutines)
+}
+
 //
 
 func compareErr(t *testing.T, expected, actual error) {
 	helper(t)()
 	if actual == nil || expected.Error() != actual.Error() {
 		t.Fatalf("%v != %v", expected, actual)
+	}
+}
+
+// similarGoroutines compares goroutines to be similar enough.
+//
+// Warning: it mutates inputs.
+func similarGoroutines(t *testing.T, expected, actual []*Goroutine) {
+	helper(t)()
+	if len(expected) == len(actual) {
+		for i := range expected {
+			expectedCalls := expected[i].Stack.Calls
+			actualCalls := actual[i].Stack.Calls
+			if len(expectedCalls) != len(actualCalls) {
+				t.Error("different call length")
+				break
+			}
+			for j := range expectedCalls {
+				expectedCall := &expectedCalls[j]
+				actualCall := &actualCalls[j]
+				if expectedCall.Line != 0 && actualCall.Line != 0 {
+					expectedCall.Line = 42
+					actualCall.Line = 42
+				}
+				expectedArgs := expectedCall.Args.Values
+				actualArgs := actualCall.Args.Values
+				if len(expectedArgs) != len(actualArgs) {
+					t.Error("different args length")
+					break
+				}
+				for l := range expectedArgs {
+					expectedArg := &expectedArgs[l]
+					actualArg := &actualArgs[l]
+					if expectedArg.Value != 0 && actualArg.Value != 0 {
+						expectedArg.Value = 42
+						actualArg.Value = 42
+					}
+				}
+			}
+		}
+	}
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
 	}
 }
 
