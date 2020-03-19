@@ -33,6 +33,8 @@ import (
 	"time"
 
 	"github.com/maruel/panicparse/cmd/panic/internal"
+	correct "github.com/maruel/panicparse/cmd/panic/internal/incorrect"
+	"github.com/maruel/panicparse/cmd/panic/internal/ùtf8"
 )
 
 // Mocked in test.
@@ -303,6 +305,21 @@ var types = map[string]struct {
 		"panic(\"allo\")",
 		func() {
 			panicstr("allo")
+		},
+	},
+
+	"mismatched": {
+		"mismatched package and directory names",
+		func() {
+			correct.Panic()
+		},
+	},
+
+	"utf8": {
+		"non-ascii package, struct and method names",
+		func() {
+			s := ùtf8.Strùct{}
+			s.Pànic()
 		},
 	},
 }
