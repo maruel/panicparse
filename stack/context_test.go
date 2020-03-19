@@ -11,7 +11,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -1145,6 +1147,58 @@ func TestGetGOPATHS(t *testing.T) {
 	}
 }
 
+// Test runtime code. For now just assert that they succeed (beside race).
+// Later they'll be used for the actual expectations instead of the hardcoded
+// ones above.
+func TestPanic(t *testing.T) {
+	data := strings.Split(strings.TrimSpace(string(execRun(getPanic(t), "dump_commands"))), "\n")
+	expected := map[string]int{
+		"chan_receive":              2,
+		"chan_send":                 2,
+		"goroutine_1":               2,
+		"goroutine_dedupe_pointers": 101,
+		"goroutine_100":             101,
+	}
+	for _, l := range data {
+		l := strings.TrimSpace(l)
+		t.Run(l, func(t *testing.T) {
+			t.Parallel()
+			p := ""
+			if l == "race" {
+				p = getPanicRace(t)
+			} else {
+				p = getPanic(t)
+			}
+			data := execRun(p, l)
+			b := bytes.Buffer{}
+			c, err := ParseDump(bytes.NewReader(data), &b, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if l == "race" {
+				if c != nil {
+					t.Fatal("unexpected context")
+				}
+				return
+			}
+
+			if c.GOROOT != runtime.GOROOT() {
+				t.Logf("GOROOT is %q", c.GOROOT)
+			}
+			if c == nil {
+				t.Fatal("context is nil")
+			}
+			e := expected[l]
+			if e == 0 {
+				e = 1
+			}
+			if actual := len(c.Goroutines); actual != e {
+				t.Fatalf("unexpected Goroutines; expected %d, got %d", e, actual)
+			}
+		})
+	}
+}
+
 //
 
 func compareErr(t *testing.T, expected, actual error) {
@@ -1171,4 +1225,15 @@ func compareString(t *testing.T, expected, actual string) {
 	if expected != actual {
 		t.Fatalf("%q != %q", expected, actual)
 	}
+}
+
+// execRun runs a command and returns the combined output.
+//
+// It ignores the exit code, since it's meant to run panic, which crashes by
+// design.
+func execRun(cmd ...string) []byte {
+	c := exec.Command(cmd[0], cmd[1:]...)
+	c.Env = append(os.Environ(), "GOTRACEBACK=all")
+	out, _ := c.CombinedOutput()
+	return out
 }

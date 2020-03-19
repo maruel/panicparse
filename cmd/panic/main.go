@@ -340,6 +340,19 @@ func main() {
 			f.f()
 			os.Exit(3)
 		}
+		// Undocumented command to do a raw dump of the supported commands. This is
+		// used by unit tests in ../../stack.
+		if n == "dump_commands" {
+			items := make([]string, 0, len(types))
+			for n := range types {
+				items = append(items, n)
+			}
+			sort.Strings(items)
+			for _, n := range items {
+				fmt.Printf("%s\n", n)
+			}
+			os.Exit(0)
+		}
 		fmt.Fprintf(stdErr, "unknown panic style %q\n", n)
 		os.Exit(1)
 	}

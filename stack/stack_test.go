@@ -6,10 +6,14 @@ package stack
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"testing"
 )
 
@@ -252,10 +256,88 @@ func getSignature() *Signature {
 	}
 }
 
+var (
+	// tmpBuildDir is initialized by testMain().
+	tmpBuildDir string
+
+	// panicPath is the path to github.com/maruel/panicparse/cmd/panic compiled.
+	// Use getPanic() instead.
+	panicPath     string
+	panicPathOnce sync.Once
+
+	// panicRacePath is the path to github.com/maruel/panicparse/cmd/panic
+	// compiled with -race.
+	// Use getPanicRace() instead.
+	panicRacePath     string
+	panicRacePathOnce sync.Once
+)
+
+func getPanic(t *testing.T) string {
+	panicPathOnce.Do(func() {
+		if panicPath = build(false); panicPath == "" {
+			t.Fatal("building panic failed")
+		}
+	})
+	return panicPath
+}
+
+func getPanicRace(t *testing.T) string {
+	panicRacePathOnce.Do(func() {
+		if panicRacePath = build(true); panicRacePath == "" {
+			t.Fatal("building panic with race detector failed")
+		}
+	})
+	return panicRacePath
+}
+
+// TestMain manages a temporary directory to build on first use ../cmd/panic
+// and clean up at the end.
 func TestMain(m *testing.M) {
 	flag.Parse()
 	if !testing.Verbose() {
 		log.SetOutput(ioutil.Discard)
 	}
-	os.Exit(m.Run())
+
+	os.Exit(testMain(m))
+}
+
+func testMain(m *testing.M) (exit int) {
+	var err error
+	tmpBuildDir, err = ioutil.TempDir("", "stack")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create temporary directory: %v", err)
+		return 1
+	}
+	defer func() {
+		log.Printf("deleting %s", tmpBuildDir)
+		if err := os.RemoveAll(tmpBuildDir); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to deletetemporary directory: %v", err)
+			if exit == 0 {
+				exit = 1
+			}
+		}
+	}()
+	return m.Run()
+}
+
+func build(race bool) string {
+	out := filepath.Join(tmpBuildDir, "panic")
+	if race {
+		out += "_race"
+	}
+	if runtime.GOOS == "windows" {
+		out += ".exe"
+	}
+	log.Printf("building %s", out)
+	args := []string{"build", "-o", out}
+	if race {
+		args = append(args, "-race")
+	}
+	c := exec.Command("go", append(args, "../cmd/panic")...)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	if err := c.Run(); err != nil {
+		return ""
+	}
+	return out
 }
