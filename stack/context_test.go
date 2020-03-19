@@ -1241,14 +1241,6 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 	if b.String() != "GOTRACEBACK=all\npanic: allo\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
-	if actual := len(c.Goroutines); actual != 1 {
-		t.Fatalf("unexpected Goroutines; expected %d, got %d", 1, actual)
-	}
-	// TODO(maruel): This is a bug, but let's commit first to then diagnose
-	// properly.
-	badMain := filepath.Join(runtime.GOROOT(), main)
-	// TODO(maruel): Hardcoding line numbers is doing to be annoying, we should
-	// aim to not have to hardcode them.
 	expected := []*Goroutine{
 		{
 			Signature: Signature{
@@ -1257,7 +1249,7 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 					Calls: []Call{
 						{
 							SrcPath:      main,
-							LocalSrcPath: badMain,
+							LocalSrcPath: main,
 							Line:         50,
 							Func:         Func{Raw: "main.panicstr"},
 							Args: Args{
@@ -1266,13 +1258,13 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 						},
 						{
 							SrcPath:      main,
-							LocalSrcPath: badMain,
+							LocalSrcPath: main,
 							Line:         307,
 							Func:         Func{Raw: "main.glob..func17"},
 						},
 						{
 							SrcPath:      main,
-							LocalSrcPath: badMain,
+							LocalSrcPath: main,
 							Line:         340,
 							Func:         Func{Raw: "main.main"},
 						},

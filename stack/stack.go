@@ -257,22 +257,27 @@ const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 // updateLocations initializes LocalSrcPath and IsStdlib.
 func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
 	if c.SrcPath != "" {
-		// Always check GOROOT first, then GOPATH.
-		if strings.HasPrefix(c.SrcPath, goroot) {
-			// Replace remote GOROOT with local GOROOT.
-			relSrcPath := c.SrcPath[len(goroot)+1:]
-			c.LocalSrcPath = filepath.Join(localgoroot, relSrcPath)
-		} else {
-			// Replace remote GOPATH with local GOPATH.
-			c.LocalSrcPath = c.SrcPath
-			// TODO(maruel): Sort for deterministic behavior?
-			for prefix, dest := range gopaths {
-				if strings.HasPrefix(c.SrcPath, prefix) {
-					relSrcPath := c.SrcPath[len(prefix)+1:]
-					c.LocalSrcPath = filepath.Join(dest, relSrcPath)
-					break
+		if goroot != "" {
+			// Always check GOROOT first, then GOPATH.
+			if strings.HasPrefix(c.SrcPath, goroot) {
+				// Replace remote GOROOT with local GOROOT.
+				relSrcPath := c.SrcPath[len(goroot)+1:]
+				c.LocalSrcPath = filepath.Join(localgoroot, relSrcPath)
+			} else {
+				// Replace remote GOPATH with local GOPATH.
+				c.LocalSrcPath = c.SrcPath
+				// TODO(maruel): Sort for deterministic behavior?
+				for prefix, dest := range gopaths {
+					if strings.HasPrefix(c.SrcPath, prefix) {
+						relSrcPath := c.SrcPath[len(prefix)+1:]
+						c.LocalSrcPath = filepath.Join(dest, relSrcPath)
+						break
+					}
 				}
 			}
+		} else {
+			// GOROOT was not detected, keep the path as is.
+			c.LocalSrcPath = c.SrcPath
 		}
 	}
 	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
