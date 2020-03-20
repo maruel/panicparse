@@ -17,8 +17,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestParseDumpNothing(t *testing.T) {
@@ -1170,10 +1168,15 @@ func TestPanic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ppDir := filepath.Dir(thisDir)
+	// "/" is used even on Windows.
+	panicParseDir := strings.Replace(filepath.Dir(thisDir), "\\", "/", -1)
+	ppDir := pathJoin(panicParseDir, "cmd", "panic")
 
 	custom := map[string]func(*testing.T, *Context, *bytes.Buffer, string){
-		"str": testPanicStr,
+		"args_elided": testPanicArgsElided,
+		"mismatched":  testPanicMismatched,
+		"str":         testPanicStr,
+		"utf8":        testPanicUTF8,
 	}
 	// Make sure all custom handlers are showing up in cmds.
 	for n := range custom {
@@ -1233,9 +1236,98 @@ func TestPanic(t *testing.T) {
 	}
 }
 
+func testPanicArgsElided(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
+	if c.GOROOT != "" {
+		t.Fatalf("GOROOT is %q", c.GOROOT)
+	}
+	if b.String() != "GOTRACEBACK=all\npanic: 1\n\n" {
+		t.Fatalf("output: %q", b.String())
+	}
+	expected := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							Line:         58,
+							Func:         Func{Raw: "main.panicArgsElided"},
+							Args: Args{
+								Values: []Arg{{Value: 0x01}, {Value: 0x02}, {Value: 0x03}, {Value: 0x04}, {Value: 0x05}, {Value: 0x06}, {Value: 0x07}, {Value: 0x08}, {Value: 0x09}, {Value: 0x0a}},
+								Elided: true,
+							},
+						},
+						{
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							Line:         134,
+							Func:         Func{Raw: "main.glob..func1"},
+						},
+						{
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							Line:         340,
+							Func:         Func{Raw: "main.main"},
+						},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	similarGoroutines(t, expected, c.Goroutines)
+}
+
+func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
+	if c.GOROOT != "" {
+		t.Fatalf("GOROOT is %q", c.GOROOT)
+	}
+	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
+		t.Fatalf("output: %q", b.String())
+	}
+	expected := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SrcPath:      pathJoin(ppDir, "internal", "incorrect", "correct.go"),
+							LocalSrcPath: pathJoin(ppDir, "internal", "incorrect", "correct.go"),
+							Line:         7,
+							// This is important to note here that the Go runtime prints out
+							// the package path, and not the package name.
+							//
+							// Here the package name is "correct". There is no way to deduce
+							// this from the stack trace.
+							Func: Func{Raw: "github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic"},
+						},
+						{
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							Line:         314,
+							Func:         Func{Raw: "main.glob..func18"},
+						},
+						{
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							Line:         340,
+							Func:         Func{Raw: "main.main"},
+						},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	similarGoroutines(t, expected, c.Goroutines)
+}
+
 func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
-	// "/" is used even on Windows.
-	main := strings.Replace(filepath.Join(ppDir, "cmd", "panic", "main.go"), "\\", "/", -1)
 	if c.GOROOT != "" {
 		t.Fatalf("GOROOT is %q", c.GOROOT)
 	}
@@ -1249,8 +1341,8 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SrcPath:      main,
-							LocalSrcPath: main,
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							Line:         50,
 							Func:         Func{Raw: "main.panicstr"},
 							Args: Args{
@@ -1258,14 +1350,61 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 							},
 						},
 						{
-							SrcPath:      main,
-							LocalSrcPath: main,
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							Line:         307,
 							Func:         Func{Raw: "main.glob..func17"},
 						},
 						{
-							SrcPath:      main,
-							LocalSrcPath: main,
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							Line:         340,
+							Func:         Func{Raw: "main.main"},
+						},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	similarGoroutines(t, expected, c.Goroutines)
+}
+
+func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
+	if c.GOROOT != "" {
+		t.Fatalf("GOROOT is %q", c.GOROOT)
+	}
+	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
+		t.Fatalf("output: %q", b.String())
+	}
+	expected := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							// See TestCallUTF8 in stack_test.go for exercising the methods on
+							// Call in this situation.
+							SrcPath:      pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
+							LocalSrcPath: pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
+							Line:         10,
+							// This is important to note here the inconsistency in the Go
+							// runtime stack generator. The path is escaped, but symbols are
+							// not.
+							Func: Func{Raw: "github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic"},
+							Args: Args{Values: []Arg{{Value: 0xc0000b2e48}}},
+						},
+						{
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							Line:         322,
+							Func:         Func{Raw: "main.glob..func19"},
+						},
+						{
+							SrcPath:      pathJoin(ppDir, "main.go"),
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							Line:         340,
 							Func:         Func{Raw: "main.main"},
 						},
@@ -1281,67 +1420,8 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 
 //
 
-func compareErr(t *testing.T, expected, actual error) {
-	helper(t)()
-	if actual == nil || expected.Error() != actual.Error() {
-		t.Fatalf("%v != %v", expected, actual)
-	}
-}
-
-// similarGoroutines compares goroutines to be similar enough.
-//
-// Warning: it mutates inputs.
-func similarGoroutines(t *testing.T, expected, actual []*Goroutine) {
-	helper(t)()
-	if len(expected) == len(actual) {
-		for i := range expected {
-			expectedCalls := expected[i].Stack.Calls
-			actualCalls := actual[i].Stack.Calls
-			if len(expectedCalls) != len(actualCalls) {
-				t.Error("different call length")
-				break
-			}
-			for j := range expectedCalls {
-				expectedCall := &expectedCalls[j]
-				actualCall := &actualCalls[j]
-				if expectedCall.Line != 0 && actualCall.Line != 0 {
-					expectedCall.Line = 42
-					actualCall.Line = 42
-				}
-				expectedArgs := expectedCall.Args.Values
-				actualArgs := actualCall.Args.Values
-				if len(expectedArgs) != len(actualArgs) {
-					t.Error("different args length")
-					break
-				}
-				for l := range expectedArgs {
-					expectedArg := &expectedArgs[l]
-					actualArg := &actualArgs[l]
-					if expectedArg.Value != 0 && actualArg.Value != 0 {
-						expectedArg.Value = 42
-						actualArg.Value = 42
-					}
-				}
-			}
-		}
-	}
-	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
-	}
-}
-
-func compareGoroutines(t *testing.T, expected, actual []*Goroutine) {
-	helper(t)()
-	if diff := cmp.Diff(expected, actual); diff != "" {
-		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
-	}
-}
-
-func compareString(t *testing.T, expected, actual string) {
-	helper(t)()
-	if expected != actual {
-		t.Fatalf("%q != %q", expected, actual)
-	}
+func pathJoin(s ...string) string {
+	return strings.Join(s, "/")
 }
 
 // execRun runs a command and returns the combined output.
