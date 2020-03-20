@@ -21,6 +21,7 @@
 
 {{- /* Accepts a Args */ -}}
 {{- define "RenderArgs" -}}
+  <span class="args"><span>
   {{- $l := len .Values -}}
   {{- $last := minus $l 1 -}}
   {{- $elided := .Elided -}}
@@ -29,13 +30,12 @@
     {{- $isNotLast := ne $i $last -}}
     {{- if or $elided $isNotLast}}, {{end -}}
   {{- end -}}
-  {{- if $elided}}...{{end}}
+  {{- if $elided}}…{{end -}}
+  </span></span>
 {{- end -}}
 
 {{- /* Accepts a Call */ -}}
 {{- define "RenderCall" -}}
-  {{- /* TODO(maruel): Add link when possible or full path */ -}}
-  {{- /* TODO(maruel): Align horizontally SrcList when used in the stack. */ -}}
   <span class="call"><a href="{{template "SrcHostURL" .}}">{{.SrcName}}:{{.Line}}</a> <span class="{{funcClass .}}">
   <a href="{{template "PkgHostURL" .}}{{.ImportPath}}{{if .Func.IsExported}}#{{symbol .Func}}{{end}}">{{.Func.PkgName}}.{{.Func.Name}}</a></span>({{template "RenderArgs" .Args}})</span>
   {{- if isDebug -}}
@@ -48,12 +48,23 @@
 
 {{- /* Accepts a Stack */ -}}
 {{- define "RenderCalls" -}}
-  <ol>
-    {{- range .Calls -}}
-      <li>{{template "RenderCall" .}}</li>
+  <table class="stack">
+    {{- range $i, $e := .Calls -}}
+      <tr>
+        <td>{{$i}}</td>
+        <td>
+          <a href="{{template "PkgHostURL" $e}}{{$e.ImportPath}}{{if $e.Func.IsExported}}#{{symbol $e.Func}}{{end}}">{{$e.Func.PkgName}}</a>
+        </td>
+        <td>
+          <a href="{{template "SrcHostURL" $e}}">{{$e.SrcName}}:{{$e.Line}}</a>
+        </td>
+        <td>
+          <span class="{{funcClass $e}}"><a href="{{template "PkgHostURL" $e}}{{$e.ImportPath}}{{if $e.Func.IsExported}}#{{symbol $e.Func}}{{end}}">{{$e.Func.Name}}</a></span>({{template "RenderArgs" $e.Args}})
+        </td>
+      </tr>
     {{- end -}}
-    {{- if .Elided}}<li>(...)</li>{{end -}}
-  </ol>
+    {{- if .Elided}}<tr><td>(…)</td><tr>{{end -}}
+  </table>
 {{- end -}}
 
 <meta charset="UTF-8">
@@ -103,6 +114,27 @@
   p {
     margin-bottom: 2em;
   }
+  table.stack {
+    margin: 0.6em;
+  }
+  table.stack tr:hover {
+    background-color: #DDD;
+  }
+  table.stack td {
+    font-family: monospace;
+    padding: 0.2em 0.4em 0.2em;
+  }
+  .call {
+    font-family: monospace;
+  }
+  @media screen and (max-width: 500px) and (orientation: portrait) {
+    .args span {
+      display: none;
+    }
+    .args::after {
+      content: '…';
+    }
+  }
 
   {{- /* Highlights */ -}}
   .FuncStdLibExported {
@@ -124,23 +156,20 @@
   }
   .Routine {
   }
-  .call {
-    font-family: monospace;
-  }
 </style>
 <div id="content">
   {{- range $i, $e := .Buckets -}}
-    <h1>Routine {{if .First}}(Panicking){{else}}#{{$i}}{{end}}</h1>
-    <span class="{{routineClass $e}}">{{len $e.IDs}}: <span class="state">{{$e.State}}</span>
+    {{$l := len $e.IDs}}
+    <h1>Signature #{{$i}}: <span class="{{routineClass $e}}">{{$l}} routine{{if ne 1 $l}}s{{end}}: <span class="state">{{$e.State}}</span>
     {{- if $e.SleepMax -}}
       {{- if ne $e.SleepMin $e.SleepMax}} <span class="sleep">[{{$e.SleepMin}}~{{$e.SleepMax}} minutes]</span>
       {{- else}} <span class="sleep">[{{$e.SleepMax}} minutes]</span>
       {{- end -}}
     {{- end -}}
+    </h1>
     {{if $e.Locked}} <span class="locked">[locked]</span>
     {{- end -}}
-		{{- /* TODO(maruel): Add link when possible or full path */ -}}
-    {{- if $e.CreatedBy.SrcPath}} <span class="created">[Created by {{template "RenderCall" $e.CreatedBy}}]</span>
+    {{- if $e.CreatedBy.Func.Raw}} <span class="created">[Created by {{template "RenderCall" $e.CreatedBy}}]</span>
     {{- end -}}
     {{template "RenderCalls" $e.Signature.Stack}}
   {{- end -}}
