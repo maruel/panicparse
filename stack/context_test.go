@@ -1420,10 +1420,6 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 
 //
 
-func pathJoin(s ...string) string {
-	return strings.Join(s, "/")
-}
-
 // execRun runs a command and returns the combined output.
 //
 // It ignores the exit code, since it's meant to run panic, which crashes by

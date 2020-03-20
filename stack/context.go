@@ -730,6 +730,11 @@ func getGOPATHs() []string {
 	for _, v := range filepath.SplitList(os.Getenv("GOPATH")) {
 		// Disallow non-absolute paths?
 		if v != "" {
+			// Trim trailing "/" or "\\".
+			l := len(v)
+			if c := v[l-1]; c == '/' || c == '\\' {
+				v = v[:l-1]
+			}
 			out = append(out, v)
 		}
 	}

@@ -118,10 +118,7 @@ type Args struct {
 func (a *Args) String() string {
 	var v []string
 	if len(a.Processed) != 0 {
-		v = make([]string, 0, len(a.Processed))
-		for _, item := range a.Processed {
-			v = append(v, item)
-		}
+		v = a.Processed
 	} else {
 		v = make([]string, 0, len(a.Values))
 		for _, item := range a.Values {
@@ -244,7 +241,7 @@ func (c *Call) FullSrcLine() string {
 
 // PkgSrc is one directory plus the file name of the source file.
 func (c *Call) PkgSrc() string {
-	return filepath.Join(filepath.Base(filepath.Dir(c.SrcPath)), c.SrcName())
+	return pathJoin(filepath.Base(filepath.Dir(c.SrcPath)), c.SrcName())
 }
 
 // IsPkgMain returns true if it is in the main package.
@@ -255,22 +252,26 @@ func (c *Call) IsPkgMain() bool {
 const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 
 // updateLocations initializes LocalSrcPath and IsStdlib.
+//
+// goroot, localgoroot and gopaths are expected to be in "/" format even on
+// Windows. They must not have a trailing "/".
 func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
 	if c.SrcPath != "" {
 		if goroot != "" {
 			// Always check GOROOT first, then GOPATH.
-			if strings.HasPrefix(c.SrcPath, goroot) {
+			if prefix := goroot + "/src/"; strings.HasPrefix(c.SrcPath, prefix) {
 				// Replace remote GOROOT with local GOROOT.
-				relSrcPath := c.SrcPath[len(goroot)+1:]
-				c.LocalSrcPath = filepath.Join(localgoroot, relSrcPath)
+				relSrcPath := c.SrcPath[len(prefix):]
+				c.LocalSrcPath = pathJoin(localgoroot, "src", relSrcPath)
+				c.IsStdlib = true
 			} else {
 				// Replace remote GOPATH with local GOPATH.
 				c.LocalSrcPath = c.SrcPath
 				// TODO(maruel): Sort for deterministic behavior?
 				for prefix, dest := range gopaths {
-					if strings.HasPrefix(c.SrcPath, prefix) {
-						relSrcPath := c.SrcPath[len(prefix)+1:]
-						c.LocalSrcPath = filepath.Join(dest, relSrcPath)
+					if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
+						relSrcPath := c.SrcPath[len(p):]
+						c.LocalSrcPath = pathJoin(dest, "src", relSrcPath)
 						break
 					}
 				}
@@ -280,8 +281,10 @@ func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]st
 			c.LocalSrcPath = c.SrcPath
 		}
 	}
-	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
-	c.IsStdlib = (goroot != "" && strings.HasPrefix(c.SrcPath, goroot)) || c.PkgSrc() == testMainSrc
+	if !c.IsStdlib {
+		// Consider _test/_testmain.go as stdlib since it's injected by "go test".
+		c.IsStdlib = c.PkgSrc() == testMainSrc
+	}
 }
 
 // Stack is a call stack.
@@ -596,6 +599,10 @@ func nameArguments(goroutines []*Goroutine) {
 		}
 		nextID++
 	}
+}
+
+func pathJoin(s ...string) string {
+	return strings.Join(s, "/")
 }
 
 type uint64Slice []uint64

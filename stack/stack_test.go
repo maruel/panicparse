@@ -19,7 +19,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestCallPkg1(t *testing.T) {
+func TestCallPkg(t *testing.T) {
 	c := Call{
 		SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:    153,
@@ -34,9 +34,6 @@ func TestCallPkg1(t *testing.T) {
 	compareString(t, "yaml.go", c.SrcName())
 
 	// Func methods.
-	// - Using '/' for Func.String() is inconsistent on Windows w.r.t. other
-	//   functions.
-	// - The directory name does not match the package name.
 	compareBool(t, false, c.Func.IsExported())
 	compareString(t, "handleErr", c.Func.Name())
 	compareString(t, "yaml.v2.handleErr", c.Func.PkgDotName())
@@ -49,7 +46,7 @@ func TestCallPkg1(t *testing.T) {
 	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go", c.LocalSrcPath)
 }
 
-func TestCallPkg2(t *testing.T) {
+func TestCallPkgMethod(t *testing.T) {
 	c := Call{
 		SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:    153,
@@ -64,9 +61,6 @@ func TestCallPkg2(t *testing.T) {
 	compareString(t, "yaml.go", c.SrcName())
 
 	// Func methods.
-	// - Using '/' for Func.String() is inconsistent on Windows w.r.t. other
-	//   functions.
-	// - The directory name does not match the package name.
 	compareBool(t, false, c.Func.IsExported())
 	compareString(t, "(*decoder).unmarshal", c.Func.Name())
 	compareString(t, "yaml.v2.(*decoder).unmarshal", c.Func.PkgDotName())
@@ -77,6 +71,33 @@ func TestCallPkg2(t *testing.T) {
 	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
 	compareBool(t, false, c.IsStdlib)
 	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go", c.LocalSrcPath)
+}
+
+func TestCallPkgRemote(t *testing.T) {
+	c := Call{
+		SrcPath: "/remote/src/gopkg.in/yaml.v2/yaml.go",
+		Line:    153,
+		Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
+		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
+	}
+	// Call methods.
+	compareString(t, "/remote/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
+	compareBool(t, false, c.IsPkgMain())
+	compareString(t, filepath.Join("yaml.v2", "yaml.go"), c.PkgSrc())
+	compareString(t, "yaml.go:153", c.SrcLine())
+	compareString(t, "yaml.go", c.SrcName())
+
+	// Func methods.
+	compareBool(t, false, c.Func.IsExported())
+	compareString(t, "handleErr", c.Func.Name())
+	compareString(t, "yaml.v2.handleErr", c.Func.PkgDotName())
+	compareString(t, "yaml.v2", c.Func.PkgName())
+	compareString(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/goroot", "/goroot", map[string]string{"/remote": "/local"})
+	compareBool(t, false, c.IsStdlib)
+	compareString(t, "/local/src/gopkg.in/yaml.v2/yaml.go", c.LocalSrcPath)
 }
 
 func TestCallStdlib(t *testing.T) {
@@ -104,6 +125,33 @@ func TestCallStdlib(t *testing.T) {
 	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
 	compareBool(t, true, c.IsStdlib)
 	compareString(t, "/goroot/src/reflect/value.go", c.LocalSrcPath)
+}
+
+func TestCallStdlibRemote(t *testing.T) {
+	c := Call{
+		SrcPath: "/remote/src/reflect/value.go",
+		Line:    2125,
+		Func:    Func{Raw: "reflect.Value.assignTo"},
+		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+	}
+	// Call methods.
+	compareString(t, "/remote/src/reflect/value.go:2125", c.FullSrcLine())
+	compareBool(t, false, c.IsPkgMain())
+	compareString(t, filepath.Join("reflect", "value.go"), c.PkgSrc())
+	compareString(t, "value.go:2125", c.SrcLine())
+	compareString(t, "value.go", c.SrcName())
+
+	// Func methods.
+	compareBool(t, false, c.Func.IsExported())
+	compareString(t, "Value.assignTo", c.Func.Name())
+	compareString(t, "reflect.Value.assignTo", c.Func.PkgDotName())
+	compareString(t, "reflect", c.Func.PkgName())
+	compareString(t, "reflect.Value.assignTo", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/remote", "/local", map[string]string{"/gopath": "/gopath"})
+	compareBool(t, true, c.IsStdlib)
+	compareString(t, "/local/src/reflect/value.go", c.LocalSrcPath)
 }
 
 func TestCallMain(t *testing.T) {
@@ -223,7 +271,7 @@ func TestArgs(t *testing.T) {
 			{Value: 0xffffffff00000080},
 			{},
 			{Value: 0xffffffff0028c1be},
-			{},
+			{Name: "foo"},
 			{},
 			{},
 			{},
@@ -231,7 +279,10 @@ func TestArgs(t *testing.T) {
 		},
 		Elided: true,
 	}
-	compareString(t, "0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...", a.String())
+	compareString(t, "0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, foo, 0, 0, 0, 0, ...", a.String())
+
+	a = Args{Processed: []string{"yo"}}
+	compareString(t, "yo", a.String())
 }
 
 func TestFuncAnonymous(t *testing.T) {
