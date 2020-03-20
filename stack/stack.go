@@ -20,26 +20,32 @@ import (
 	"unicode/utf8"
 )
 
-// Func is a function call.
+// Func is a function call as read in a goroutine stack trace.
 //
 // Go stack traces print a mangled function call, this wrapper unmangle the
 // string before printing and adds other filtering methods.
+//
+// The main caveat is that for calls in package main, the package import URL is
+// left out.
 type Func struct {
 	Raw string
 }
 
-// String is the fully qualified function name.
+// String return the fully qualified package import path dot function/method
+// name.
 //
-// Sadly Go is a bit confused when the package name doesn't match the directory
-// containing the source file and will use the directory name instead of the
-// real package name.
+// It returns the unmangled form of .Raw.
 func (f *Func) String() string {
 	s, _ := url.QueryUnescape(f.Raw)
 	return s
 }
 
-// Name is the naked function name.
+// Name returns the function name.
+//
+// Methods are fully qualified, including the struct type.
 func (f *Func) Name() string {
+	// This works even on Windows as filepath.Base() splits also on "/".
+	// TODO(maruel): This code will fail on a source file with a dot in its name.
 	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
 	if len(parts) == 1 {
 		return parts[0]
@@ -47,8 +53,8 @@ func (f *Func) Name() string {
 	return parts[1]
 }
 
-// importPath is the fully qualified package import URL as guess from the
-// function signature.
+// importPath returns the fully qualified package import URL as a guess from
+// the function signature.
 //
 // Not exported because Call.ImportPath() should be called instead, as this
 // function can't return the import path for package main.
@@ -65,7 +71,11 @@ func (f *Func) importPath() string {
 	return s
 }
 
-// PkgName is the package name for this function reference.
+// PkgName returns the guessed package name for this function reference.
+//
+// Since the package name can differ from the package import path, the result
+// is incorrect when there's a mismatch between the directory name containing
+// the package and the package name.
 func (f *Func) PkgName() string {
 	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
 	if len(parts) == 1 {
@@ -76,6 +86,10 @@ func (f *Func) PkgName() string {
 }
 
 // PkgDotName returns "<package>.<func>" format.
+//
+// Since the package name can differ from the package import path, the result
+// is incorrect when there's a mismatch between the directory name containing
+// the package and the package name.
 func (f *Func) PkgDotName() string {
 	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
 	s, _ := url.QueryUnescape(parts[0])
@@ -261,7 +275,11 @@ func (c *Call) FullSrcLine() string {
 	return fmt.Sprintf("%s:%d", c.SrcPath, c.Line)
 }
 
-// PkgSrc is one directory plus the file name of the source file.
+// PkgSrc returns one directory plus the file name of the source file.
+//
+// Since the package name can differ from the package import path, the result
+// is incorrect when there's a mismatch between the directory name containing
+// the package and the package name.
 func (c *Call) PkgSrc() string {
 	return pathJoin(filepath.Base(filepath.Dir(c.SrcPath)), c.SrcName())
 }
@@ -273,8 +291,8 @@ func (c *Call) IsPkgMain() bool {
 
 // ImportPath returns the fully qualified package import path.
 //
-// Unlike c.Func.PkgName(), in the case of package "main", it returns the
-// underlying path to the main package instead of main.
+// In the case of package "main", it returns the underlying path to the main
+// package instead of "main" if guesspaths=true was specified to ParseDump().
 func (c *Call) ImportPath() string {
 	// In case guesspath=true was passed to ParseDump().
 	if c.RelSrcPath != "" {
