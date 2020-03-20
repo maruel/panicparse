@@ -2,12 +2,16 @@
 
 {{- /* Accepts a Call */ -}}
 {{- /*
-  TODO(maruel): Use custom local godoc server.
+  TODO(maruel): Support custom local godoc server.
   TODO(maruel): Find a way to link to remote source in a generic way via
   pkg.go.dev.
+  TODO(maruel): Failing that, when it's a package on github, we could shortcut
+  to its web UI. That said we don't have access to the right Go module version,
+  so we'd still have to default to master, which can be more confusing than
+  helpful.
 */ -}}
 {{- define "SrcHostURL" -}}
-  {{- if .IsStdlib -}}https://golang.org/{{.RelSrcPath}}#L{{.Line}}{{- else -}}file:///{{.SrcPath}}{{- end -}}
+  {{- if .IsStdlib -}}https://github.com/golang/go/blob/{{getVersion}}/src/{{.RelSrcPath}}#L{{.Line}}{{- else -}}file:///{{.SrcPath}}{{- end -}}
 {{- end -}}
 
 {{- /* Accepts a Call */ -}}
@@ -21,13 +25,9 @@
   {{- $last := minus $l 1 -}}
   {{- $elided := .Elided -}}
   {{- range $i, $e := .Values -}}
-    {{- if ne $e.Name "" -}}
-      {{- $e.Name -}}
-    {{- else -}}
-      {{- printf "0x%08x" $e.Value -}}
-    {{- end -}}
+    {{- $e.String -}}
     {{- $isNotLast := ne $i $last -}}
-    {{- if or $elided $isNotLast -}}, {{end -}}
+    {{- if or $elided $isNotLast}}, {{end -}}
   {{- end -}}
   {{- if $elided}}...{{end}}
 {{- end -}}
@@ -36,11 +36,8 @@
 {{- define "RenderCall" -}}
   {{- /* TODO(maruel): Add link when possible or full path */ -}}
   {{- /* TODO(maruel): Align horizontally SrcList when used in the stack. */ -}}
-  {{- /*
   <span class="call"><a href="{{template "SrcHostURL" .}}">{{.SrcName}}:{{.Line}}</a> <span class="{{funcClass .}}">
-  <a href="{{template "PkgHostURL" .}}{{.Func.PkgName}}{{if .Func.IsExported}}#{{symbol .Func}}{{end}}">{{.Func.PkgName}}.{{.Func.Name}}</a></span>({{template "RenderArgs" .Args}})</span>
-  */ -}}
-  <span class="call">{{.SrcName}}:{{.Line}} <span class="{{funcClass .}}">{{.Func.PkgName}}.{{.Func.Name}}</span>({{template "RenderArgs" .Args}})</span>
+  <a href="{{template "PkgHostURL" .}}{{.ImportPath}}{{if .Func.IsExported}}#{{symbol .Func}}{{end}}">{{.Func.PkgName}}.{{.Func.Name}}</a></span>({{template "RenderArgs" .Args}})</span>
   {{- if isDebug -}}
   <br>SrcPath: {{.SrcPath}}
   <br>LocalSrcPath: {{.LocalSrcPath}}
@@ -152,7 +149,7 @@
 <div id="legend">
   Created on {{.Now.String}}:
   <ul>
-    <li>{{.Version}}</li>
+    <li>{{getVersion}}</li>
     <li>GOROOT: {{.GOROOT}}</li>
     <li>GOPATH: {{.GOPATH}}</li>
     <li>GOMAXPROCS: {{.GOMAXPROCS}}</li>

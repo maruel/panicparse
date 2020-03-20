@@ -59,7 +59,8 @@ type Context struct {
 // out.
 //
 // If guesspaths is false, no guessing of GOROOT and GOPATH is done, and Call
-// entites do not have LocalSrcPath and IsStdlib filled in.
+// entites do not have LocalSrcPath and IsStdlib filled in. If true, be warned
+// that file presence is done, which means some level of disk I/O.
 func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 	goroutines, err := parseDump(r, out)
 	if len(goroutines) == 0 {
@@ -689,6 +690,8 @@ func rootedIn(root string, parts []string) string {
 }
 
 // findRoots sets member GOROOT and GOPATHs.
+//
+// This causes disk I/O as it checks for file presence.
 func (c *Context) findRoots() {
 	c.GOPATHs = map[string]string{}
 	for _, f := range getFiles(c.Goroutines) {

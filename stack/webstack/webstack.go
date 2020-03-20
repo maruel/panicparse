@@ -26,7 +26,7 @@ import (
 // override the form values in a wrapper as shown in the example.
 //
 // The implementation is designed to be reasonably fast, so it can be used on
-// production.
+// production. It currently does a small amount of disk I/O for file presence.
 //
 // augment: (default: 0) When set to 1, panicparse tries to find the sources on
 // disk to improve the display of arguments based on type information. This is
@@ -57,7 +57,6 @@ func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "failed to process the snapshot, try a larger maxmem value", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if s := req.FormValue("augment"); s != "" {
 		if v, err := strconv.Atoi(s); v == 1 {
 			stack.Augment(c.Goroutines)
@@ -81,6 +80,8 @@ func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid similarity value", http.StatusBadRequest)
 		return
 	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	buckets := stack.Aggregate(c.Goroutines, s)
 	_ = htmlstack.Write(w, buckets, false)
 }
@@ -110,5 +111,7 @@ func snapshot(maxmem int) (*stack.Context, error) {
 		}
 		buf = make([]byte, l)
 	}
+	// TODO(maruel): No disk I/O should be done here, albeit GOROOT should still
+	// be guessed. Thus guesspaths shall be neither true nor false.
 	return stack.ParseDump(bytes.NewReader(buf), ioutil.Discard, true)
 }

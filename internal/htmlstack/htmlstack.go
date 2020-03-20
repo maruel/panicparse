@@ -27,7 +27,8 @@ func Write(w io.Writer, buckets []*stack.Bucket, needsEnv bool) error {
 		"symbol":    symbol,
 		// Needs to be a function and not a variable, otherwise it is not
 		// accessible inside inner templates.
-		"isDebug": isDebug,
+		"isDebug":    isDebug,
+		"getVersion": runtime.Version,
 	}
 	if len(buckets) > 1 {
 		m["routineClass"] = routineClass
@@ -46,7 +47,6 @@ func Write(w io.Writer, buckets []*stack.Bucket, needsEnv bool) error {
 		"GOROOT":     runtime.GOROOT(),
 		"NeedsEnv":   needsEnv,
 		"Now":        time.Now().Truncate(time.Second),
-		"Version":    runtime.Version(),
 	}
 	if isDebug() {
 	}
