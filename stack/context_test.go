@@ -1234,7 +1234,8 @@ func TestPanic(t *testing.T) {
 }
 
 func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
-	main := filepath.Join(ppDir, "cmd", "panic", "main.go")
+	// "/" is used even on Windows.
+	main := strings.Replace(filepath.Join(ppDir, "cmd", "panic", "main.go"), "\\", "/", -1)
 	if c.GOROOT != "" {
 		t.Fatalf("GOROOT is %q", c.GOROOT)
 	}

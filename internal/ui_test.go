@@ -5,10 +5,6 @@
 package internal
 
 import (
-	"flag"
-	"io/ioutil"
-	"log"
-	"os"
 	"testing"
 
 	"github.com/maruel/panicparse/stack"
@@ -167,28 +163,11 @@ func TestStackLines(t *testing.T) {
 	compareString(t, expected, testPalette.StackLines(s, 10, 10, basePath))
 }
 
-func compareString(t *testing.T, expected, actual string) {
-	helper(t)()
-	if expected != actual {
-		i := 0
-		for i < len(expected) && i < len(actual) && expected[i] == actual[i] {
-			i++
-		}
-		t.Fatalf("Delta at offset %d:\n- %q\n- %q", i, expected, actual)
-	}
-}
+//
 
 func compareInt(t *testing.T, expected, actual int) {
 	helper(t)()
 	if expected != actual {
 		t.Fatalf("%d != %d", expected, actual)
 	}
-}
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	if !testing.Verbose() {
-		log.SetOutput(ioutil.Discard)
-	}
-	os.Exit(m.Run())
 }

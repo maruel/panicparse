@@ -6,113 +6,104 @@ package internal
 
 import (
 	"bytes"
+	"flag"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/maruel/panicparse/stack"
 )
 
-var data = []string{
-	"panic: runtime error: index out of range",
-	"",
-	"goroutine 11 [running, 5 minutes, locked to thread]:",
-	"github.com/luci/luci-go/client/archiver.(*archiver).PushFile(0xc208032410, 0xc20968a3c0, 0x5b, 0xc20988c280, 0x7d, 0x0, 0x0)",
-	"        /gopath/path/to/archiver.go:325 +0x2c4",
-	"github.com/luci/luci-go/client/isolate.archive(0x7fbdab7a5218, 0xc208032410, 0xc20803b0b0, 0x22, 0xc208046370, 0xc20804666a, 0x17, 0x0, 0x0, 0x0, ...)",
-	"        /gopath/path/to/isolate.go:148 +0x12d2",
-	"github.com/luci/luci-go/client/isolate.Archive(0x7fbdab7a5218, 0xc208032410, 0xc20803b0b0, 0x22, 0xc208046370, 0x0, 0x0)",
-	"        /gopath/path/to/isolate.go:102 +0xc9",
-	"main.func·004(0x7fffc3b8f13a, 0x2c)",
-	"        /gopath/path/to/batch_archive.go:166 +0x7cd",
-	"created by main.(*batchArchiveRun).main",
-	"        /gopath/path/to/batch_archive.go:167 +0x42c",
-	"",
-	"goroutine 1 [running]:",
-	"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
-	" /gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
-	"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
-	" c:/go/src/reflect/value.go:2125 +0x368",
-	"main.main()",
-	" /gopath/src/github.com/maruel/pre-commit-go/main.go:428 +0x27",
-	"",
-	"goroutine 2 [running, 1 minutes]:",
-	"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
-	" /gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
-	"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
-	" c:/go/src/reflect/value.go:2125 +0x368",
-	"main.main()",
-	" /gopath/src/github.com/maruel/pre-commit-go/main.go:428 +0x27",
-	"",
-}
-
 func TestProcess(t *testing.T) {
 	out := &bytes.Buffer{}
-	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
+	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	expected := []string{
-		"panic: runtime error: index out of range",
-		"",
-		"\x1b[1;35m1: running [5 minutes] [locked]\x1b[90m [Created by main.(*batchArchiveRun).main @ batch_archive.go:167]\x1b[39m\x1b[m",
-		"    \x1b[1;39marchiver \x1b[39m\x1b[marchiver.go:325      \x1b[1;31m(*archiver).PushFile\x1b[39m\x1b[m(#1, 0xc20968a3c0, 0x5b, 0xc20988c280, 0x7d, 0, 0)\x1b[39m\x1b[m",
-		"    \x1b[1;39misolate  \x1b[39m\x1b[misolate.go:148       \x1b[31marchive\x1b[39m\x1b[m(#4, #1, #2, 0x22, #3, 0xc20804666a, 0x17, 0, 0, 0, ...)\x1b[39m\x1b[m",
-		"    \x1b[1;39misolate  \x1b[39m\x1b[misolate.go:102       \x1b[1;31mArchive\x1b[39m\x1b[m(#4, #1, #2, 0x22, #3, 0, 0)\x1b[39m\x1b[m",
-		"    \x1b[1;39mmain     \x1b[39m\x1b[mbatch_archive.go:166 \x1b[1;33mfunc·004\x1b[39m\x1b[m(0x7fffc3b8f13a, 0x2c)\x1b[39m\x1b[m",
-		"2: running [0~1 minutes]\x1b[39m\x1b[m",
-		"    \x1b[1;39myaml.v2  \x1b[39m\x1b[myaml.go:153          \x1b[31mhandleErr\x1b[39m\x1b[m(#5)\x1b[39m\x1b[m",
-		"    \x1b[1;39mreflect  \x1b[39m\x1b[mvalue.go:2125        \x1b[32mValue.assignTo\x1b[39m\x1b[m(0x570860, #6, 0x15)\x1b[39m\x1b[m",
-		"    \x1b[1;39mmain     \x1b[39m\x1b[mmain.go:428          \x1b[1;33mmain\x1b[39m\x1b[m()\x1b[39m\x1b[m",
-		"",
-	}
-	actual := strings.Split(out.String(), "\n")
-	compareLines(t, expected, actual)
+	expected := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:338 ImainL()A\n"
+	compareString(t, expected, out.String())
 }
 
 func TestProcessFullPath(t *testing.T) {
 	out := &bytes.Buffer{}
-	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &defaultPalette, stack.AnyValue, fullPath, false, true, "", nil, nil); err != nil {
+	if err := process(getReader(t), out, testPalette, stack.AnyValue, fullPath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	expected := []string{
-		"panic: runtime error: index out of range",
-		"",
-		"\x1b[1;35m1: running [5 minutes] [locked]\x1b[90m [Created by main.(*batchArchiveRun).main @ /gopath/path/to/batch_archive.go:167]\x1b[39m\x1b[m",
-		"    \x1b[1;39marchiver \x1b[39m\x1b[m/gopath/path/to/archiver.go:325                         \x1b[1;31m(*archiver).PushFile\x1b[39m\x1b[m(#1, 0xc20968a3c0, 0x5b, 0xc20988c280, 0x7d, 0, 0)\x1b[39m\x1b[m",
-		"    \x1b[1;39misolate  \x1b[39m\x1b[m/gopath/path/to/isolate.go:148                          \x1b[31marchive\x1b[39m\x1b[m(#4, #1, #2, 0x22, #3, 0xc20804666a, 0x17, 0, 0, 0, ...)\x1b[39m\x1b[m",
-		"    \x1b[1;39misolate  \x1b[39m\x1b[m/gopath/path/to/isolate.go:102                          \x1b[1;31mArchive\x1b[39m\x1b[m(#4, #1, #2, 0x22, #3, 0, 0)\x1b[39m\x1b[m",
-		"    \x1b[1;39mmain     \x1b[39m\x1b[m/gopath/path/to/batch_archive.go:166                    \x1b[1;33mfunc·004\x1b[39m\x1b[m(0x7fffc3b8f13a, 0x2c)\x1b[39m\x1b[m",
-		"2: running [0~1 minutes]\x1b[39m\x1b[m",
-		"    \x1b[1;39myaml.v2  \x1b[39m\x1b[m/gopath/src/gopkg.in/yaml.v2/yaml.go:153                \x1b[31mhandleErr\x1b[39m\x1b[m(#5)\x1b[39m\x1b[m",
-		"    \x1b[1;39mreflect  \x1b[39m\x1b[mc:/go/src/reflect/value.go:2125                         \x1b[32mValue.assignTo\x1b[39m\x1b[m(0x570860, #6, 0x15)\x1b[39m\x1b[m",
-		"    \x1b[1;39mmain     \x1b[39m\x1b[m/gopath/src/github.com/maruel/pre-commit-go/main.go:428 \x1b[1;33mmain\x1b[39m\x1b[m()\x1b[39m\x1b[m",
-		"",
+	d, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
 	}
-	actual := strings.Split(out.String(), "\n")
-	compareLines(t, expected, actual)
+	// "/" is used even on Windows.
+	p := strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)
+	expected := fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:338 ImainL()A\n", p)
+	compareString(t, expected, out.String())
 }
 
 func TestProcessNoColor(t *testing.T) {
 	out := &bytes.Buffer{}
-	if err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &Palette{}, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
+	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	expected := []string{
-		"panic: runtime error: index out of range",
-		"",
-		"1: running [5 minutes] [locked] [Created by main.(*batchArchiveRun).main @ batch_archive.go:167]",
-		"    archiver archiver.go:325      (*archiver).PushFile(#1, 0xc20968a3c0, 0x5b, 0xc20988c280, 0x7d, 0, 0)",
-		"    isolate  isolate.go:148       archive(#4, #1, #2, 0x22, #3, 0xc20804666a, 0x17, 0, 0, 0, ...)",
-		"    isolate  isolate.go:102       Archive(#4, #1, #2, 0x22, #3, 0, 0)",
-		"    main     batch_archive.go:166 func·004(0x7fffc3b8f13a, 0x2c)",
-		"2: running [0~1 minutes]",
-		"    yaml.v2  yaml.go:153          handleErr(#5)",
-		"    reflect  value.go:2125        Value.assignTo(0x570860, #6, 0x15)",
-		"    main     main.go:428          main()",
-		"",
+	expected := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:338 ImainL()A\n"
+	compareString(t, expected, out.String())
+}
+
+func TestProcessMatch(t *testing.T) {
+	out := &bytes.Buffer{}
+	err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, regexp.MustCompile(`notpresent`))
+	if err != nil {
+		t.Fatal(err)
 	}
-	actual := strings.Split(out.String(), "\n")
-	compareLines(t, expected, actual)
+	expected := "GOTRACEBACK=all\npanic: simple\n\n"
+	compareString(t, expected, out.String())
+}
+
+func TestProcessFilter(t *testing.T) {
+	out := &bytes.Buffer{}
+	err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", regexp.MustCompile(`notpresent`), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:338 ImainL()A\n"
+	compareString(t, expected, out.String())
+}
+
+func TestMainFn(t *testing.T) {
+	// It doesn't do anything since stdin is closed.
+	if err := Main(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+//
+
+var (
+	// tmpBuildDir is initialized by testMain().
+	tmpBuildDir string
+
+	// panicPath is the path to github.com/maruel/panicparse/cmd/panic compiled.
+	// Use getPanic() instead.
+	panicPath     string
+	panicPathOnce sync.Once
+
+	data     []byte
+	dataOnce sync.Once
+)
+
+func compareString(t *testing.T, expected, actual string) {
+	helper(t)()
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Fatalf("Mismatch (-want +got):\n%s", diff)
+	}
 }
 
 func compareLines(t *testing.T, expected, actual []string) {
@@ -127,50 +118,78 @@ func compareLines(t *testing.T, expected, actual []string) {
 	}
 }
 
-func TestProcessMatch(t *testing.T) {
-	out := &bytes.Buffer{}
-	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &Palette{}, stack.AnyPointer,
-		basePath, false, true, "", nil, regexp.MustCompile(`batchArchiveRun`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := []string{
-		"panic: runtime error: index out of range",
-		"",
-		"1: running [5 minutes] [locked] [Created by main.(*batchArchiveRun).main @ batch_archive.go:167]",
-		"    archiver archiver.go:325      (*archiver).PushFile(#1, 0xc20968a3c0, 0x5b, 0xc20988c280, 0x7d, 0, 0)",
-		"    isolate  isolate.go:148       archive(#4, #1, #2, 0x22, #3, 0xc20804666a, 0x17, 0, 0, 0, ...)",
-		"    isolate  isolate.go:102       Archive(#4, #1, #2, 0x22, #3, 0, 0)",
-		"    main     batch_archive.go:166 func·004(0x7fffc3b8f13a, 0x2c)",
-		"",
-	}
-	actual := strings.Split(out.String(), "\n")
-	compareLines(t, expected, actual)
+func getPanic(t *testing.T) string {
+	panicPathOnce.Do(func() {
+		if panicPath = build(); panicPath == "" {
+			t.Fatal("building panic failed")
+		}
+	})
+	return panicPath
 }
 
-func TestProcessFilter(t *testing.T) {
-	out := &bytes.Buffer{}
-	err := process(bytes.NewBufferString(strings.Join(data, "\n")), out, &Palette{}, stack.AnyPointer,
-		basePath, false, true, "", regexp.MustCompile(`batchArchiveRun`), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := []string{
-		"panic: runtime error: index out of range",
-		"",
-		"2: running [0~1 minutes]",
-		"    yaml.v2  yaml.go:153          handleErr(#5)",
-		"    reflect  value.go:2125        Value.assignTo(0x570860, #6, 0x15)",
-		"    main     main.go:428          main()",
-		"",
-	}
-	actual := strings.Split(out.String(), "\n")
-	compareLines(t, expected, actual)
+func getReader(t *testing.T) io.Reader {
+	dataOnce.Do(func() {
+		data = execRun(getPanic(t), "simple")
+	})
+	return bytes.NewReader(data)
 }
 
-func TestMainFn(t *testing.T) {
-	// It doesn't do anything since stdin is closed.
-	if err := Main(); err != nil {
-		t.Fatal(err)
+// execRun runs a command and returns the combined output.
+//
+// It ignores the exit code, since it's meant to run panic, which crashes by
+// design.
+func execRun(cmd ...string) []byte {
+	c := exec.Command(cmd[0], cmd[1:]...)
+	c.Env = append(os.Environ(), "GOTRACEBACK=all")
+	out, _ := c.CombinedOutput()
+	return out
+}
+
+func build() string {
+	out := filepath.Join(tmpBuildDir, "panic")
+	if runtime.GOOS == "windows" {
+		out += ".exe"
 	}
+	log.Printf("building %s", out)
+	// Disable inlining otherwise the inlining varies between local execution and
+	// remote execution. This can be observed as Elided being true without any
+	// argument.
+	args := []string{"build", "-gcflags", "-l", "-o", out}
+	c := exec.Command("go", append(args, "../cmd/panic")...)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	if err := c.Run(); err != nil {
+		return ""
+	}
+	return out
+}
+
+// TestMain manages a temporary directory to build on first use ../cmd/panic
+// and clean up at the end.
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+	os.Setenv("GOTRACEBACK", "all")
+	os.Exit(testMain(m))
+}
+
+func testMain(m *testing.M) (exit int) {
+	var err error
+	tmpBuildDir, err = ioutil.TempDir("", "stack")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create temporary directory: %v", err)
+		return 1
+	}
+	defer func() {
+		log.Printf("deleting %s", tmpBuildDir)
+		if err := os.RemoveAll(tmpBuildDir); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to deletetemporary directory: %v", err)
+			if exit == 0 {
+				exit = 1
+			}
+		}
+	}()
+	return m.Run()
 }
