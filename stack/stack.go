@@ -47,6 +47,24 @@ func (f *Func) Name() string {
 	return parts[1]
 }
 
+// importPath is the fully qualified package import URL as guess from the
+// function signature.
+//
+// Not exported because Call.ImportPath() should be called instead, as this
+// function can't return the import path for package main.
+func (f *Func) importPath() string {
+	i := strings.LastIndexByte(f.Raw, '/')
+	if i == -1 {
+		return ""
+	}
+	j := strings.IndexByte(f.Raw[i:], '.')
+	if j == -1 {
+		return ""
+	}
+	s, _ := url.QueryUnescape(f.Raw[:i+j])
+	return s
+}
+
 // PkgName is the package name for this function reference.
 func (f *Func) PkgName() string {
 	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
@@ -192,7 +210,10 @@ type Call struct {
 	Line         int    // Line number
 	Func         Func   // Fully qualified function name (encoded).
 	Args         Args   // Call arguments
-	IsStdlib     bool   // true if it is a Go standard library function. This includes the 'go test' generated main executable.
+
+	// Only set if guesspaths is set to true in ParseDump().
+	IsStdlib   bool   // true if it is a Go standard library function. This includes the 'go test' generated main executable.
+	RelSrcPath string // Relative path to GOROOT or GOPATH. Only set when Augment() is called.
 }
 
 // equal returns true only if both calls are exactly equal.
@@ -215,6 +236,7 @@ func (c *Call) merge(r *Call) Call {
 		Func:         c.Func,
 		Args:         c.Args.merge(&r.Args),
 		IsStdlib:     c.IsStdlib,
+		RelSrcPath:   c.RelSrcPath,
 	}
 }
 
@@ -249,9 +271,29 @@ func (c *Call) IsPkgMain() bool {
 	return c.Func.PkgName() == "main"
 }
 
+// ImportPath returns the fully qualified package import path.
+//
+// Unlike c.Func.PkgName(), in the case of package "main", it returns the
+// underlying path to the main package instead of main.
+func (c *Call) ImportPath() string {
+	// In case guesspath=true was passed to ParseDump().
+	if c.RelSrcPath != "" {
+		if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
+			return c.RelSrcPath[:i]
+		}
+	}
+	// Fallback to best effort.
+	if !c.IsPkgMain() {
+		return c.Func.importPath()
+	}
+	// In package main, it can only work well if guesspath=true was used. Return
+	// an empty string instead of garbagge.
+	return ""
+}
+
 const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 
-// updateLocations initializes LocalSrcPath and IsStdlib.
+// updateLocations initializes LocalSrcPath, RelSrcPath and IsStdlib.
 //
 // goroot, localgoroot and gopaths are expected to be in "/" format even on
 // Windows. They must not have a trailing "/".
@@ -261,8 +303,8 @@ func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]st
 			// Always check GOROOT first, then GOPATH.
 			if prefix := goroot + "/src/"; strings.HasPrefix(c.SrcPath, prefix) {
 				// Replace remote GOROOT with local GOROOT.
-				relSrcPath := c.SrcPath[len(prefix):]
-				c.LocalSrcPath = pathJoin(localgoroot, "src", relSrcPath)
+				c.RelSrcPath = c.SrcPath[len(prefix):]
+				c.LocalSrcPath = pathJoin(localgoroot, "src", c.RelSrcPath)
 				c.IsStdlib = true
 			} else {
 				// Replace remote GOPATH with local GOPATH.
@@ -270,8 +312,8 @@ func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]st
 				// TODO(maruel): Sort for deterministic behavior?
 				for prefix, dest := range gopaths {
 					if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
-						relSrcPath := c.SrcPath[len(p):]
-						c.LocalSrcPath = pathJoin(dest, "src", relSrcPath)
+						c.RelSrcPath = c.SrcPath[len(p):]
+						c.LocalSrcPath = pathJoin(dest, "src", c.RelSrcPath)
 						break
 					}
 				}

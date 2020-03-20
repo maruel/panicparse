@@ -63,8 +63,10 @@ func TestBucketHeader(t *testing.T) {
 			State: "chan receive",
 			CreatedBy: stack.Call{
 				SrcPath: "/gopath/src/github.com/foo/bar/baz.go",
-				Line:    74,
-				Func:    stack.Func{Raw: "main.mainImpl"},
+				// Set with -rebase is used. -rebase is implicit when -rel-path is used.
+				RelSrcPath: "github.com/foo/bar/baz.go",
+				Line:       74,
+				Func:       stack.Func{Raw: "main.mainImpl"},
 			},
 			SleepMax: 6,
 			SleepMin: 2,
@@ -75,6 +77,8 @@ func TestBucketHeader(t *testing.T) {
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, fullPath, true))
 	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /gopath/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, fullPath, false))
+	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, relPath, true))
+	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, relPath, false))
 	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, basePath, true))
 	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, basePath, false))
 

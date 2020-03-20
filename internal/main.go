@@ -126,6 +126,7 @@ func Main() error {
 	matchFlag := flag.String("m", "", "Regexp to filter by only headers that match, ex: -m 'semacquire'")
 	// Console only.
 	fullPathArg := flag.Bool("full-path", false, "Print full sources path")
+	relPathArg := flag.Bool("rel-path", false, "Print sources path relative to GOROOT or GOPATH; implies -rebase")
 	noColor := flag.Bool("no-color", !isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("TERM") == "dumb", "Disable coloring")
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
 	// HTML only.
@@ -194,7 +195,13 @@ func Main() error {
 	}
 	pf := basePath
 	if *fullPathArg {
+		if *relPathArg {
+			return errors.New("can't use both -full-path and -rel-path")
+		}
 		pf = fullPath
+	} else if *relPathArg {
+		pf = relPath
+		*rebase = true
 	}
 	return process(in, out, p, s, pf, *parse, *rebase, *html, filter, match)
 }
