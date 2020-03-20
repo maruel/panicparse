@@ -42,6 +42,11 @@ func TestCallPkg1(t *testing.T) {
 	compareString(t, "yaml.v2.handleErr", c.Func.PkgDotName())
 	compareString(t, "yaml.v2", c.Func.PkgName())
 	compareString(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
+	compareBool(t, false, c.IsStdlib)
+	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go", c.LocalSrcPath)
 }
 
 func TestCallPkg2(t *testing.T) {
@@ -67,6 +72,11 @@ func TestCallPkg2(t *testing.T) {
 	compareString(t, "yaml.v2.(*decoder).unmarshal", c.Func.PkgDotName())
 	compareString(t, "yaml.v2", c.Func.PkgName())
 	compareString(t, "gopkg.in/yaml.v2.(*decoder).unmarshal", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
+	compareBool(t, false, c.IsStdlib)
+	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go", c.LocalSrcPath)
 }
 
 func TestCallStdlib(t *testing.T) {
@@ -76,11 +86,9 @@ func TestCallStdlib(t *testing.T) {
 		Func:    Func{Raw: "reflect.Value.assignTo"},
 		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 	}
-	c.updateLocations("/goroot", "/goroot", nil)
 	// Call methods.
 	compareString(t, "/goroot/src/reflect/value.go:2125", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
-	compareBool(t, true, c.IsStdlib)
 	compareString(t, filepath.Join("reflect", "value.go"), c.PkgSrc())
 	compareString(t, "value.go:2125", c.SrcLine())
 	compareString(t, "value.go", c.SrcName())
@@ -91,6 +99,11 @@ func TestCallStdlib(t *testing.T) {
 	compareString(t, "reflect.Value.assignTo", c.Func.PkgDotName())
 	compareString(t, "reflect", c.Func.PkgName())
 	compareString(t, "reflect.Value.assignTo", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
+	compareBool(t, true, c.IsStdlib)
+	compareString(t, "/goroot/src/reflect/value.go", c.LocalSrcPath)
 }
 
 func TestCallMain(t *testing.T) {
@@ -112,6 +125,11 @@ func TestCallMain(t *testing.T) {
 	compareString(t, "main.main", c.Func.PkgDotName())
 	compareString(t, "main", c.Func.PkgName())
 	compareString(t, "main.main", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
+	compareBool(t, false, c.IsStdlib)
+	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go", c.LocalSrcPath)
 }
 
 func TestCallMismatched(t *testing.T) {
@@ -135,6 +153,11 @@ func TestCallMismatched(t *testing.T) {
 	compareString(t, "incorrect.Panic", c.Func.PkgDotName())
 	compareString(t, "incorrect", c.Func.PkgName())
 	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
+	compareBool(t, false, c.IsStdlib)
+	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go", c.LocalSrcPath)
 }
 
 func TestCallUTF8(t *testing.T) {
@@ -159,6 +182,11 @@ func TestCallUTF8(t *testing.T) {
 	compareString(t, "ùtf8.(*Strùct).Pànic", c.Func.PkgDotName())
 	compareString(t, "ùtf8", c.Func.PkgName())
 	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/ùtf8.(*Strùct).Pànic", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
+	compareBool(t, false, c.IsStdlib)
+	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go", c.LocalSrcPath)
 }
 
 func TestCallC(t *testing.T) {
@@ -168,11 +196,9 @@ func TestCallC(t *testing.T) {
 		Func:    Func{Raw: "findrunnable"},
 		Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
 	}
-	c.updateLocations("/goroot", "/goroot", nil)
 	// Call methods.
 	compareString(t, "/goroot/src/runtime/proc.c:1472", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
-	compareBool(t, true, c.IsStdlib)
 	compareString(t, filepath.Join("runtime", "proc.c"), c.PkgSrc())
 	compareString(t, "proc.c:1472", c.SrcLine())
 	compareString(t, "proc.c", c.SrcName())
@@ -182,6 +208,11 @@ func TestCallC(t *testing.T) {
 	compareString(t, "findrunnable", c.Func.Name())
 	compareString(t, "", c.Func.PkgName())
 	compareString(t, "findrunnable", c.Func.String())
+
+	// ParseDump(guesspaths=true).
+	c.updateLocations("/goroot", "/goroot", map[string]string{"/gopath": "/gopath"})
+	compareBool(t, true, c.IsStdlib)
+	compareString(t, "/goroot/src/runtime/proc.c", c.LocalSrcPath)
 }
 
 func TestArgs(t *testing.T) {
