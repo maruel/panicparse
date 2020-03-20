@@ -22,7 +22,7 @@ func TestWrite2Buckets(t *testing.T) {
 	// We expect this to be fairly static across Go versions. We want to know if
 	// it changes significantly, thus assert the approximate size. This is being
 	// tested on travis.
-	if l := buf.Len(); l < 10000 || l > 20000 {
+	if l := buf.Len(); l < 4000 || l > 10000 {
 		t.Fatalf("unexpected length %d", l)
 	}
 }
@@ -37,7 +37,7 @@ func TestWrite1Bucket(t *testing.T) {
 	// We expect this to be fairly static across Go versions. We want to know if
 	// it changes significantly, thus assert the approximate size. This is being
 	// tested on travis.
-	if l := buf.Len(); l < 10000 || l > 20000 {
+	if l := buf.Len(); l < 4000 || l > 10000 {
 		t.Fatalf("unexpected length %d", l)
 	}
 }

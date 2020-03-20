@@ -52,8 +52,8 @@ func mainImpl() error {
 		return err
 	}
 
-	// See README.md how to retrieve it.
-	iconRaw, err := ioutil.ReadFile("emoji_u1f4a3.png")
+	// See README.md how to generate it.
+	iconRaw, err := ioutil.ReadFile("emoji_u1f4a3_64.gif")
 	if err != nil {
 		return err
 	}

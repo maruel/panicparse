@@ -62,7 +62,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PanicParse</title>
-<link rel="shortcut icon" type="image/png" href="data:image/png;base64,{{.Favicon}}"/>
+<link rel="shortcut icon" type="image/gif" href="data:image/gif;base64,{{.Favicon}}"/>
 <style>
   {{- /* Minimal CSS reset */ -}}
   * {
