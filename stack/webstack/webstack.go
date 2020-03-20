@@ -25,8 +25,11 @@ import (
 // Arguments are passed as form values. If you want to change the default,
 // override the form values in a wrapper as shown in the example.
 //
-// The implementation is designed to be reasonably fast, so it can be used on
-// production. It currently does a small amount of disk I/O for file presence.
+// The implementation is designed to be reasonably fast, it currently does a
+// small amount of disk I/O only for file presence.
+//
+// It is a direct replacement for "/debug/pprof/goroutine?debug=2" handler in
+// net/http/pprof.
 //
 // augment: (default: 0) When set to 1, panicparse tries to find the sources on
 // disk to improve the display of arguments based on type information. This is

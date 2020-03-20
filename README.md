@@ -4,7 +4,7 @@ Parses panic stack traces, densifies and deduplicates goroutines with similar
 stack traces. Helps debugging crashes and deadlocks in heavily parallelized
 process.
 
-[![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
+[![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://pkg.go.dev/github.com/maruel/panicparse/stack)
 [![Go Report Card](https://goreportcard.com/badge/github.com/maruel/panicparse)](https://goreportcard.com/report/github.com/maruel/panicparse)
 [![Coverage Status](https://codecov.io/gh/maruel/panicparse/graph/badge.svg)](https://codecov.io/gh/maruel/panicparse)
 [![Build Status](https://travis-ci.org/maruel/panicparse.svg)](https://travis-ci.org/maruel/panicparse)
@@ -17,17 +17,17 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
+   * **New in v1.3.0!**:
+     [webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/stack/webstack#SnapshotHandler)
+     is a http handler that serves a very tight and swell snapshot of your
+     goroutines, much more readable than
+     [net/http/pprof](https://golang.org/pkg/net/http/pprof).
    * &gt;50% more compact output than original stack dump yet more readable.
    * Exported symbols are bold, private symbols are darker.
    * Stdlib is green, main is yellow, rest is red.
    * Deduplicates redundant goroutine stacks. Useful for large server crashes.
    * Arguments as pointer IDs instead of raw pointer values.
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
-   * Usable as a library!
-     [![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://godoc.org/github.com/maruel/panicparse/stack)
-     * Warning: please pin the major version (i.e. vendor it via
-       [dep](https://github.com/golang/dep)) as breaking changes happen on
-       [major version update](https://semver.org/).
    * Parses the source files if available to augment the output.
    * Works on Windows.
 
@@ -51,8 +51,8 @@ Ruel](https://github.com/maruel) and
 #### TL;DR
 
    * Ubuntu (bash v4 or zsh): `|&`
-   * OSX, [install bash 4+](README.md#updating-bash-on-osx), then: `|&`
-   * Windows _or_ OSX with stock bash v3: `2>&1 |`
+   * macOS, [install bash 4+](README.md#updating-bash-on-macos), then: `|&`
+   * Windows _or_ macOS with stock bash v3: `2>&1 |`
    * [Fish](http://fishshell.com/) shell: `^|`
 
 
@@ -72,7 +72,7 @@ v4](https://www.gnu.org/software/bash/manual/bash.html#Pipelines),
     go test -v |&pp
 
 
-**Windows or OSX native bash** [(which is
+**Windows or macOS native bash** [(which is
 3.2.57)](http://meta.ath0.com/2012/02/05/apples-great-gpl-purge/): They don't
 have this shortcut, so use the long form:
 
@@ -111,12 +111,12 @@ Starting with go1.11, the toolchain starts to inline more often. This causes
 traces to be less informative. You can use the following to help diagnosing
 issues:
 
-    go install -gcflags '-N -l' path/to/foo
+    go install -gcflags '-l' path/to/foo
     foo |& pp
 
 or
 
-    go test -gcflags '-N -l' ./... |& pp
+    go test -gcflags '-l' ./... |& pp
 
 
 ### GOTRACEBACK
@@ -130,9 +130,9 @@ goroutines trace and not just the crashing one, set the environment variable:
 or `set GOTRACEBACK=all` on Windows. Probably worth to put it in your `.bashrc`.
 
 
-### Updating bash on OSX
+### Updating bash on macOS
 
-Install bash v4+ on OSX via [homebrew](http://brew.sh) or
+Install bash v4+ on macOS via [homebrew](http://brew.sh) or
 [macports](https://www.macports.org/). Your future self will appreciate having
 done that.
 
@@ -150,8 +150,8 @@ and/or
 
 you may be running the _Perl PAR Packager_ instead of panicparse.
 
-You have two choices, either you put `$GOPATH/bin` at the begining of `$PATH` or
-use long name `panicparse` with:
+You have two choices, either you put `$GOPATH/bin` at the beginning of `$PATH`
+or use long name `panicparse` with:
 
     go get github.com/maruel/panicparse
 
