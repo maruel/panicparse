@@ -1429,8 +1429,8 @@ func TestPanicweb(t *testing.T) {
 	if b.String() != "panic: Here's a snapshot of a normal web server.\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
-	if c.GOROOT != runtime.GOROOT() {
-		t.Fatalf("GOROOT is %q", c.GOROOT)
+	if c.GOROOT != strings.Replace(runtime.GOROOT(), "\\", "/", -1) {
+		t.Fatalf("GOROOT mismatch; expected:%q detected:%q", runtime.GOROOT(), c.GOROOT)
 	}
 	if actual := len(c.Goroutines); actual < 30 {
 		t.Fatalf("unexpected Goroutines; expected at least 30, got %d", actual)

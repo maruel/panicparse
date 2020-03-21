@@ -46,7 +46,9 @@ type Context struct {
 	// Nil is guesspaths was false.
 	GOPATHs map[string]string
 
-	localgoroot  string
+	// localgoroot is GOROOT with "/" as path separator. No trailing "/".
+	localgoroot string
+	// localgopaths is GOPATH with "/" as path separator. No trailing "/".
 	localgopaths []string
 }
 
@@ -68,7 +70,7 @@ func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 	}
 	c := &Context{
 		Goroutines:   goroutines,
-		localgoroot:  runtime.GOROOT(),
+		localgoroot:  strings.Replace(runtime.GOROOT(), "\\", "/", -1),
 		localgopaths: getGOPATHs(),
 	}
 	nameArguments(goroutines)
@@ -620,10 +622,10 @@ func parseFunc(line string) (*Call, error) {
 	return nil, nil
 }
 
-// hasPathPrefix returns true if any of s is the prefix of p.
-func hasPathPrefix(p string, s map[string]string) bool {
+// hasSrcPrefix returns true if any of s is the prefix of p.
+func hasSrcPrefix(p string, s map[string]string) bool {
 	for prefix := range s {
-		if strings.HasPrefix(p, prefix+"/") {
+		if strings.HasPrefix(p, prefix+"/src/") {
 			return true
 		}
 	}
@@ -646,7 +648,7 @@ func getFiles(goroutines []*Goroutine) []string {
 	return out
 }
 
-// splitPath splits a path into its components.
+// splitPath splits a path using "/" as separator into its components.
 //
 // The first item has its initial path separator kept.
 func splitPath(p string) []string {
@@ -678,12 +680,14 @@ func isFile(p string) bool {
 }
 
 // rootedIn returns a root if the file split in parts is rooted in root.
+//
+// Uses "/" as path separator.
 func rootedIn(root string, parts []string) string {
 	//log.Printf("rootIn(%s, %v)", root, parts)
 	for i := 1; i < len(parts); i++ {
-		suffix := filepath.Join(parts[i:]...)
-		if isFile(filepath.Join(root, suffix)) {
-			return filepath.Join(parts[:i]...)
+		suffix := pathJoin(parts[i:]...)
+		if isFile(pathJoin(root, suffix)) {
+			return pathJoin(parts[:i]...)
 		}
 	}
 	return ""
@@ -694,26 +698,28 @@ func rootedIn(root string, parts []string) string {
 // This causes disk I/O as it checks for file presence.
 func (c *Context) findRoots() {
 	c.GOPATHs = map[string]string{}
+	//log.Printf("localgopaths: %v", c.localgopaths)
 	for _, f := range getFiles(c.Goroutines) {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
 		// possible, need to confirm and handle.
 		//log.Printf("  Analyzing %s", f)
-		if c.GOROOT != "" && strings.HasPrefix(f, c.GOROOT+"/") {
+		if c.GOROOT != "" && strings.HasPrefix(f, c.GOROOT+"/src/") {
 			continue
 		}
-		if hasPathPrefix(f, c.GOPATHs) {
+		if hasSrcPrefix(f, c.GOPATHs) {
 			continue
 		}
 		parts := splitPath(f)
 		if c.GOROOT == "" {
-			if r := rootedIn(c.localgoroot, parts); r != "" {
-				c.GOROOT = r
+			if r := rootedIn(c.localgoroot+"/src", parts); r != "" {
+				c.GOROOT = r[:len(r)-4]
 				//log.Printf("Found GOROOT=%s", c.GOROOT)
 				continue
 			}
 		}
 		found := false
 		for _, l := range c.localgopaths {
+			// TODO(maruel): Be stricter, check for "src" or "pkg/mod".
 			if r := rootedIn(l, parts); r != "" {
 				//log.Printf("Found GOPATH=%s", r)
 				c.GOPATHs[r] = l
@@ -723,22 +729,25 @@ func (c *Context) findRoots() {
 		}
 		if !found {
 			// If the source is not found, just too bad.
-			//log.Printf("Failed to find locally: %s / %s", f, goroot)
+			//log.Printf("Failed to find locally: %s", f)
 		}
 	}
 }
 
+// getGOPATHs returns parsed GOPATH or its default, using "/" as path separator.
 func getGOPATHs() []string {
 	var out []string
-	for _, v := range filepath.SplitList(os.Getenv("GOPATH")) {
-		// Disallow non-absolute paths?
-		if v != "" {
-			// Trim trailing "/" or "\\".
-			l := len(v)
-			if c := v[l-1]; c == '/' || c == '\\' {
-				v = v[:l-1]
+	if gp := os.Getenv("GOPATH"); gp != "" {
+		for _, v := range filepath.SplitList(gp) {
+			// Disallow non-absolute paths?
+			if v != "" {
+				v = strings.Replace(v, "\\", "/", -1)
+				// Trim trailing "/".
+				if l := len(v); v[l-1] == '/' {
+					v = v[:l-1]
+				}
+				out = append(out, v)
 			}
-			out = append(out, v)
 		}
 	}
 	if len(out) == 0 {
@@ -752,7 +761,7 @@ func getGOPATHs() []string {
 		} else {
 			homeDir = u.HomeDir
 		}
-		out = []string{homeDir + "go"}
+		out = []string{strings.Replace(homeDir+"/go", "\\", "/", -1)}
 	}
 	return out
 }
