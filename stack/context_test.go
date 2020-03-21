@@ -1161,15 +1161,7 @@ func TestPanic(t *testing.T) {
 		"goroutine_100":             101,
 	}
 
-	// We assume that the working directory is the directory containing this
-	// source. In Go test framework, this normally holds true. If this ever
-	// becomes false, let's fix this.
-	thisDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// "/" is used even on Windows.
-	panicParseDir := strings.Replace(filepath.Dir(thisDir), "\\", "/", -1)
+	panicParseDir := getPanicParseDir(t)
 	ppDir := pathJoin(panicParseDir, "cmd", "panic")
 
 	custom := map[string]func(*testing.T, *Context, *bytes.Buffer, string){
@@ -1418,6 +1410,141 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 	similarGoroutines(t, expected, c.Goroutines)
 }
 
+// TestPanicweb implements the parsing of panicweb output.
+//
+// panicweb is a separate binary from the rest of panic because importing the
+// "net" package causes a background thread to be started, which breaks "panic
+// asleep".
+func TestPanicweb(t *testing.T) {
+	t.Parallel()
+	data := execRun(getPanicweb(t))
+	b := bytes.Buffer{}
+	c, err := ParseDump(bytes.NewReader(data), &b, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c == nil {
+		t.Fatal("context is nil")
+	}
+	if b.String() != "panic: Here's a snapshot of a normal web server.\n\n" {
+		t.Fatalf("output: %q", b.String())
+	}
+	if c.GOROOT != runtime.GOROOT() {
+		t.Fatalf("GOROOT is %q", c.GOROOT)
+	}
+	if actual := len(c.Goroutines); actual < 30 {
+		t.Fatalf("unexpected Goroutines; expected at least 30, got %d", actual)
+	}
+	// Reduce the goroutines.
+	actual := Aggregate(c.Goroutines, AnyPointer)
+	// The goal here is not to find the exact match since it'll change across
+	// OSes and Go versions, but to find some of the expected signatures.
+	if len(actual[0].IDs) != 1 || !actual[0].First {
+		t.Fatal("first bucket is not correct")
+	}
+
+	pwebDir := pathJoin(getPanicParseDir(t), "cmd", "panicweb")
+	// The first bucket (the one calling panic()) is deterministic.
+	crash := Signature{
+		State: "running",
+		Stack: Stack{
+			Calls: []Call{
+				{
+					SrcPath:      pathJoin(pwebDir, "main.go"),
+					LocalSrcPath: pathJoin(pwebDir, "main.go"),
+					Line:         60,
+					Func:         Func{Raw: "main.main"},
+					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
+				},
+			},
+		},
+	}
+	compareSignatures(t, &crash, &actual[0].Signature)
+
+	// Categorize the signatures
+	var (
+		idURL1    = 0
+		idURL2    = 0
+		idclients []int
+		idMain    = 0
+	)
+	// Now we should find exactly 10 sleeping routines in one signature and 3 in
+	// another. They are respectively URL1Handler and URL2Handler.
+	for i := 1; i < len(actual); i++ {
+		if actual[i].State == "sleep" && len(actual[i].IDs) == 10 {
+			if idURL1 != 0 {
+				t.Fatal("found two URL1Handler")
+			}
+			idURL1 = i
+			// TODO(maruel): Scan Stack for URL1Handler.
+		}
+		if actual[i].State == "sleep" && len(actual[i].IDs) == 3 {
+			if idURL2 != 0 {
+				t.Fatal("found two URL2Handler")
+			}
+			idURL2 = i
+			// TODO(maruel): Scan Stack for URL2Handler.
+		}
+	}
+	if idURL1 == 0 {
+		t.Fatal("didn't find URL1Handler server handler signature")
+	}
+	if idURL2 == 0 {
+		t.Fatal("didn't find URL2Handler server handler signature")
+	}
+
+	// Now find the client goroutine signatures. For the client, it is likely
+	// that they haven't all bucketed perfectly.
+	// There should be exactly one goroutine started by main.
+	for i := 1; i < len(actual); i++ {
+		if i == idURL1 || i == idURL2 || i == idMain {
+			continue
+		}
+		if actual[i].CreatedBy.Func.PkgDotName() == "internal.GetAsync" {
+			idclients = append(idclients, i)
+		} else if actual[i].CreatedBy.Func.PkgDotName() == "main.main" {
+			if idMain != 0 {
+				t.Fatal("found two server routines")
+			}
+			//t.Fatal("unexpected thread started by non-stdlib")
+			idMain = i
+		}
+	}
+	if len(idclients) < 2 {
+		t.Fatalf("didn't find at least 2 clients: %v", idclients)
+	}
+	if idMain == 0 {
+		t.Fatal("didn't find server handler signature")
+	}
+
+	// The rest should all be created with internal threads.
+	for i := 1; i < len(actual); i++ {
+		if i == idURL1 || i == idURL2 || i == idMain {
+			continue
+		}
+		found := false
+		for _, c := range idclients {
+			if c == i {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+
+		if !actual[i].CreatedBy.IsStdlib {
+			if actual[i].CreatedBy.Func.Raw == "" {
+				// On older Go version, there's often an assembly stack in asm_amd64.s.
+				if len(actual[i].Stack.Calls) == 1 && actual[i].Stack.Calls[0].Func.Raw == "runtime.goexit" {
+					continue
+				}
+			}
+			t.Fatalf("unexpected thread started by non-stdlib: %# v", actual[i])
+		}
+	}
+}
+
 //
 
 // execRun runs a command and returns the combined output.
@@ -1429,4 +1556,19 @@ func execRun(cmd ...string) []byte {
 	c.Env = append(os.Environ(), "GOTRACEBACK=all")
 	out, _ := c.CombinedOutput()
 	return out
+}
+
+// getPanicParseDir returns the path to the root directory of panicparse
+// package, using "/" as path separator.
+func getPanicParseDir(t *testing.T) string {
+	// We assume that the working directory is the directory containing this
+	// source. In Go test framework, this normally holds true. If this ever
+	// becomes false, let's fix this.
+	thisDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// "/" is used even on Windows in the stack trace, return in this format to
+	// simply our life.
+	return strings.Replace(filepath.Dir(thisDir), "\\", "/", -1)
 }

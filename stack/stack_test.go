@@ -420,13 +420,18 @@ func zapGoroutines(t *testing.T, a, b []*Goroutine) {
 		return
 	}
 	for i := range a {
-		// (*Goroutine).Signature.Stack.([]Call)
-		if len(a[i].Stack.Calls) != len(b[i].Stack.Calls) {
-			t.Error("different call length")
-			return
-		}
-		zapStacks(t, &a[i].Stack, &b[i].Stack)
+		// &(*Goroutine).Signature
+		zapSignatures(t, &a[i].Signature, &b[i].Signature)
 	}
+}
+
+func zapSignatures(t *testing.T, a, b *Signature) {
+	// Signature.Stack.([]Call)
+	if len(a.Stack.Calls) != len(b.Stack.Calls) {
+		t.Error("different call length")
+		return
+	}
+	zapStacks(t, &a.Stack, &b.Stack)
 }
 
 func zapStacks(t *testing.T, a, b *Stack) {
@@ -460,6 +465,13 @@ func compareGoroutines(t *testing.T, expected, actual []*Goroutine) {
 	helper(t)()
 	if diff := cmp.Diff(expected, actual); diff != "" {
 		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func compareSignatures(t *testing.T, expected, actual *Signature) {
+	helper(t)()
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Fatalf("Signature mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -522,11 +534,17 @@ var (
 	// Use getPanicRace() instead.
 	panicRacePath     string
 	panicRacePathOnce sync.Once
+
+	// panicwebPath is the path to github.com/maruel/panicparse/cmd/panicweb
+	// compiled.
+	// Use getPanicweb() instead.
+	panicwebPath     string
+	panicwebPathOnce sync.Once
 )
 
 func getPanic(t *testing.T) string {
 	panicPathOnce.Do(func() {
-		if panicPath = build(false); panicPath == "" {
+		if panicPath = build("panic", false); panicPath == "" {
 			t.Fatal("building panic failed")
 		}
 	})
@@ -535,11 +553,20 @@ func getPanic(t *testing.T) string {
 
 func getPanicRace(t *testing.T) string {
 	panicRacePathOnce.Do(func() {
-		if panicRacePath = build(true); panicRacePath == "" {
+		if panicRacePath = build("panic", true); panicRacePath == "" {
 			t.Fatal("building panic with race detector failed")
 		}
 	})
 	return panicRacePath
+}
+
+func getPanicweb(t *testing.T) string {
+	panicwebPathOnce.Do(func() {
+		if panicwebPath = build("panicweb", false); panicwebPath == "" {
+			t.Fatal("building panicweb failed")
+		}
+	})
+	return panicwebPath
 }
 
 // TestMain manages a temporary directory to build on first use ../cmd/panic
@@ -572,8 +599,8 @@ func testMain(m *testing.M) (exit int) {
 	return m.Run()
 }
 
-func build(race bool) string {
-	out := filepath.Join(tmpBuildDir, "panic")
+func build(s string, race bool) string {
+	out := filepath.Join(tmpBuildDir, s)
 	if race {
 		out += "_race"
 	}
@@ -588,7 +615,7 @@ func build(race bool) string {
 	if race {
 		args = append(args, "-race")
 	}
-	c := exec.Command("go", append(args, "../cmd/panic")...)
+	c := exec.Command("go", append(args, "../cmd/"+s)...)
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	if err := c.Run(); err != nil {
