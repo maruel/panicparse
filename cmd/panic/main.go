@@ -4,9 +4,8 @@
 
 // panic crashes in various ways.
 //
-// It is a tool to help test pp.
-package main
-
+// It is a tool to help test pp, it is used in its unit tests.
+//
 // To install, run:
 //   go install github.com/maruel/panicparse/cmd/panic
 //   panic -help
@@ -16,6 +15,10 @@ package main
 //   go install -race github.com/maruel/panicparse/cmd/panic
 //   panic race |& pp
 //
+// To use with inlining disabled, build with -gcflags '-l' like:
+//   go install -gcflags '-l' github.com/maruel/panicparse/cmd/panic
+package main
+
 // To add a new panic stack signature, add it to types type below, keeping the
 // list ordered by name. If you need utility functions, add it in the section
 // below. That's it!
@@ -36,6 +39,39 @@ import (
 	correct "github.com/maruel/panicparse/cmd/panic/internal/incorrect"
 	"github.com/maruel/panicparse/cmd/panic/internal/ùtf8"
 )
+
+func main() {
+	if len(os.Args) == 2 {
+		n := os.Args[1]
+		if f, ok := types[n]; ok {
+			fmt.Printf("GOTRACEBACK=%s\n", os.Getenv("GOTRACEBACK"))
+			if n == "simple" {
+				// Since the map lookup creates another call stack entry, add a one-off
+				// "simple" panic style to test the very minimal case.
+				// types["simple"].f is never called.
+				panic("simple")
+			}
+			f.f()
+			os.Exit(3)
+		}
+		// Undocumented command to do a raw dump of the supported commands. This is
+		// used by unit tests in ../../stack.
+		if n == "dump_commands" {
+			items := make([]string, 0, len(types))
+			for n := range types {
+				items = append(items, n)
+			}
+			sort.Strings(items)
+			for _, n := range items {
+				fmt.Printf("%s\n", n)
+			}
+			os.Exit(0)
+		}
+		fmt.Fprintf(stdErr, "unknown panic style %q\n", n)
+		os.Exit(1)
+	}
+	usage()
+}
 
 // Mocked in test.
 var stdErr io.Writer = os.Stderr
@@ -322,41 +358,6 @@ var types = map[string]struct {
 			s.Pànic()
 		},
 	},
-}
-
-//
-
-func main() {
-	if len(os.Args) == 2 {
-		n := os.Args[1]
-		if f, ok := types[n]; ok {
-			fmt.Printf("GOTRACEBACK=%s\n", os.Getenv("GOTRACEBACK"))
-			if n == "simple" {
-				// Since the map lookup creates another call stack entry, add a one-off
-				// "simple" panic style to test the very minimal case.
-				// types["simple"].f is never called.
-				panic("simple")
-			}
-			f.f()
-			os.Exit(3)
-		}
-		// Undocumented command to do a raw dump of the supported commands. This is
-		// used by unit tests in ../../stack.
-		if n == "dump_commands" {
-			items := make([]string, 0, len(types))
-			for n := range types {
-				items = append(items, n)
-			}
-			sort.Strings(items)
-			for _, n := range items {
-				fmt.Printf("%s\n", n)
-			}
-			os.Exit(0)
-		}
-		fmt.Fprintf(stdErr, "unknown panic style %q\n", n)
-		os.Exit(1)
-	}
-	usage()
 }
 
 func usage() {
