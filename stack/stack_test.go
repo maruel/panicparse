@@ -302,7 +302,7 @@ func TestArgs(t *testing.T) {
 		},
 		Elided: true,
 	}
-	compareString(t, "0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, foo, 0, 0, 0, 0, ...", a.String())
+	compareString(t, "4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, foo, 0, 0, 0, 0, ...", a.String())
 
 	a = Args{Processed: []string{"yo"}}
 	compareString(t, "yo", a.String())

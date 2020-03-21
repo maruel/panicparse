@@ -106,7 +106,7 @@ func TestStackLines(t *testing.T) {
 					Func:    stack.Func{Raw: "runtime.Epollwait"},
 					Args: stack.Args{
 						Values: []stack.Arg{
-							{Value: 0x4},
+							{Value: 4},
 							{Value: 0x7fff671c7118},
 							{Value: 0xffffffff00000080},
 							{},
@@ -150,7 +150,7 @@ func TestStackLines(t *testing.T) {
 	}
 	// When printing, it prints the remote path, not the transposed local path.
 	expected := "" +
-		"    Eruntime    F/goroot/src/runtime/sys_linux_amd64.s:400 HEpollwaitL(0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
+		"    Eruntime    F/goroot/src/runtime/sys_linux_amd64.s:400 HEpollwaitL(4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
 		"    Eruntime    F/goroot/src/runtime/netpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
 		"    Emain       F/gopath/src/main.go:1472 IMainL(0xc208012000)A\n" +
 		"    Efoo        F/gopath/src/foo/bar.go:1575 KOtherExportedL()A\n" +
@@ -158,7 +158,7 @@ func TestStackLines(t *testing.T) {
 		"    (...)\n"
 	compareString(t, expected, testPalette.StackLines(s, 10, 10, fullPath))
 	expected = "" +
-		"    Eruntime    Fsys_linux_amd64.s:400 HEpollwaitL(0x4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
+		"    Eruntime    Fsys_linux_amd64.s:400 HEpollwaitL(4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
 		"    Eruntime    Fnetpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
 		"    Emain       Fmain.go:1472 IMainL(0xc208012000)A\n" +
 		"    Efoo        Fbar.go:1575 KOtherExportedL()A\n" +

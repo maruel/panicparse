@@ -129,13 +129,15 @@ func (a *Arg) IsPtr() bool {
 	return a.Value > 16*1024*1024 && a.Value < math.MaxInt64
 }
 
+var lookup = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+
 // String prints the argument as the name if present, otherwise as the value.
 func (a *Arg) String() string {
 	if a.Name != "" {
 		return a.Name
 	}
-	if a.Value == 0 {
-		return "0"
+	if a.Value < uint64(len(lookup)) {
+		return lookup[a.Value]
 	}
 	return fmt.Sprintf("0x%x", a.Value)
 }
