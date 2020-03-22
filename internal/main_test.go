@@ -12,15 +12,13 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/maruel/panicparse/internal/internaltest"
 	"github.com/maruel/panicparse/stack"
 )
 
@@ -86,19 +84,6 @@ func TestMainFn(t *testing.T) {
 
 //
 
-var (
-	// tmpBuildDir is initialized by testMain().
-	tmpBuildDir string
-
-	// panicPath is the path to github.com/maruel/panicparse/cmd/panic compiled.
-	// Use getPanic() instead.
-	panicPath     string
-	panicPathOnce sync.Once
-
-	data     []byte
-	dataOnce sync.Once
-)
-
 func compareString(t *testing.T, expected, actual string) {
 	helper(t)()
 	if diff := cmp.Diff(expected, actual); diff != "" {
@@ -118,50 +103,8 @@ func compareLines(t *testing.T, expected, actual []string) {
 	}
 }
 
-func getPanic(t *testing.T) string {
-	panicPathOnce.Do(func() {
-		if panicPath = build(); panicPath == "" {
-			t.Fatal("building panic failed")
-		}
-	})
-	return panicPath
-}
-
 func getReader(t *testing.T) io.Reader {
-	dataOnce.Do(func() {
-		data = execRun(getPanic(t), "simple")
-	})
-	return bytes.NewReader(data)
-}
-
-// execRun runs a command and returns the combined output.
-//
-// It ignores the exit code, since it's meant to run panic, which crashes by
-// design.
-func execRun(cmd ...string) []byte {
-	c := exec.Command(cmd[0], cmd[1:]...)
-	c.Env = append(os.Environ(), "GOTRACEBACK=all")
-	out, _ := c.CombinedOutput()
-	return out
-}
-
-func build() string {
-	out := filepath.Join(tmpBuildDir, "panic")
-	if runtime.GOOS == "windows" {
-		out += ".exe"
-	}
-	log.Printf("building %s", out)
-	// Disable inlining otherwise the inlining varies between local execution and
-	// remote execution. This can be observed as Elided being true without any
-	// argument.
-	args := []string{"build", "-gcflags", "-l", "-o", out}
-	c := exec.Command("go", append(args, "../cmd/panic")...)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	if err := c.Run(); err != nil {
-		return ""
-	}
-	return out
+	return bytes.NewReader(internaltest.PanicOutputs()["simple"])
 }
 
 // TestMain manages a temporary directory to build on first use ../cmd/panic
@@ -171,25 +114,7 @@ func TestMain(m *testing.M) {
 	if !testing.Verbose() {
 		log.SetOutput(ioutil.Discard)
 	}
+	// Set the environment variable so the stack doesn't include the info header.
 	os.Setenv("GOTRACEBACK", "all")
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) (exit int) {
-	var err error
-	tmpBuildDir, err = ioutil.TempDir("", "stack")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create temporary directory: %v", err)
-		return 1
-	}
-	defer func() {
-		log.Printf("deleting %s", tmpBuildDir)
-		if err := os.RemoveAll(tmpBuildDir); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to deletetemporary directory: %v", err)
-			if exit == 0 {
-				exit = 1
-			}
-		}
-	}()
-	return m.Run()
+	os.Exit(m.Run())
 }

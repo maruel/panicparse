@@ -104,6 +104,19 @@ func TestSnapshotHandler_LargeMemory(t *testing.T) {
 	wg.Wait()
 }
 
+func BenchmarkSnapshotHandle(b *testing.B) {
+	b.ReportAllocs()
+	req := httptest.NewRequest("GET", "/", nil)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		SnapshotHandler(w, req)
+		if w.Code != 200 {
+			b.Fatalf("%d\n%s", w.Code, w.Body.String())
+		}
+	}
+}
+
 func dummy(ctx context.Context, a1, a2, a3, a4, a5, a6, a7, a8, a9 *int) {
 	<-ctx.Done()
 }

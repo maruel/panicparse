@@ -6,14 +6,9 @@ package stack
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -535,55 +530,6 @@ func getSignature() *Signature {
 	}
 }
 
-var (
-	// tmpBuildDir is initialized by testMain().
-	tmpBuildDir string
-
-	// panicPath is the path to github.com/maruel/panicparse/cmd/panic compiled.
-	// Use getPanic() instead.
-	panicPath     string
-	panicPathOnce sync.Once
-
-	// panicRacePath is the path to github.com/maruel/panicparse/cmd/panic
-	// compiled with -race.
-	// Use getPanicRace() instead.
-	panicRacePath     string
-	panicRacePathOnce sync.Once
-
-	// panicwebPath is the path to github.com/maruel/panicparse/cmd/panicweb
-	// compiled.
-	// Use getPanicweb() instead.
-	panicwebPath     string
-	panicwebPathOnce sync.Once
-)
-
-func getPanic(t *testing.T) string {
-	panicPathOnce.Do(func() {
-		if panicPath = build("panic", false); panicPath == "" {
-			t.Fatal("building panic failed")
-		}
-	})
-	return panicPath
-}
-
-func getPanicRace(t *testing.T) string {
-	panicRacePathOnce.Do(func() {
-		if panicRacePath = build("panic", true); panicRacePath == "" {
-			t.Fatal("building panic with race detector failed")
-		}
-	})
-	return panicRacePath
-}
-
-func getPanicweb(t *testing.T) string {
-	panicwebPathOnce.Do(func() {
-		if panicwebPath = build("panicweb", false); panicwebPath == "" {
-			t.Fatal("building panicweb failed")
-		}
-	})
-	return panicwebPath
-}
-
 // TestMain manages a temporary directory to build on first use ../cmd/panic
 // and clean up at the end.
 func TestMain(m *testing.M) {
@@ -591,50 +537,5 @@ func TestMain(m *testing.M) {
 	if !testing.Verbose() {
 		log.SetOutput(ioutil.Discard)
 	}
-
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) (exit int) {
-	var err error
-	tmpBuildDir, err = ioutil.TempDir("", "stack")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create temporary directory: %v", err)
-		return 1
-	}
-	defer func() {
-		log.Printf("deleting %s", tmpBuildDir)
-		if err := os.RemoveAll(tmpBuildDir); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to deletetemporary directory: %v", err)
-			if exit == 0 {
-				exit = 1
-			}
-		}
-	}()
-	return m.Run()
-}
-
-func build(s string, race bool) string {
-	out := filepath.Join(tmpBuildDir, s)
-	if race {
-		out += "_race"
-	}
-	if runtime.GOOS == "windows" {
-		out += ".exe"
-	}
-	log.Printf("building %s", out)
-	// Disable inlining otherwise the inlining varies between local execution and
-	// remote execution. This can be observed as Elided being true without any
-	// argument.
-	args := []string{"build", "-gcflags", "-l", "-o", out}
-	if race {
-		args = append(args, "-race")
-	}
-	c := exec.Command("go", append(args, "../cmd/"+s)...)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	if err := c.Run(); err != nil {
-		return ""
-	}
-	return out
+	os.Exit(m.Run())
 }

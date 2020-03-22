@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/maruel/panicparse/internal/internaltest"
 )
 
 func TestAggregateNotAggressive(t *testing.T) {
@@ -164,6 +165,24 @@ func TestAggregateAggressive(t *testing.T) {
 		},
 	}
 	compareBuckets(t, expected, actual)
+}
+
+func BenchmarkAggregate(b *testing.B) {
+	b.ReportAllocs()
+	c, err := ParseDump(bytes.NewReader(internaltest.PanicwebOutput()), ioutil.Discard, true)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if c == nil {
+		b.Fatal("missing context")
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		buckets := Aggregate(c.Goroutines, AnyPointer)
+		if len(buckets) < 5 {
+			b.Fatal("expected more buckets")
+		}
+	}
 }
 
 func compareBuckets(t *testing.T, expected, actual []*Bucket) {

@@ -11,13 +11,14 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/maruel/panicparse/internal/internaltest"
 )
 
 func TestParseDumpNothing(t *testing.T) {
@@ -1153,7 +1154,7 @@ func TestGetGOPATHS(t *testing.T) {
 // Later they'll be used for the actual expectations instead of the hardcoded
 // ones above.
 func TestPanic(t *testing.T) {
-	cmds := strings.Split(strings.TrimSpace(string(execRun(getPanic(t), "dump_commands"))), "\n")
+	cmds := internaltest.PanicOutputs()
 	expected := map[string]int{
 		"chan_receive":              2,
 		"chan_send":                 2,
@@ -1173,35 +1174,20 @@ func TestPanic(t *testing.T) {
 	}
 	// Make sure all custom handlers are showing up in cmds.
 	for n := range custom {
-		found := false
-		for _, c := range cmds {
-			if c == n {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("untested mode: %s", n)
+		if _, ok := cmds[n]; !ok {
+			t.Fatalf("untested mode: %q in:\n%v", n, cmds)
 		}
 	}
 
-	for _, l := range cmds {
-		l := strings.TrimSpace(l)
-		t.Run(l, func(t *testing.T) {
-			t.Parallel()
-			p := ""
-			if l == "race" {
-				p = getPanicRace(t)
-			} else {
-				p = getPanic(t)
-			}
-			data := execRun(p, l)
+	for cmd, data := range cmds {
+		t.Run(cmd, func(t *testing.T) {
 			b := bytes.Buffer{}
 			c, err := ParseDump(bytes.NewReader(data), &b, true)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if l == "race" {
+			if cmd == "race" {
+				// TODO(maruel): Fix this.
 				if c != nil {
 					t.Fatal("unexpected context")
 				}
@@ -1211,14 +1197,14 @@ func TestPanic(t *testing.T) {
 			if c == nil {
 				t.Fatal("context is nil")
 			}
-			if f := custom[l]; f != nil {
+			if f := custom[cmd]; f != nil {
 				f(t, c, &b, ppDir)
 				return
 			}
 			if c.GOROOT != runtime.GOROOT() {
 				//t.Logf("GOROOT is %q", c.GOROOT)
 			}
-			e := expected[l]
+			e := expected[cmd]
 			if e == 0 {
 				e = 1
 			}
@@ -1430,9 +1416,8 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 // asleep".
 func TestPanicweb(t *testing.T) {
 	t.Parallel()
-	data := execRun(getPanicweb(t))
 	b := bytes.Buffer{}
-	c, err := ParseDump(bytes.NewReader(data), &b, true)
+	c, err := ParseDump(bytes.NewReader(internaltest.PanicwebOutput()), &b, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1484,6 +1469,38 @@ func TestPanicweb(t *testing.T) {
 		t.Fatalf("found %d stdlib signatures", v)
 	}
 }
+
+func BenchmarkParseDump_Guess(b *testing.B) {
+	b.ReportAllocs()
+	data := internaltest.PanicwebOutput()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c, err := ParseDump(bytes.NewReader(data), ioutil.Discard, true)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if c == nil {
+			b.Fatal("missing context")
+		}
+	}
+}
+
+func BenchmarkParseDump_NoGuess(b *testing.B) {
+	b.ReportAllocs()
+	data := internaltest.PanicwebOutput()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c, err := ParseDump(bytes.NewReader(data), ioutil.Discard, false)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if c == nil {
+			b.Fatal("missing context")
+		}
+	}
+}
+
+//
 
 type panicwebSignatureType int
 
@@ -1677,17 +1694,6 @@ func isUsingModules(t *testing.T) bool {
 	}
 	s := os.Getenv("GO111MODULE")
 	return (def && (s == "auto" || s == "")) || s == "on"
-}
-
-// execRun runs a command and returns the combined output.
-//
-// It ignores the exit code, since it's meant to run panic, which crashes by
-// design.
-func execRun(cmd ...string) []byte {
-	c := exec.Command(cmd[0], cmd[1:]...)
-	c.Env = append(os.Environ(), "GOTRACEBACK=all")
-	out, _ := c.CombinedOutput()
-	return out
 }
 
 // getPanicParseDir returns the path to the root directory of panicparse

@@ -75,7 +75,7 @@ func (c *cache) load(fileName string) {
 		c.files[fileName] = nil
 		return
 	}
-	log.Printf("load(%s)", fileName)
+	//log.Printf("load(%s)", fileName)
 	if _, ok := c.files[fileName]; !ok {
 		var err error
 		if c.files[fileName], err = ioutil.ReadFile(fileName); err != nil {
