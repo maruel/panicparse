@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -1247,7 +1248,7 @@ func testPanicArgsElided(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 							Line:         58,
 							Func:         Func{Raw: "main.panicArgsElided"},
 							Args: Args{
-								Values: []Arg{{Value: 0x01}, {Value: 0x02}, {Value: 0x03}, {Value: 0x04}, {Value: 0x05}, {Value: 0x06}, {Value: 0x07}, {Value: 0x08}, {Value: 0x09}, {Value: 0x0a}},
+								Values: []Arg{{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5}, {Value: 6}, {Value: 7}, {Value: 8}, {Value: 9}, {Value: 10}},
 								Elided: true,
 							},
 						},
@@ -1338,7 +1339,7 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 							Line:         50,
 							Func:         Func{Raw: "main.panicstr"},
 							Args: Args{
-								Values: []Arg{{Value: 0x123456}, {Value: 0x04}},
+								Values: []Arg{{Value: 0x123456}, {Value: 4}},
 							},
 						},
 						{
@@ -1439,113 +1440,232 @@ func TestPanicweb(t *testing.T) {
 	actual := Aggregate(c.Goroutines, AnyPointer)
 	// The goal here is not to find the exact match since it'll change across
 	// OSes and Go versions, but to find some of the expected signatures.
-	if len(actual[0].IDs) != 1 || !actual[0].First {
-		t.Fatal("first bucket is not correct")
-	}
-
 	pwebDir := pathJoin(getPanicParseDir(t), "cmd", "panicweb")
-	// The first bucket (the one calling panic()) is deterministic.
-	crash := Signature{
-		State: "running",
-		Stack: Stack{
-			Calls: []Call{
-				{
-					SrcPath:      pathJoin(pwebDir, "main.go"),
-					LocalSrcPath: pathJoin(pwebDir, "main.go"),
-					Line:         60,
-					Func:         Func{Raw: "main.main"},
-					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
-				},
-			},
-		},
+	// Categorize the signatures.
+	var types []panicwebSignatureType
+	for _, b := range actual {
+		types = append(types, identifyPanicwebSignature(t, b, pwebDir))
 	}
-	compareSignatures(t, &crash, &actual[0].Signature)
-
-	// Categorize the signatures
-	var (
-		idURL1    = 0
-		idURL2    = 0
-		idclients []int
-		idMain    = 0
-	)
-	// Now we should find exactly 10 sleeping routines in one signature and 3 in
-	// another. They are respectively URL1Handler and URL2Handler.
-	for i := 1; i < len(actual); i++ {
-		if actual[i].State == "sleep" && len(actual[i].IDs) == 10 {
-			if idURL1 != 0 {
-				t.Fatal("found two URL1Handler")
-			}
-			idURL1 = i
-			// TODO(maruel): Scan Stack for URL1Handler.
-		}
-		if actual[i].State == "sleep" && len(actual[i].IDs) == 3 {
-			if idURL2 != 0 {
-				t.Fatal("found two URL2Handler")
-			}
-			idURL2 = i
-			// TODO(maruel): Scan Stack for URL2Handler.
-		}
+	// Count the expected types.
+	if v := pstCount(types, pstUnknown); v != 0 {
+		t.Fatalf("found %d unknown signatures", v)
 	}
-	if idURL1 == 0 {
-		t.Fatal("didn't find URL1Handler server handler signature")
+	if v := pstCount(types, pstMain); v != 1 {
+		t.Fatalf("found %d pstMain signatures", v)
 	}
-	if idURL2 == 0 {
-		t.Fatal("didn't find URL2Handler server handler signature")
+	if v := pstCount(types, pstURL1handler); v != 1 {
+		t.Fatalf("found %d URL1Handler signatures", v)
 	}
-
-	// Now find the client goroutine signatures. For the client, it is likely
-	// that they haven't all bucketed perfectly.
-	// There should be exactly one goroutine started by main.
-	for i := 1; i < len(actual); i++ {
-		if i == idURL1 || i == idURL2 || i == idMain {
-			continue
-		}
-		if actual[i].CreatedBy.Func.PkgDotName() == "internal.GetAsync" {
-			idclients = append(idclients, i)
-		} else if actual[i].CreatedBy.Func.PkgDotName() == "main.main" {
-			if idMain != 0 {
-				t.Fatal("found two server routines")
-			}
-			//t.Fatal("unexpected thread started by non-stdlib")
-			idMain = i
-		}
+	if v := pstCount(types, pstURL2handler); v != 1 {
+		t.Fatalf("found %d URL2Handler signatures", v)
 	}
-	if len(idclients) < 2 {
-		t.Fatalf("didn't find at least 2 clients: %v", idclients)
+	if v := pstCount(types, pstClient); v < 2 {
+		t.Fatalf("found %d client signatures", v)
 	}
-	if idMain == 0 {
-		t.Fatal("didn't find server handler signature")
+	if v := pstCount(types, pstServe); v != 1 {
+		t.Fatalf("found %d serve signatures", v)
 	}
-
-	// The rest should all be created with internal threads.
-	for i := 1; i < len(actual); i++ {
-		if i == idURL1 || i == idURL2 || i == idMain {
-			continue
-		}
-		found := false
-		for _, c := range idclients {
-			if c == i {
-				found = true
-				break
-			}
-		}
-		if found {
-			continue
-		}
-
-		if !actual[i].CreatedBy.IsStdlib {
-			if actual[i].CreatedBy.Func.Raw == "" {
-				// On older Go version, there's often an assembly stack in asm_amd64.s.
-				if len(actual[i].Stack.Calls) == 1 && actual[i].Stack.Calls[0].Func.Raw == "runtime.goexit" {
-					continue
-				}
-			}
-			t.Fatalf("unexpected thread started by non-stdlib: %# v", actual[i])
-		}
+	if v := pstCount(types, pstColorable); v != 1 {
+		t.Fatalf("found %d colorable signatures", v)
+	}
+	if v := pstCount(types, pstStdlib); v < 3 {
+		t.Fatalf("found %d stdlib signatures", v)
 	}
 }
 
+type panicwebSignatureType int
+
+const (
+	pstUnknown panicwebSignatureType = iota
+	pstMain
+	pstURL1handler
+	pstURL2handler
+	pstClient
+	pstServe
+	pstColorable
+	pstStdlib
+)
+
+func pstCount(s []panicwebSignatureType, t panicwebSignatureType) int {
+	i := 0
+	for _, v := range s {
+		if v == t {
+			i++
+		}
+	}
+	return i
+}
+
+func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicwebSignatureType {
+	// The first bucket (the one calling panic()) is deterministic.
+	if b.First {
+		if len(b.IDs) != 1 {
+			t.Fatal("first bucket is not correct")
+			return pstUnknown
+		}
+		crash := Signature{
+			State: "running",
+			Stack: Stack{
+				Calls: []Call{
+					{
+						SrcPath:      pathJoin(pwebDir, "main.go"),
+						LocalSrcPath: pathJoin(pwebDir, "main.go"),
+						Line:         68,
+						Func:         Func{Raw: "main.main"},
+						RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
+					},
+				},
+			},
+		}
+		compareSignatures(t, &crash, &b.Signature)
+		return pstMain
+	}
+
+	// We should find exactly 10 sleeping routines in the URL1Handler handler
+	// signature and 3 in URL2Handler.
+	if s := b.Stack.Calls[0].Func.Name(); s == "URL1Handler" || s == "URL2Handler" {
+		if b.State != "chan receive" {
+			t.Fatalf("suspicious: %#v", b)
+			return pstUnknown
+		}
+		if b.Stack.Calls[0].ImportPath() != "github.com/maruel/panicparse/cmd/panicweb/internal" {
+			t.Fatalf("suspicious: %#v", b)
+			return pstUnknown
+		}
+		if b.Stack.Calls[0].SrcName() != "internal.go" {
+			t.Fatalf("suspicious: %#v", b)
+			return pstUnknown
+		}
+		if b.CreatedBy.SrcName() != "server.go" {
+			t.Fatalf("suspicious: %#v", b)
+			return pstUnknown
+		}
+		if b.CreatedBy.Func.PkgDotName() != "http.(*Server).Serve" {
+			t.Fatalf("suspicious: %#v", b)
+			return pstUnknown
+		}
+		if s == "URL1Handler" {
+			return pstURL1handler
+		}
+		return pstURL2handler
+	}
+
+	// Find the client goroutine signatures. For the client, it is likely that
+	// they haven't all bucketed perfectly.
+	if b.CreatedBy.Func.PkgDotName() == "internal.GetAsync" {
+		// TODO(maruel): More checks.
+		return pstClient
+	}
+
+	// Now find the two goroutine started by main.
+	if b.CreatedBy.Func.PkgDotName() == "main.main" {
+		if b.State == "IO wait" {
+			return pstServe
+		}
+		if b.State == "chan receive" {
+			localgopath := getGOPATHs()[0]
+			// If not using Go modules, the path is different as the vendored version
+			// is used instead.
+			pColorable := "pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go"
+			pkgPrefix := ""
+			pRelColorable := ""
+			if !isUsingModules(t) {
+				t.Logf("Using vendored")
+				pRelColorable = "github.com/maruel/panicparse/vendor/github.com/mattn/go-colorable/noncolorable.go"
+				pColorable = "src/" + pRelColorable
+				pkgPrefix = "github.com/maruel/panicparse/vendor/"
+			} else {
+				t.Logf("Using go module")
+			}
+			expected := Signature{
+				State: "chan receive",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							SrcPath:      pathJoin(pwebDir, "main.go"),
+							LocalSrcPath: pathJoin(pwebDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
+							Line:         79,
+							Func:         Func{Raw: "main.(*writeHang).Write"},
+							Args:         Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
+						},
+						{
+							SrcPath:      pathJoin(localgopath, pColorable),
+							LocalSrcPath: pathJoin(localgopath, pColorable),
+							RelSrcPath:   pRelColorable,
+							Line:         30,
+							Func:         Func{Raw: pkgPrefix + "github.com/mattn/go-colorable.(*NonColorable).Write"},
+							Args:         Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
+						},
+					},
+				},
+				CreatedBy: Call{
+					SrcPath:      pathJoin(pwebDir, "main.go"),
+					LocalSrcPath: pathJoin(pwebDir, "main.go"),
+					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
+					Line:         61,
+					Func:         Func{Raw: "main.main"},
+				},
+			}
+			// The arguments content is variable, so just count the number of
+			// arguments and give up on the rest.
+			for i := range b.Signature.Stack.Calls {
+				for j := range b.Signature.Stack.Calls[i].Args.Values {
+					b.Signature.Stack.Calls[i].Args.Values[j].Value = 0
+					b.Signature.Stack.Calls[i].Args.Values[j].Name = ""
+				}
+			}
+			compareSignatures(t, &expected, &b.Signature)
+			return pstColorable
+		}
+		t.Fatalf("suspicious: %#v", b)
+		return pstUnknown
+	}
+
+	// The rest should all be created with internal threads.
+	if b.CreatedBy.IsStdlib {
+		return pstStdlib
+	}
+
+	// On older Go version, there's often an assembly stack in asm_amd64.s.
+	if b.CreatedBy.Func.Raw == "" {
+		if len(b.Stack.Calls) == 1 && b.Stack.Calls[0].Func.Raw == "runtime.goexit" {
+			return pstStdlib
+		}
+	}
+	t.Fatalf("unexpected thread started by non-stdlib: %# v", b)
+	return pstUnknown
+}
+
 //
+
+// isUsingModules is best guess to know if go module are enabled.
+func isUsingModules(t *testing.T) bool {
+	def := false
+	if ver := runtime.Version(); strings.HasPrefix(ver, "devel ") {
+		t.Logf("build %q; assuming a recent version", ver)
+		def = true
+	} else if strings.HasPrefix(ver, "go1.") {
+		v := ver[4:]
+		// Only keep the major version. In practice for Go 1.9 and 1.10 we should
+		// check the minor version too. Please submit a PR if you need to handle
+		// this case.
+		if i := strings.IndexByte(v, '.'); i != -1 {
+			v = v[:i]
+		}
+		if m, err := strconv.Atoi(v); m >= 14 {
+			def = true
+		} else if err != nil {
+			t.Errorf("failed to parse %q: %v", ver, err)
+		}
+	} else {
+		// This will break on go2. Please submit a PR to fix this once Go2 is
+		// released.
+		t.Fatalf("unexpected go version %q", ver)
+	}
+	s := os.Getenv("GO111MODULE")
+	return (def && (s == "auto" || s == "")) || s == "on"
+}
 
 // execRun runs a command and returns the combined output.
 //

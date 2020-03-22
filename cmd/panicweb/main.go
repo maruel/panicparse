@@ -23,6 +23,7 @@ import (
 
 	"github.com/maruel/panicparse/cmd/panicweb/internal"
 	"github.com/maruel/panicparse/stack/webstack"
+	"github.com/mattn/go-colorable"
 )
 
 func main() {
@@ -53,10 +54,28 @@ func main() {
 		internal.GetAsync(url + "url2")
 	}
 
+	// It's convoluted but colorable is the only go module used by panicparse
+	// that is both versioned and can be hacked to call back user code.
+	w := writeHang{hung: make(chan struct{}), unblock: make(chan struct{})}
+	v := colorable.NewNonColorable(&w)
+	go v.Write([]byte("foo bar"))
+	<-w.hung
+
 	if *sleep {
 		fmt.Printf("Compare:\n- %spanicparse\n- %sdebug/pprof/goroutine?debug=2\n", url, url)
 		<-make(chan struct{})
 	} else {
 		panic("Here's a snapshot of a normal web server.")
 	}
+}
+
+type writeHang struct {
+	hung    chan struct{}
+	unblock chan struct{}
+}
+
+func (w *writeHang) Write(b []byte) (int, error) {
+	w.hung <- struct{}{}
+	<-w.unblock
+	return 0, nil
 }

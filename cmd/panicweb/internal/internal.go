@@ -10,8 +10,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"time"
 )
+
+// Unblock unblocks one http server handler.
+var Unblock = make(chan struct{})
 
 // GetAsync does an HTTP GET to the URL but leaves the actual fetching to a
 // goroutine.
@@ -38,7 +40,7 @@ func URL1Handler(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(200)
 	b := [4096]byte{}
 	w.Write(b[:])
-	time.Sleep(time.Hour)
+	<-Unblock
 }
 
 // URL2Handler is a http.HandlerFunc that hangs.
@@ -49,5 +51,5 @@ func URL2Handler(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(200)
 	b := [4096]byte{}
 	w.Write(b[:])
-	time.Sleep(time.Hour)
+	<-Unblock
 }

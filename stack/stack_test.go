@@ -403,7 +403,7 @@ func compareString(t *testing.T, expected, actual string) {
 	}
 }
 
-// similarGoroutines compares goroutines to be similar enough.
+// similarGoroutines compares slice of Goroutine to be similar enough.
 //
 // Warning: it mutates inputs.
 func similarGoroutines(t *testing.T, expected, actual []*Goroutine) {
@@ -422,6 +422,17 @@ func zapGoroutines(t *testing.T, a, b []*Goroutine) {
 	for i := range a {
 		// &(*Goroutine).Signature
 		zapSignatures(t, &a[i].Signature, &b[i].Signature)
+	}
+}
+
+// similarSignatures compares Signature to be similar enough.
+//
+// Warning: it mutates inputs.
+func similarSignatures(t *testing.T, expected, actual *Signature) {
+	helper(t)()
+	zapSignatures(t, expected, actual)
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Fatalf("Signature mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -457,6 +468,10 @@ func zapArgs(t *testing.T, a, b *Args) {
 		if a.Values[i].Value != 0 && b.Values[i].Value != 0 {
 			a.Values[i].Value = 42
 			b.Values[i].Value = 42
+		}
+		if a.Values[i].Name != "" && b.Values[i].Name != "" {
+			a.Values[i].Name = "foo"
+			b.Values[i].Name = "foo"
 		}
 	}
 }
