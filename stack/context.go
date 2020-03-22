@@ -625,7 +625,7 @@ func parseFunc(line string) (*Call, error) {
 // hasSrcPrefix returns true if any of s is the prefix of p.
 func hasSrcPrefix(p string, s map[string]string) bool {
 	for prefix := range s {
-		if strings.HasPrefix(p, prefix+"/src/") {
+		if strings.HasPrefix(p, prefix+"/src/") || strings.HasPrefix(p, prefix+"/pkg/mod/") {
 			return true
 		}
 	}
@@ -719,10 +719,15 @@ func (c *Context) findRoots() {
 		}
 		found := false
 		for _, l := range c.localgopaths {
-			// TODO(maruel): Be stricter, check for "src" or "pkg/mod".
-			if r := rootedIn(l, parts); r != "" {
-				//log.Printf("Found GOPATH=%s", r)
-				c.GOPATHs[r] = l
+			if r := rootedIn(l+"/src", parts); r != "" {
+				//log.Printf("Found GOPATH=%s", r[:len(r)-4])
+				c.GOPATHs[r[:len(r)-4]] = l
+				found = true
+				break
+			}
+			if r := rootedIn(l+"/pkg/mod", parts); r != "" {
+				//log.Printf("Found GOPATH=%s", r[:len(r)-8])
+				c.GOPATHs[r[:len(r)-8]] = l
 				found = true
 				break
 			}

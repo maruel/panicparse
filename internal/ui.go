@@ -44,10 +44,16 @@ const (
 
 func (pf pathFormat) formatCall(c *stack.Call) string {
 	switch pf {
-	case fullPath:
-		return fmt.Sprintf("%s:%d", c.SrcPath, c.Line)
 	case relPath:
-		return fmt.Sprintf("%s:%d", c.RelSrcPath, c.Line)
+		if c.RelSrcPath != "" {
+			return fmt.Sprintf("%s:%d", c.RelSrcPath, c.Line)
+		}
+		fallthrough
+	case fullPath:
+		if c.LocalSrcPath != "" {
+			return fmt.Sprintf("%s:%d", c.LocalSrcPath, c.Line)
+		}
+		return fmt.Sprintf("%s:%d", c.SrcPath, c.Line)
 	default:
 		return fmt.Sprintf("%s:%d", c.SrcName(), c.Line)
 	}

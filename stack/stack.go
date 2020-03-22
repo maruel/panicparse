@@ -222,7 +222,7 @@ func (a *Args) merge(r *Args) Args {
 // Call is an item in the stack trace.
 type Call struct {
 	SrcPath      string // Full path name of the source file as seen in the trace
-	LocalSrcPath string // Full path name of the source file as seen in the host.
+	LocalSrcPath string // Full path name of the source file as seen in the host, if found.
 	Line         int    // Line number
 	Func         Func   // Fully qualified function name (encoded).
 	Args         Args   // Call arguments
@@ -318,31 +318,34 @@ const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 // goroot, localgoroot and gopaths are expected to be in "/" format even on
 // Windows. They must not have a trailing "/".
 func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
-	if c.SrcPath != "" {
-		if goroot != "" {
-			// Always check GOROOT first, then GOPATH.
-			if prefix := goroot + "/src/"; strings.HasPrefix(c.SrcPath, prefix) {
-				// Replace remote GOROOT with local GOROOT.
-				c.RelSrcPath = c.SrcPath[len(prefix):]
-				c.LocalSrcPath = pathJoin(localgoroot, "src", c.RelSrcPath)
-				c.IsStdlib = true
-			} else {
-				// Replace remote GOPATH with local GOPATH.
-				c.LocalSrcPath = c.SrcPath
-				// TODO(maruel): Sort for deterministic behavior?
-				for prefix, dest := range gopaths {
-					if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
-						c.RelSrcPath = c.SrcPath[len(p):]
-						c.LocalSrcPath = pathJoin(dest, "src", c.RelSrcPath)
-						break
-					}
-				}
-			}
-		} else {
-			// GOROOT was not detected, keep the path as is.
-			c.LocalSrcPath = c.SrcPath
+	if c.SrcPath == "" {
+		return
+	}
+	if goroot != "" {
+		// Always check GOROOT first, then GOPATH.
+		if prefix := goroot + "/src/"; strings.HasPrefix(c.SrcPath, prefix) {
+			// Replace remote GOROOT with local GOROOT.
+			c.RelSrcPath = c.SrcPath[len(prefix):]
+			c.LocalSrcPath = pathJoin(localgoroot, "src", c.RelSrcPath)
+			c.IsStdlib = true
+			goto done
 		}
 	}
+	// TODO(maruel): Sort for deterministic behavior?
+	for prefix, dest := range gopaths {
+		if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
+			c.RelSrcPath = c.SrcPath[len(p):]
+			c.LocalSrcPath = pathJoin(dest, "src", c.RelSrcPath)
+			goto done
+		}
+		// For modules, the path has to be altered, as it contains the version.
+		if p := prefix + "/pkg/mod/"; strings.HasPrefix(c.SrcPath, p) {
+			c.RelSrcPath = c.SrcPath[len(p):]
+			c.LocalSrcPath = pathJoin(dest, "pkg/mod", c.RelSrcPath)
+			goto done
+		}
+	}
+done:
 	if !c.IsStdlib {
 		// Consider _test/_testmain.go as stdlib since it's injected by "go test".
 		c.IsStdlib = c.PkgSrc() == testMainSrc

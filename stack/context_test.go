@@ -1245,6 +1245,7 @@ func testPanicArgsElided(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         58,
 							Func:         Func{Raw: "main.panicArgsElided"},
 							Args: Args{
@@ -1255,12 +1256,14 @@ func testPanicArgsElided(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         134,
 							Func:         Func{Raw: "main.glob..func1"},
 						},
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         340,
 							Func:         Func{Raw: "main.main"},
 						},
@@ -1290,6 +1293,7 @@ func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 						{
 							SrcPath:      pathJoin(ppDir, "internal", "incorrect", "correct.go"),
 							LocalSrcPath: pathJoin(ppDir, "internal", "incorrect", "correct.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 							Line:         7,
 							// This is important to note here that the Go runtime prints out
 							// the package path, and not the package name.
@@ -1301,12 +1305,14 @@ func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         314,
 							Func:         Func{Raw: "main.glob..func18"},
 						},
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         340,
 							Func:         Func{Raw: "main.main"},
 						},
@@ -1336,6 +1342,7 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         50,
 							Func:         Func{Raw: "main.panicstr"},
 							Args: Args{
@@ -1345,12 +1352,14 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         307,
 							Func:         Func{Raw: "main.glob..func17"},
 						},
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         340,
 							Func:         Func{Raw: "main.main"},
 						},
@@ -1382,6 +1391,7 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 							// Call in this situation.
 							SrcPath:      pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
 							LocalSrcPath: pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 							Line:         10,
 							// This is important to note here the inconsistency in the Go
 							// runtime stack generator. The path is escaped, but symbols are
@@ -1392,12 +1402,14 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         322,
 							Func:         Func{Raw: "main.glob..func19"},
 						},
 						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         340,
 							Func:         Func{Raw: "main.main"},
 						},
@@ -1568,7 +1580,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			// is used instead.
 			pColorable := "pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go"
 			pkgPrefix := ""
-			pRelColorable := ""
+			pRelColorable := "github.com/mattn/go-colorable@v0.1.6/noncolorable.go"
 			if !isUsingModules(t) {
 				t.Logf("Using vendored")
 				pRelColorable = "github.com/maruel/panicparse/vendor/github.com/mattn/go-colorable/noncolorable.go"
