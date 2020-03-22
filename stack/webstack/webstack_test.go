@@ -105,6 +105,8 @@ func TestSnapshotHandler_LargeMemory(t *testing.T) {
 }
 
 func BenchmarkSnapshotHandle(b *testing.B) {
+	// TODO(maruel): We should hook runtime.Stack() to make it a deterministic
+	// output with internaltest.StaticPanicwebOutput().
 	b.ReportAllocs()
 	req := httptest.NewRequest("GET", "/", nil)
 	b.ResetTimer()

@@ -437,6 +437,10 @@ func zapSignatures(t *testing.T, a, b *Signature) {
 		t.Error("different call length")
 		return
 	}
+	if a.CreatedBy.Line != 0 && b.CreatedBy.Line != 0 {
+		a.CreatedBy.Line = 42
+		b.CreatedBy.Line = 42
+	}
 	zapStacks(t, &a.Stack, &b.Stack)
 }
 

@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"runtime"
 
 	"github.com/maruel/panicparse/cmd/panicweb/internal"
 	"github.com/maruel/panicparse/stack/webstack"
@@ -27,11 +28,14 @@ import (
 )
 
 func main() {
-	allowremote := flag.Bool("allowremote", false, "allows access from non-localhost")
+	allowremote := flag.Bool("allowremote", false, "allows access from non-localhost; implies -wait")
 	sleep := flag.Bool("wait", false, "sleep instead of crashing")
-	port := flag.Int("port", 0, "specify a port number, defaults to a ephemeral port")
+	port := flag.Int("port", 0, "specify a port number, defaults to a ephemeral port; implies -wait")
 	flag.Parse()
 
+	if *port != 0 || *allowremote {
+		*sleep = true
+	}
 	addr := fmt.Sprintf(":%d", *port)
 	if !*allowremote {
 		addr = "localhost" + addr
@@ -54,6 +58,14 @@ func main() {
 		internal.GetAsync(url + "url2")
 	}
 
+	// Try to get something hung in package golang.org/x/unix.
+	wait := make(chan struct{})
+	go func() {
+		wait <- struct{}{}
+		sysHang()
+	}()
+	<-wait
+
 	// It's convoluted but colorable is the only go module used by panicparse
 	// that is both versioned and can be hacked to call back user code.
 	w := writeHang{hung: make(chan struct{}), unblock: make(chan struct{})}
@@ -75,6 +87,7 @@ type writeHang struct {
 }
 
 func (w *writeHang) Write(b []byte) (int, error) {
+	runtime.LockOSThread()
 	w.hung <- struct{}{}
 	<-w.unblock
 	return 0, nil

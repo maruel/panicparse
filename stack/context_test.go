@@ -1456,7 +1456,7 @@ func TestPanicweb(t *testing.T) {
 	if v := pstCount(types, pstURL2handler); v != 1 {
 		t.Fatalf("found %d URL2Handler signatures", v)
 	}
-	if v := pstCount(types, pstClient); v < 2 {
+	if v := pstCount(types, pstClient); v == 0 {
 		t.Fatalf("found %d client signatures", v)
 	}
 	if v := pstCount(types, pstServe); v != 1 {
@@ -1472,7 +1472,7 @@ func TestPanicweb(t *testing.T) {
 
 func BenchmarkParseDump_Guess(b *testing.B) {
 	b.ReportAllocs()
-	data := internaltest.PanicwebOutput()
+	data := internaltest.StaticPanicwebOutput()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		c, err := ParseDump(bytes.NewReader(data), ioutil.Discard, true)
@@ -1487,7 +1487,7 @@ func BenchmarkParseDump_Guess(b *testing.B) {
 
 func BenchmarkParseDump_NoGuess(b *testing.B) {
 	b.ReportAllocs()
-	data := internaltest.PanicwebOutput()
+	data := internaltest.StaticPanicwebOutput()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		c, err := ParseDump(bytes.NewReader(data), ioutil.Discard, false)
@@ -1539,7 +1539,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					{
 						SrcPath:      pathJoin(pwebDir, "main.go"),
 						LocalSrcPath: pathJoin(pwebDir, "main.go"),
-						Line:         68,
+						Line:         80,
 						Func:         Func{Raw: "main.main"},
 						RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
 					},
@@ -1614,7 +1614,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 							SrcPath:      pathJoin(pwebDir, "main.go"),
 							LocalSrcPath: pathJoin(pwebDir, "main.go"),
 							RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
-							Line:         79,
+							Line:         92,
 							Func:         Func{Raw: "main.(*writeHang).Write"},
 							Args:         Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
 						},
@@ -1632,9 +1632,10 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					SrcPath:      pathJoin(pwebDir, "main.go"),
 					LocalSrcPath: pathJoin(pwebDir, "main.go"),
 					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
-					Line:         61,
+					Line:         73,
 					Func:         Func{Raw: "main.main"},
 				},
+				Locked: true,
 			}
 			// The arguments content is variable, so just count the number of
 			// arguments and give up on the rest.
@@ -1647,7 +1648,11 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			compareSignatures(t, &expected, &b.Signature)
 			return pstColorable
 		}
-		t.Fatalf("suspicious: %#v", b)
+		if runtime.GOOS == "windows" && b.State == "syscall" {
+			// That's not really true, that's the windows.SleepEx() call.
+			return pstStdlib
+		}
+		t.Fatalf("suspicious: %# v", b)
 		return pstUnknown
 	}
 

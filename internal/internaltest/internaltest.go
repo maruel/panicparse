@@ -94,6 +94,13 @@ func PanicOutputs() map[string][]byte {
 	return out
 }
 
+// StaticPanicwebOutput returns a constant version of panicweb output for use
+// in benchmarks.
+func StaticPanicwebOutput() []byte {
+	// TODO(maruel): Implement this.
+	return PanicwebOutput()
+}
+
 //
 
 var (

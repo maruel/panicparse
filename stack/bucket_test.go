@@ -169,7 +169,7 @@ func TestAggregateAggressive(t *testing.T) {
 
 func BenchmarkAggregate(b *testing.B) {
 	b.ReportAllocs()
-	c, err := ParseDump(bytes.NewReader(internaltest.PanicwebOutput()), ioutil.Discard, true)
+	c, err := ParseDump(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, true)
 	if err != nil {
 		b.Fatal(err)
 	}

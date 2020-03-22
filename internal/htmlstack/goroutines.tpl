@@ -1,24 +1,5 @@
 <!DOCTYPE html>
 
-{{- /* Accepts a Call */ -}}
-{{- /*
-  TODO(maruel): Support custom local godoc server.
-  TODO(maruel): Find a way to link to remote source in a generic way via
-  pkg.go.dev.
-  TODO(maruel): Failing that, when it's a package on github, we could shortcut
-  to its web UI. That said we don't have access to the right Go module version,
-  so we'd still have to default to master, which can be more confusing than
-  helpful.
-*/ -}}
-{{- define "SrcHostURL" -}}
-  {{- if .IsStdlib -}}https://github.com/golang/go/blob/{{getVersion}}/src/{{.RelSrcPath}}#L{{.Line}}{{- else -}}file:///{{.SrcPath}}{{- end -}}
-{{- end -}}
-
-{{- /* Accepts a Call */ -}}
-{{- define "PkgHostURL" -}}
-  {{- if .IsStdlib -}}https://golang.org/pkg/{{- else -}}https://pkg.go.dev/{{- end -}}
-{{- end -}}
-
 {{- /* Accepts a Args */ -}}
 {{- define "RenderArgs" -}}
   <span class="args"><span>
@@ -36,8 +17,8 @@
 
 {{- /* Accepts a Call */ -}}
 {{- define "RenderCall" -}}
-  <span class="call"><a href="{{template "SrcHostURL" .}}">{{.SrcName}}:{{.Line}}</a> <span class="{{funcClass .}}">
-  <a href="{{template "PkgHostURL" .}}{{.ImportPath}}{{if .Func.IsExported}}#{{symbol .Func}}{{end}}">{{.Func.PkgName}}.{{.Func.Name}}</a></span>({{template "RenderArgs" .Args}})</span>
+  <span class="call"><a href="{{srcURL .}}">{{.SrcName}}:{{.Line}}</a> <span class="{{funcClass .}}">
+  <a href="{{pkgURL .}}">{{.Func.PkgName}}.{{.Func.Name}}</a></span>({{template "RenderArgs" .Args}})</span>
   {{- if isDebug -}}
   <br>SrcPath: {{.SrcPath}}
   <br>LocalSrcPath: {{.LocalSrcPath}}
@@ -53,13 +34,13 @@
       <tr>
         <td>{{$i}}</td>
         <td>
-          <a href="{{template "PkgHostURL" $e}}{{$e.ImportPath}}{{if $e.Func.IsExported}}#{{symbol $e.Func}}{{end}}">{{$e.Func.PkgName}}</a>
+          <a href="{{pkgURL $e}}">{{$e.Func.PkgName}}</a>
         </td>
         <td>
-          <a href="{{template "SrcHostURL" $e}}">{{$e.SrcName}}:{{$e.Line}}</a>
+          <a href="{{srcURL $e}}">{{$e.SrcName}}:{{$e.Line}}</a>
         </td>
         <td>
-          <span class="{{funcClass $e}}"><a href="{{template "PkgHostURL" $e}}{{$e.ImportPath}}{{if $e.Func.IsExported}}#{{symbol $e.Func}}{{end}}">{{$e.Func.Name}}</a></span>({{template "RenderArgs" $e.Args}})
+          <span class="{{funcClass $e}}"><a href="{{pkgURL $e}}">{{$e.Func.Name}}</a></span>({{template "RenderArgs" $e.Args}})
         </td>
       </tr>
     {{- end -}}
@@ -127,6 +108,11 @@
   .call {
     font-family: monospace;
   }
+  @media screen and (max-width: 500px) {
+    h1 {
+      font-size: 1.3em;
+    }
+  }
   @media screen and (max-width: 500px) and (orientation: portrait) {
     .args span {
       display: none;
@@ -134,6 +120,9 @@
     .args::after {
       content: '…';
     }
+  }
+  .created {
+    white-space: nowrap;
   }
 
   {{- /* Highlights */ -}}
@@ -162,14 +151,14 @@
     {{$l := len $e.IDs}}
     <h1>Signature #{{$i}}: <span class="{{routineClass $e}}">{{$l}} routine{{if ne 1 $l}}s{{end}}: <span class="state">{{$e.State}}</span>
     {{- if $e.SleepMax -}}
-      {{- if ne $e.SleepMin $e.SleepMax}} <span class="sleep">[{{$e.SleepMin}}~{{$e.SleepMax}} minutes]</span>
-      {{- else}} <span class="sleep">[{{$e.SleepMax}} minutes]</span>
+      {{- if ne $e.SleepMin $e.SleepMax}} <span class="sleep">[{{$e.SleepMin}}~{{$e.SleepMax}} mins]</span>
+      {{- else}} <span class="sleep">[{{$e.SleepMax}} mins]</span>
       {{- end -}}
     {{- end -}}
     </h1>
     {{if $e.Locked}} <span class="locked">[locked]</span>
     {{- end -}}
-    {{- if $e.CreatedBy.Func.Raw}} <span class="created">[Created by {{template "RenderCall" $e.CreatedBy}}]</span>
+    {{- if $e.CreatedBy.Func.Raw}} <span class="created">Created by: {{template "RenderCall" $e.CreatedBy}}</span>
     {{- end -}}
     {{template "RenderCalls" $e.Signature.Stack}}
   {{- end -}}
@@ -178,7 +167,7 @@
 <div id="legend">
   Created on {{.Now.String}}:
   <ul>
-    <li>{{getVersion}}</li>
+    <li>{{.Version}}</li>
     <li>GOROOT: {{.GOROOT}}</li>
     <li>GOPATH: {{.GOPATH}}</li>
     <li>GOMAXPROCS: {{.GOMAXPROCS}}</li>
