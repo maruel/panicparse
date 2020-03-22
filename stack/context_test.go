@@ -1548,7 +1548,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				},
 			},
 		}
-		compareSignatures(t, &crash, &b.Signature)
+		similarSignatures(t, &crash, &b.Signature)
 		return pstMain
 	}
 
@@ -1647,7 +1647,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					b.Signature.Stack.Calls[i].Args.Values[j].Name = ""
 				}
 			}
-			compareSignatures(t, &expected, &b.Signature)
+			similarSignatures(t, &expected, &b.Signature)
 			return pstColorable
 		}
 		// That's the unix.Nanosleep() or windows.SleepEx() call.
@@ -1721,7 +1721,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					SrcPath:      pathJoin(pwebDir, "main.go"),
 					LocalSrcPath: pathJoin(pwebDir, "main.go"),
 					Line:         65,
-					Func:         Func{Raw: "main.main.func1"},
+					Func:         Func{Raw: "main.main.func2"},
 					Args:         Args{Values: []Arg{{Value: 0xc000140720, Name: "#135"}}},
 					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
 				},

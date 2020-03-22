@@ -6,7 +6,9 @@ package webstack_test
 
 import (
 	"log"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,11 +29,29 @@ func ExampleSnapshotHandler_complex() {
 	//   case.
 	// - Serializes handler to one at a time.
 	// - Throttles requests to once per second.
+	// - Limit request source IP to localhost and 100.64.x.x/10. (e.g.
+	//   Tailscale).
 
 	const delay = time.Second
 	mu := sync.Mutex{}
 	var last time.Time
 	http.HandleFunc("/debug/panicparse", func(w http.ResponseWriter, req *http.Request) {
+		// Only allow requests from localhost or in the 100.64.x.x/10 IPv4 range.
+		ok := false
+		if i := strings.LastIndexByte(req.RemoteAddr, ':'); i != -1 {
+			switch ip := req.RemoteAddr[:i]; ip {
+			case "localhost", "127.0.0.1", "[::1]", "::1":
+				ok = true
+			default:
+				p := net.ParseIP(ip).To4()
+				ok = p != nil && p[0] == 100 && p[1] >= 64 && p[1] < 128
+			}
+		}
+		if !ok {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
 		// Serialize the handler.
 		mu.Lock()
 		defer mu.Unlock()

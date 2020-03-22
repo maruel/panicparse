@@ -21,6 +21,9 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/maruel/panicparse/cmd/panicweb/internal"
 	"github.com/maruel/panicparse/stack/webstack"
@@ -31,6 +34,7 @@ func main() {
 	allowremote := flag.Bool("allowremote", false, "allows access from non-localhost; implies -wait")
 	sleep := flag.Bool("wait", false, "sleep instead of crashing")
 	port := flag.Int("port", 0, "specify a port number, defaults to a ephemeral port; implies -wait")
+	limit := flag.Bool("limit", false, "throttle, port limit")
 	flag.Parse()
 
 	if *port != 0 || *allowremote {
@@ -46,7 +50,47 @@ func main() {
 	}
 	http.HandleFunc("/url1", internal.URL1Handler)
 	http.HandleFunc("/url2", internal.URL2Handler)
-	http.HandleFunc("/panicparse", webstack.SnapshotHandler)
+	if *limit {
+		// This is similar to ExampleSnapshotHandler_complex in stack/webstack,
+		// albeit form values are not altered.
+		const delay = time.Second
+		mu := sync.Mutex{}
+		var last time.Time
+		http.HandleFunc("/panicparse", func(w http.ResponseWriter, req *http.Request) {
+			// Only allow requests from localhost or in the 100.64.x.x/10 IPv4 range
+			// (e.g. Tailscale).
+			ok := false
+			if i := strings.LastIndexByte(req.RemoteAddr, ':'); i != -1 {
+				switch ip := req.RemoteAddr[:i]; ip {
+				case "localhost", "127.0.0.1", "[::1]", "::1":
+					ok = true
+				default:
+					p := net.ParseIP(ip).To4()
+					ok = p != nil && p[0] == 100 && p[1] >= 64 && p[1] < 128
+				}
+			}
+			log.Printf("- %s: %t", req.RemoteAddr, ok)
+			if !ok {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+
+			// Serialize the handler.
+			mu.Lock()
+			defer mu.Unlock()
+
+			// Throttle requests.
+			if time.Since(last) < delay {
+				http.Error(w, "retry later", http.StatusTooManyRequests)
+				return
+			}
+
+			webstack.SnapshotHandler(w, req)
+			last = time.Now()
+		})
+	} else {
+		http.HandleFunc("/panicparse", webstack.SnapshotHandler)
+	}
 	go http.Serve(ln, http.DefaultServeMux)
 
 	// Start many clients.
