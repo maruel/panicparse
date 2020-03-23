@@ -5,3 +5,12 @@ coverage:
   precision: 1
   range: "40...80"
   round: nearest
+  status:
+    patch:
+      default:
+        target: 60%
+        threshold: 10%
+    project:
+      default:
+        target: 60%
+        threshold: 10%
