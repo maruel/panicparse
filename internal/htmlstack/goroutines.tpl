@@ -3,13 +3,23 @@
 {{- /* Accepts a Args */ -}}
 {{- define "RenderArgs" -}}
   <span class="args"><span>
-  {{- $l := len .Values -}}
-  {{- $last := minus $l 1 -}}
   {{- $elided := .Elided -}}
-  {{- range $i, $e := .Values -}}
-    {{- $e.String -}}
-    {{- $isNotLast := ne $i $last -}}
-    {{- if or $elided $isNotLast}}, {{end -}}
+  {{- if .Processed -}}
+    {{- $l := len .Processed -}}
+    {{- $last := minus $l 1 -}}
+    {{- range $i, $e := .Processed -}}
+      {{- $e -}}
+      {{- $isNotLast := ne $i $last -}}
+      {{- if or $elided $isNotLast}}, {{end -}}
+    {{- end -}}
+  {{- else -}}
+    {{- $l := len .Values -}}
+    {{- $last := minus $l 1 -}}
+    {{- range $i, $e := .Values -}}
+      {{- $e.String -}}
+      {{- $isNotLast := ne $i $last -}}
+      {{- if or $elided $isNotLast}}, {{end -}}
+    {{- end -}}
   {{- end -}}
   {{- if $elided}}…{{end -}}
   </span></span>
@@ -124,6 +134,28 @@
   .created {
     white-space: nowrap;
   }
+  .topright {
+    float: right;
+  }
+  .button {
+    background-color: white;
+    border: 2px solid #4CAF50;
+    color: black;
+    margin: 0.3em;
+    padding: 0.6em 1.0em;
+    transition-duration: 0.4s;
+  }
+  .button:hover {
+    background-color: #4CAF50;
+    color: white;
+    box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
+  }
+  #augment {
+    display: none;
+  }
+  #content {
+    width: 100%;
+  }
 
   {{- /* Highlights */ -}}
   .FuncStdLibExported {
@@ -146,7 +178,29 @@
   .Routine {
   }
 </style>
+<script>
+function getParamByName(name) {
+  let query = window.location.search.substring(1);
+  let vars = query.split("&");
+  for (let i=0; i<vars.length; i++) {
+    let pair = vars[i].split("=");
+    if (pair[0] == name) {
+      return pair[1];
+    }
+  }
+}
+function ready() {
+  if (getParamByName("augment") === undefined) {
+    document.getElementById("augment").style.display = "inline";
+  }
+}
+document.addEventListener("DOMContentLoaded", ready);
+</script>
 <div id="content">
+  <div class="topright">
+    {{- /* Only shown when augment query parameter is not specified */ -}}
+    <a class=button id=augment href="?augment=1">Analyse sources</a>
+  </div>
   {{- range $i, $e := .Buckets -}}
     {{$l := len $e.IDs}}
     <h1>Signature #{{$i}}: <span class="{{routineClass $e}}">{{$l}} routine{{if ne 1 $l}}s{{end}}: <span class="state">{{$e.State}}</span>
