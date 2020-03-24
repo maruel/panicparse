@@ -2,12 +2,12 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-// +build unix
+// +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
 
 package main
 
 import "golang.org/x/sys/unix"
 
 func sysHang() {
-	unix.Nanosleep(&unix.Timespec{Sec: 3660 * 24 * 60 * 60}, &unix.Timespec{})
+	unix.Nanosleep(&unix.Timespec{Sec: 366 * 24 * 60 * 60}, &unix.Timespec{})
 }

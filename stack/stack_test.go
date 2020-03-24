@@ -450,12 +450,16 @@ func zapStacks(t *testing.T, a, b *Stack) {
 		return
 	}
 	for i := range a.Calls {
-		if a.Calls[i].Line != 0 && b.Calls[i].Line != 0 {
-			a.Calls[i].Line = 42
-			b.Calls[i].Line = 42
-		}
-		zapArgs(t, &a.Calls[i].Args, &b.Calls[i].Args)
+		zapCalls(t, &a.Calls[i], &b.Calls[i])
 	}
+}
+
+func zapCalls(t *testing.T, a, b *Call) {
+	if a.Line != 0 && b.Line != 0 {
+		a.Line = 42
+		b.Line = 42
+	}
+	zapArgs(t, &a.Args, &b.Args)
 }
 
 func zapArgs(t *testing.T, a, b *Args) {
@@ -531,6 +535,13 @@ func getSignature() *Signature {
 				},
 			},
 		},
+	}
+}
+
+func compareCalls(t *testing.T, expected, actual *Call) {
+	helper(t)()
+	if diff := cmp.Diff(expected, actual); diff != "" {
+		t.Fatalf("Call mismatch (-want +got):\n%s", diff)
 	}
 }
 

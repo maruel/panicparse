@@ -13,11 +13,13 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/maruel/panicparse/internal/internaltest"
 )
 
@@ -1648,8 +1650,89 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			compareSignatures(t, &expected, &b.Signature)
 			return pstColorable
 		}
-		if runtime.GOOS == "windows" && b.State == "syscall" {
-			// That's not really true, that's the windows.SleepEx() call.
+		// That's the unix.Nanosleep() or windows.SleepEx() call.
+		if b.State == "syscall" {
+			created := Call{
+				SrcPath:      pathJoin(pwebDir, "main.go"),
+				LocalSrcPath: pathJoin(pwebDir, "main.go"),
+				Line:         63,
+				Func:         Func{Raw: "main.main"},
+				RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
+			}
+			zapCalls(t, &created, &b.CreatedBy)
+			compareCalls(t, &created, &b.CreatedBy)
+			if l := len(b.IDs); l != 1 {
+				t.Fatalf("expected 1 goroutine for the signature, got %d", l)
+			}
+			if l := len(b.Stack.Calls); l != 4 {
+				t.Fatalf("expected %d calls, got %d", 4, l)
+			}
+			if runtime.GOOS == "windows" {
+				if s := b.Stack.Calls[0].RelSrcPath; s != "runtime/syscall_windows.go" {
+					t.Fatalf("expected %q file, got %q", "runtime/syscall_windows.go", s)
+				}
+			} else {
+				// The first item shall be an assembly file independent of the OS.
+				if s := b.Stack.Calls[0].RelSrcPath; !strings.HasSuffix(s, ".s") {
+					t.Fatalf("expected assembly file, got %q", s)
+				}
+			}
+			// Process the golang.org/x/sys call specifically.
+			fn := "golang.org/x/sys/unix.Nanosleep"
+			mainOS := "main_unix.go"
+			if runtime.GOOS == "windows" {
+				fn = "golang.org/x/sys/windows.SleepEx"
+				mainOS = "main_windows.go"
+			}
+			usingModules := isUsingModules(t)
+			if !usingModules {
+				fn = "github.com/maruel/panicparse/vendor/" + fn
+			}
+			if b.Stack.Calls[1].Func.Raw != fn {
+				t.Fatalf("expected %q, got %q", fn, b.Stack.Calls[1].Func.Raw)
+			}
+			prefix := "golang.org/x/sys@v0.0.0-"
+			if !usingModules {
+				// Assert that there's no version by including the trailing / and that
+				// it's using the vendored version.
+				prefix = "github.com/maruel/panicparse/vendor/golang.org/x/sys/"
+			}
+			if !strings.HasPrefix(b.Stack.Calls[1].RelSrcPath, prefix) {
+				t.Fatalf("expected %q, got %q", prefix, b.Stack.Calls[1].RelSrcPath)
+			}
+			if usingModules {
+				// Assert that it's using @v0-0-0.<date>-<commit> format.
+				ver := strings.SplitN(b.Stack.Calls[1].RelSrcPath[len(prefix):], "/", 2)[0]
+				re := regexp.MustCompile("^\\d{14}-[a-f0-9]{12}$")
+				if !re.MatchString(ver) {
+					t.Fatalf("unexpected version string %q", ver)
+				}
+			}
+			rest := []Call{
+				{
+					SrcPath:      pathJoin(pwebDir, mainOS),
+					LocalSrcPath: pathJoin(pwebDir, mainOS),
+					Line:         12,
+					Func:         Func{Raw: "main.sysHang"},
+					Args:         Args{},
+					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/" + mainOS,
+				},
+				{
+					SrcPath:      pathJoin(pwebDir, "main.go"),
+					LocalSrcPath: pathJoin(pwebDir, "main.go"),
+					Line:         65,
+					Func:         Func{Raw: "main.main.func1"},
+					Args:         Args{Values: []Arg{{Value: 0xc000140720, Name: "#135"}}},
+					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
+				},
+			}
+			actual := b.Stack.Calls[2:]
+			for i := range rest {
+				zapCalls(t, &actual[i], &rest[i])
+			}
+			if diff := cmp.Diff(rest, actual); diff != "" {
+				t.Fatalf("rest of stack mismatch (-want +got):\n%s", diff)
+			}
 			return pstStdlib
 		}
 		t.Fatalf("suspicious: %# v", b)
