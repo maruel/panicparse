@@ -25,10 +25,8 @@ func TestCallPkg(t *testing.T) {
 		"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		153)
 	// Call methods.
-	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("yaml.v2", "yaml.go"), c.PkgSrc())
-	compareString(t, "yaml.go:153", c.SrcLine())
 	compareString(t, "yaml.go", c.SrcName())
 
 	// Func methods.
@@ -54,10 +52,8 @@ func TestCallPkgMethod(t *testing.T) {
 		"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		153)
 	// Call methods.
-	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("yaml.v2", "yaml.go"), c.PkgSrc())
-	compareString(t, "yaml.go:153", c.SrcLine())
 	compareString(t, "yaml.go", c.SrcName())
 
 	// Func methods.
@@ -83,10 +79,8 @@ func TestCallPkgRemote(t *testing.T) {
 		"/remote/src/gopkg.in/yaml.v2/yaml.go",
 		153)
 	// Call methods.
-	compareString(t, "/remote/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("yaml.v2", "yaml.go"), c.PkgSrc())
-	compareString(t, "yaml.go:153", c.SrcLine())
 	compareString(t, "yaml.go", c.SrcName())
 
 	// Func methods.
@@ -112,10 +106,8 @@ func TestCallStdlib(t *testing.T) {
 		"/goroot/src/reflect/value.go",
 		2125)
 	// Call methods.
-	compareString(t, "/goroot/src/reflect/value.go:2125", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("reflect", "value.go"), c.PkgSrc())
-	compareString(t, "value.go:2125", c.SrcLine())
 	compareString(t, "value.go", c.SrcName())
 
 	// Func methods.
@@ -142,10 +134,8 @@ func TestCallStdlibRemote(t *testing.T) {
 		"/remote/src/reflect/value.go",
 		2125)
 	// Call methods.
-	compareString(t, "/remote/src/reflect/value.go:2125", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("reflect", "value.go"), c.PkgSrc())
-	compareString(t, "value.go:2125", c.SrcLine())
 	compareString(t, "value.go", c.SrcName())
 
 	// Func methods.
@@ -171,10 +161,8 @@ func TestCallMain(t *testing.T) {
 		"/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
 		428)
 	// Call methods.
-	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go:428", c.FullSrcLine())
 	compareBool(t, true, c.IsPkgMain())
 	compareString(t, pathJoin("pp", "main.go"), c.PkgSrc())
-	compareString(t, "main.go:428", c.SrcLine())
 	compareString(t, "main.go", c.SrcName())
 
 	// Func methods.
@@ -202,10 +190,8 @@ func TestCallMismatched(t *testing.T) {
 		"/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 		7)
 	// Call methods.
-	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go:7", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("incorrect", "correct.go"), c.PkgSrc())
-	compareString(t, "correct.go:7", c.SrcLine())
 	compareString(t, "correct.go", c.SrcName())
 
 	// Func methods.
@@ -233,10 +219,8 @@ func TestCallUTF8(t *testing.T) {
 		"/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 		10)
 	// Call methods.
-	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go:10", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("ùtf8", "ùtf8.go"), c.PkgSrc())
-	compareString(t, "ùtf8.go:10", c.SrcLine())
 	compareString(t, "ùtf8.go", c.SrcName())
 
 	// Func methods.
@@ -263,10 +247,8 @@ func TestCallC(t *testing.T) {
 		"/goroot/src/runtime/proc.c",
 		1472)
 	// Call methods.
-	compareString(t, "/goroot/src/runtime/proc.c:1472", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("runtime", "proc.c"), c.PkgSrc())
-	compareString(t, "proc.c:1472", c.SrcLine())
 	compareString(t, "proc.c", c.SrcName())
 
 	// Func methods.
@@ -335,14 +317,6 @@ func TestSignature(t *testing.T) {
 	compareString(t, "0~10 minutes", s.SleepString())
 	s.SleepMin = 10
 	compareString(t, "10 minutes", s.SleepString())
-	compareString(t, "", s.CreatedByString(true))
-	s.CreatedBy = newCall(
-		"DoStuff",
-		Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
-		"/gopath/src/foo/bar.go",
-		72)
-	compareString(t, "DoStuff @ bar.go:72", s.CreatedByString(false))
-	compareString(t, "DoStuff @ /gopath/src/foo/bar.go:72", s.CreatedByString(true))
 }
 
 func TestSignature_Equal(t *testing.T) {

@@ -293,22 +293,6 @@ func (c *Call) SrcName() string {
 	return filepath.Base(c.SrcPath)
 }
 
-// SrcLine returns "source.go:line", including only the base file name.
-//
-// Deprecated: Format it yourself, will be removed in v2.
-func (c *Call) SrcLine() string {
-	return fmt.Sprintf("%s:%d", c.SrcName(), c.Line)
-}
-
-// FullSrcLine returns "/path/to/source.go:line".
-//
-// This file path is mutated to look like the local path.
-//
-// Deprecated: Format it yourself, will be removed in v2.
-func (c *Call) FullSrcLine() string {
-	return fmt.Sprintf("%s:%d", c.SrcPath, c.Line)
-}
-
 // PkgSrc returns one directory plus the file name of the source file.
 //
 // Since the package name can differ from the package import path, the result
@@ -627,24 +611,6 @@ func (s *Signature) SleepString() string {
 		return fmt.Sprintf("%d~%d minutes", s.SleepMin, s.SleepMax)
 	}
 	return fmt.Sprintf("%d minutes", s.SleepMax)
-}
-
-// CreatedByString return a short context about the origin of this goroutine
-// signature.
-//
-// Deprecated: Format it yourself, will be removed in v2.
-func (s *Signature) CreatedByString(fullPath bool) string {
-	created := s.CreatedBy.Func.PkgDotName()
-	if created == "" {
-		return ""
-	}
-	created += " @ "
-	if fullPath {
-		created += s.CreatedBy.FullSrcLine()
-	} else {
-		created += s.CreatedBy.SrcLine()
-	}
-	return created
 }
 
 func (s *Signature) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) {
