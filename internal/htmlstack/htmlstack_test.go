@@ -6,8 +6,10 @@ package htmlstack
 
 import (
 	"bytes"
+	"html/template"
 	"io/ioutil"
 	"regexp"
+	"runtime"
 	"testing"
 
 	"github.com/maruel/panicparse/internal/internaltest"
@@ -51,6 +53,132 @@ func TestGenerate(t *testing.T) {
 	}
 	if string(htmlRaw) != indexHTML {
 		t.Fatal("please run go generate")
+	}
+}
+
+// TestGetSrcBranchURL also tests pkgURL and srcURL and symbol.
+func TestGetSrcBranchURL(t *testing.T) {
+	ver := runtime.Version()
+	data := []struct {
+		c           stack.Call
+		url, branch template.URL
+		pkgURL      template.URL
+	}{
+		// Stdlib.
+		{
+			stack.Call{
+				SrcPath:      "/goroot/src/net/http/server.go",
+				LocalSrcPath: "/goroot/src/net/http/server.go",
+				Line:         2933,
+				Func:         stack.Func{Raw: "net/http.(*Server).Serve"},
+				IsStdlib:     true,
+				RelSrcPath:   "net/http/server.go",
+			},
+			template.URL("https://github.com/golang/go/blob/" + ver + "/src/net/http/server.go#L2933"),
+			template.URL(ver),
+			"https://golang.org/pkg/net/http#Server.Serve",
+		},
+		// Go mod ref.
+		{
+			stack.Call{
+				SrcPath:      "/home/maruel/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
+				LocalSrcPath: "/home/maruel/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
+				Line:         30,
+				Func:         stack.Func{Raw: "github.com/mattn/go-colorable.(*NonColorable).Write"},
+				RelSrcPath:   "github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
+			},
+			"https://github.com/mattn/go-colorable/blob/v0.1.6/noncolorable.go#L30",
+			"v0.1.6",
+			"https://pkg.go.dev/github.com/mattn/go-colorable@v0.1.6#NonColorable.Write",
+		},
+		// Go mod auto-ref.
+		{
+			stack.Call{
+				SrcPath:      "/home/user/go/pkg/mod/golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go",
+				LocalSrcPath: "/home/user/go/pkg/mod/golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go",
+				Line:         1160,
+				Func:         stack.Func{Raw: "golang.org/x/sys/unix.Nanosleep"},
+				RelSrcPath:   "golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go",
+			},
+			"https://github.com/golang/sys/blob/d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go#L1160",
+			"v0.0.0-20200223170610-d5e6a3e2c0ae",
+			"https://pkg.go.dev/golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix#Nanosleep",
+		},
+		// Vendor.
+		{
+			stack.Call{
+				SrcPath:      "/home/user/go/src/github.com/maruel/panicparse/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go",
+				LocalSrcPath: "/home/user/go/src/github.com/maruel/panicparse/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go",
+				Line:         1100,
+				Func:         stack.Func{Raw: "github.com/maruel/panicparse/vendor/golang.org/x/sys/unix.Nanosleep"},
+				RelSrcPath:   "github.com/maruel/panicparse/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go",
+			},
+			"https://github.com/golang/sys/blob/master/unix/zsyscall_linux_amd64.go#L1100",
+			"master",
+			"https://godoc.org/golang.org/x/sys/unix#Nanosleep",
+		},
+		{
+			stack.Call{SrcPath: "c:/random.go"},
+			"file:///c:/random.go",
+			"",
+			"",
+		},
+		{
+			stack.Call{LocalSrcPath: "c:/random.go"},
+			"file:///c:/random.go",
+			"",
+			"",
+		},
+		{
+			stack.Call{},
+			"",
+			"",
+			"",
+		},
+	}
+	for _, line := range data {
+		url, branch := getSrcBranchURL(&line.c)
+		if url != line.url {
+			t.Fatalf("%q != %q", url, line.url)
+		}
+		if branch != line.branch {
+			t.Fatalf("%q != %q", branch, line.branch)
+		}
+		if url := srcURL(&line.c); url != line.url {
+			t.Fatalf("%q != %q", url, line.url)
+		}
+		if url := pkgURL(&line.c); url != line.pkgURL {
+			t.Fatalf("%q != %q", url, line.pkgURL)
+		}
+	}
+}
+
+func TestSymbol(t *testing.T) {
+	data := []struct {
+		in       stack.Func
+		expected template.URL
+	}{
+		{
+			stack.Func{Raw: "github.com/mattn/go-colorable.(*NonColorable).Write"},
+			"NonColorable.Write",
+		},
+		{
+			stack.Func{Raw: "golang.org/x/sys/unix.Nanosleep"},
+			"Nanosleep",
+		},
+		{
+			stack.Func{},
+			"",
+		},
+		{
+			stack.Func{Raw: "foo/bar"},
+			"",
+		},
+	}
+	for _, line := range data {
+		if s := symbol(&line.in); s != line.expected {
+			t.Fatalf("%q != %q", s, line.expected)
+		}
 	}
 }
 
