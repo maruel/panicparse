@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"regexp"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/maruel/panicparse/internal/internaltest"
@@ -17,9 +18,8 @@ import (
 )
 
 func TestWrite2Buckets(t *testing.T) {
-	buckets := getBuckets()
 	buf := bytes.Buffer{}
-	if err := Write(&buf, buckets, true); err != nil {
+	if err := Write(&buf, getBuckets(), false, false); err != nil {
 		t.Fatal(err)
 	}
 	// We expect this to be fairly static across Go versions. We want to know if
@@ -32,9 +32,8 @@ func TestWrite2Buckets(t *testing.T) {
 
 func TestWrite1Bucket(t *testing.T) {
 	// Exercise a condition when there's only one bucket.
-	buckets := getBuckets()[:1]
 	buf := bytes.Buffer{}
-	if err := Write(&buf, buckets, true); err != nil {
+	if err := Write(&buf, getBuckets()[:1], false, false); err != nil {
 		t.Fatal(err)
 	}
 	// We expect this to be fairly static across Go versions. We want to know if
@@ -42,6 +41,49 @@ func TestWrite1Bucket(t *testing.T) {
 	// tested on travis.
 	if l := buf.Len(); l < 4000 || l > 10000 {
 		t.Fatalf("unexpected length %d", l)
+	}
+}
+
+const needEnvStr = `To see all goroutines`
+
+const liveStr = `document.addEventListener("DOMContentLoaded", ready);`
+
+func TestWrite(t *testing.T) {
+	buf := bytes.Buffer{}
+	if err := Write(&buf, getBuckets()[:1], false, false); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), needEnvStr) {
+		t.Fatal("unexpected")
+	}
+	if strings.Contains(buf.String(), liveStr) {
+		t.Fatal("unexpected")
+	}
+}
+
+func TestWriteNeedEnv(t *testing.T) {
+	buf := bytes.Buffer{}
+	if err := Write(&buf, getBuckets()[:1], true, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), needEnvStr) {
+		t.Fatal("expected")
+	}
+	if strings.Contains(buf.String(), liveStr) {
+		t.Fatal("unexpected")
+	}
+}
+
+func TestWriteLive(t *testing.T) {
+	buf := bytes.Buffer{}
+	if err := Write(&buf, getBuckets()[:1], false, true); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), needEnvStr) {
+		t.Fatal("unexpected")
+	}
+	if !strings.Contains(buf.String(), liveStr) {
+		t.Fatal("expected")
 	}
 }
 
@@ -194,7 +236,7 @@ func BenchmarkWrite(b *testing.B) {
 	buckets := stack.Aggregate(c.Goroutines, stack.AnyPointer)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := Write(ioutil.Discard, buckets, true); err != nil {
+		if err := Write(ioutil.Discard, buckets, false, false); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -22,7 +22,7 @@ import (
 )
 
 // Write writes buckets as HTML to the writer.
-func Write(w io.Writer, buckets []*stack.Bucket, needsEnv bool) error {
+func Write(w io.Writer, buckets []*stack.Bucket, needsEnv, live bool) error {
 	m := template.FuncMap{
 		"funcClass": funcClass,
 		"minus":     minus,
@@ -48,6 +48,7 @@ func Write(w io.Writer, buckets []*stack.Bucket, needsEnv bool) error {
 		"GOMAXPROCS": runtime.GOMAXPROCS(0),
 		"GOPATH":     os.Getenv("GOPATH"),
 		"GOROOT":     runtime.GOROOT(),
+		"Live":       live,
 		"NeedsEnv":   needsEnv,
 		"Now":        time.Now().Truncate(time.Second),
 		"Version":    runtime.Version(),

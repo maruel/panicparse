@@ -99,7 +99,7 @@ func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pat
 	if err != nil {
 		return err
 	}
-	err = htmlstack.Write(f, buckets, needsEnv)
+	err = htmlstack.Write(f, buckets, needsEnv, false)
 	if err2 := f.Close(); err == nil {
 		err = err2
 	}

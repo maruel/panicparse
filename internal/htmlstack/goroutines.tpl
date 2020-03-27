@@ -194,7 +194,9 @@ function ready() {
     document.getElementById("augment").style.display = "inline";
   }
 }
+{{- if .Live -}}
 document.addEventListener("DOMContentLoaded", ready);
+{{- end -}}}
 </script>
 <div id="content">
   <div class="topright">
