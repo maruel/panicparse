@@ -24,9 +24,8 @@ func ExampleSnapshotHandler() {
 
 func ExampleSnapshotHandler_complex() {
 	// This example does a few things:
-	// - Disables the use of argument "augment" to limit CPU/disk overhead.
-	// - Lowers the "maxmem" default value to reduce memory pressure in worst
-	//   case.
+	// - Enables "augment" by default, can be disabled manually with "?augment=0".
+	// - Forces the "maxmem" value to reduce memory pressure in worst case.
 	// - Serializes handler to one at a time.
 	// - Throttles requests to once per second.
 	// - Limit request source IP to localhost and 100.64.x.x/10. (e.g.
@@ -64,12 +63,13 @@ func ExampleSnapshotHandler_complex() {
 
 		// Must be called before touching req.Form.
 		req.ParseForm()
-		// Disable source scanning.
-		req.Form.Set("augment", "0")
-		// Default to use up to 32MiB for the goroutines snapshot.
-		if req.FormValue("maxmem") == "" {
-			req.Form.Set("maxmem", "33554432")
+		// Enable source scanning by default.
+		if req.FormValue("augment") == "" {
+			req.Form.Set("augment", "1")
 		}
+		// Reduces maximum memory usage to 32MiB (from 64MiB) for the goroutines
+		// snapshot.
+		req.Form.Set("maxmem", "33554432")
 
 		webstack.SnapshotHandler(w, req)
 		last = time.Now()
