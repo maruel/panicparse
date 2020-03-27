@@ -66,6 +66,9 @@ func (c *cache) augmentGoroutine(goroutine *Goroutine) {
 
 // load loads a source file and parses the AST tree. Failures are ignored.
 func (c *cache) load(fileName string) {
+	if fileName == "" {
+		return
+	}
 	if _, ok := c.parsed[fileName]; ok {
 		return
 	}

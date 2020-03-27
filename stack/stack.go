@@ -125,10 +125,10 @@ type Arg struct {
 // IsPtr returns true if we guess it's a pointer. It's only a guess, it can be
 // easily be confused by a bitmask.
 func (a *Arg) IsPtr() bool {
-	// Assumes all pointers are above 16MiB and positive; assuming that above half
+	// Assumes all pointers are above 8MiB and positive; assuming that above half
 	// the memory is kernel memory.
 	// 16MiB is probably too high.
-	return a.Value > 16*1024*1024 && a.Value < math.MaxInt64
+	return a.Value > 8*1024*1024 && a.Value < math.MaxInt64
 }
 
 var lookup = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
