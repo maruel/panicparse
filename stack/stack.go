@@ -10,7 +10,6 @@ package stack
 
 import (
 	"fmt"
-	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -126,9 +125,11 @@ type Arg struct {
 // easily be confused by a bitmask.
 func (a *Arg) IsPtr() bool {
 	// Assumes all pointers are above 8MiB and positive; assuming that above half
-	// the memory is kernel memory.
-	// 16MiB is probably too high.
-	return a.Value > 8*1024*1024 && a.Value < math.MaxInt64
+	// the memory is kernel memory. This is not always true.
+	// Assume the stack was generated with the same bitness (32 vs 64) than the
+	// code processing it.
+	const maxInt = uint64(int((^uint(0)) >> 1))
+	return a.Value > 8*1024*1024 && a.Value < maxInt
 }
 
 var lookup = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
