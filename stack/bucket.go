@@ -71,6 +71,7 @@ func Aggregate(goroutines []*Goroutine, similar Similarity) []*Bucket {
 // Bucket is a stack trace signature and the list of goroutines that fits this
 // signature.
 type Bucket struct {
+	// Signature is the generalized signature for this bucket.
 	Signature
 	// IDs is the ID of each Goroutine with this Signature.
 	IDs []int

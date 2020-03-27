@@ -125,7 +125,9 @@ type Arg struct {
 // IsPtr returns true if we guess it's a pointer. It's only a guess, it can be
 // easily be confused by a bitmask.
 func (a *Arg) IsPtr() bool {
-	// Assumes all pointers are above 16Mb and positive.
+	// Assumes all pointers are above 16MiB and positive; assuming that above half
+	// the memory is kernel memory.
+	// 16MiB is probably too high.
 	return a.Value > 16*1024*1024 && a.Value < math.MaxInt64
 }
 
@@ -142,11 +144,33 @@ func (a *Arg) String() string {
 	return fmt.Sprintf("0x%x", a.Value)
 }
 
+// similar returns true if the two Arg are equal or almost but not quite equal.
+func (a *Arg) similar(r *Arg, similar Similarity) bool {
+	switch similar {
+	case ExactFlags, ExactLines:
+		return *a == *r
+	case AnyValue:
+		return true
+	case AnyPointer:
+		if a.IsPtr() != r.IsPtr() {
+			return false
+		}
+		return a.IsPtr() || a.Value == r.Value
+	default:
+		return false
+	}
+}
+
 // Args is a series of function call arguments.
 type Args struct {
-	Values    []Arg    // Values is the arguments as shown on the stack trace. They are mangled via simplification.
-	Processed []string // Processed is the arguments generated from processing the source files. It can have a length lower than Values.
-	Elided    bool     // If set, it means there was a trailing ", ..."
+	// Values is the arguments as shown on the stack trace. They are mangled via
+	// simplification.
+	Values []Arg
+	// Processed is the arguments generated from processing the source files. It
+	// can have a length lower than Values.
+	Processed []string
+	// Elided when set means there was a trailing ", ...".
+	Elided bool
 }
 
 func (a *Args) String() string {
@@ -184,19 +208,9 @@ func (a *Args) similar(r *Args, similar Similarity) bool {
 	if a.Elided != r.Elided || len(a.Values) != len(r.Values) {
 		return false
 	}
-	if similar == AnyValue {
-		return true
-	}
-	for i, l := range a.Values {
-		switch similar {
-		case ExactFlags, ExactLines:
-			if l != r.Values[i] {
-				return false
-			}
-		default:
-			if l.IsPtr() != r.Values[i].IsPtr() || (!l.IsPtr() && l != r.Values[i]) {
-				return false
-			}
+	for i := range a.Values {
+		if !a.Values[i].similar(&r.Values[i], similar) {
+			return false
 		}
 	}
 	return true
@@ -221,15 +235,25 @@ func (a *Args) merge(r *Args) Args {
 
 // Call is an item in the stack trace.
 type Call struct {
-	SrcPath      string // Full path name of the source file as seen in the trace
-	LocalSrcPath string // Full path name of the source file as seen in the host, if found.
-	Line         int    // Line number
-	Func         Func   // Fully qualified function name (encoded).
-	Args         Args   // Call arguments
+	// SrcPath is the full path name of the source file as seen in the trace.
+	SrcPath string
+	// LocalSrcPath is the full path name of the source file as seen in the host,
+	// if found.
+	LocalSrcPath string
+	// Line is the line number.
+	Line int
+	// Func is the fully qualified function name (encoded).
+	Func Func
+	// Args is the call arguments.
+	Args Args
 
-	// Only set if guesspaths is set to true in ParseDump().
-	IsStdlib   bool   // true if it is a Go standard library function. This includes the 'go test' generated main executable.
-	RelSrcPath string // Relative path to GOROOT or GOPATH. Only set when Augment() is called.
+	// The following are only set if guesspaths is set to true in ParseDump().
+	// IsStdlib is true if it is a Go standard library function. This includes
+	// the 'go test' generated main executable.
+	IsStdlib bool
+	// RelSrcPath is the relative path to GOROOT or GOPATH. Only set when
+	// Augment() is called.
+	RelSrcPath string
 }
 
 // equal returns true only if both calls are exactly equal.
@@ -354,8 +378,12 @@ done:
 
 // Stack is a call stack.
 type Stack struct {
-	Calls  []Call // Call stack. First is original function, last is leaf function.
-	Elided bool   // Happens when there's >100 items in Stack, currently hardcoded in package runtime.
+	// Calls is the call stack. First is original function, last is leaf
+	// function.
+	Calls []Call
+	// Elided is set when there's >100 items in Stack, currently hardcoded in
+	// package runtime.
+	Elided bool
 }
 
 // equal returns true on if both call stacks are exactly equal.
@@ -472,6 +500,8 @@ func (s *Stack) updateLocations(goroot, localgoroot string, gopaths map[string]s
 // it's state, if it is thread locked, which call site created this goroutine,
 // etc.
 type Signature struct {
+	// State is the goroutine state at the time of the snapshot.
+	//
 	// Use git grep 'gopark(|unlock)\(' to find them all plus everything listed
 	// in runtime/traceback.go. Valid values includes:
 	//     - chan send, chan receive, select
@@ -488,12 +518,17 @@ type Signature struct {
 	// Scan states:
 	//    - scan, scanrunnable, scanrunning, scansyscall, scanwaiting, scandead,
 	//      scanenqueue
-	State     string
-	CreatedBy Call // Which other goroutine which created this one.
-	SleepMin  int  // Wait time in minutes, if applicable.
-	SleepMax  int  // Wait time in minutes, if applicable.
-	Stack     Stack
-	Locked    bool // Locked to an OS thread.
+	State string
+	// Createdby is the goroutine which created this one, if applicable.
+	CreatedBy Call
+	// SleepMin is the wait time in minutes, if applicable.
+	SleepMin int
+	// SleepMax is the wait time in minutes, if applicable.
+	SleepMax int
+	// Stack is the call stack.
+	Stack Stack
+	// Locked is set if the goroutine was locked to an OS thread.
+	Locked bool
 }
 
 // equal returns true only if both signatures are exactly equal.
@@ -601,9 +636,13 @@ func (s *Signature) updateLocations(goroot, localgoroot string, gopaths map[stri
 
 // Goroutine represents the state of one goroutine, including the stack trace.
 type Goroutine struct {
-	Signature      // It's stack trace, internal bits, state, which call site created it, etc.
-	ID        int  // Goroutine ID.
-	First     bool // First is the goroutine first printed, normally the one that crashed.
+	// Signature is the stack trace, internal bits, state, which call site
+	// created it, etc.
+	Signature
+	// ID is the goroutine id.
+	ID int
+	// First is the goroutine first printed, normally the one that crashed.
+	First bool
 }
 
 // Private stuff.
