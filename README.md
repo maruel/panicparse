@@ -17,7 +17,7 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
-   * **New in v1.3.0!**:
+   * **New in v1.4.0!**:
      [webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/stack/webstack#SnapshotHandler)
      is a http handler that serves a very tight and swell snapshot of your
      goroutines, much more readable than
@@ -30,6 +30,11 @@ panicparse helps make sense of Go crash dumps:
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
    * Parses the source files if available to augment the output.
    * Works on Windows.
+
+
+### webstack in action
+
+![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/panicparse_webstack.gif "Screencast")
 
 
 ## Authors
