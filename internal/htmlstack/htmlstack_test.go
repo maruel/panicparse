@@ -123,8 +123,8 @@ func TestGetSrcBranchURL(t *testing.T) {
 		// Go mod ref.
 		{
 			stack.Call{
-				SrcPath:      "/home/maruel/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
-				LocalSrcPath: "/home/maruel/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
+				SrcPath:      "/home/user/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
+				LocalSrcPath: "/home/user/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
 				Line:         30,
 				Func:         stack.Func{Raw: "github.com/mattn/go-colorable.(*NonColorable).Write"},
 				RelSrcPath:   "github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
@@ -132,6 +132,18 @@ func TestGetSrcBranchURL(t *testing.T) {
 			"https://github.com/mattn/go-colorable/blob/v0.1.6/noncolorable.go#L30",
 			"v0.1.6",
 			"https://pkg.go.dev/github.com/mattn/go-colorable@v0.1.6#NonColorable.Write",
+		},
+		{
+			stack.Call{
+				SrcPath:      "/home/user/go/pkg/mod/gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
+				LocalSrcPath: "/home/user/go/pkg/mod/gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
+				Line:         59,
+				Func:         stack.Func{Raw: "gopkg.in/fsnotify%2ev1.NewWatcher"},
+				RelSrcPath:   "gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
+			},
+			"file:////home/user/go/pkg/mod/gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
+			"v1.4.7",
+			"https://pkg.go.dev/gopkg.in/fsnotify.v1@v1.4.7#NewWatcher",
 		},
 		// Go mod auto-ref.
 		{

@@ -135,10 +135,11 @@ func escape(s string) template.URL {
 // srcURLandTag returns a link to the source on the web and the tag name for
 // the package version, if possible.
 func getSrcBranchURL(c *stack.Call) (template.URL, template.URL) {
+	tag := ""
 	if c.IsStdlib {
 		// TODO(maruel): This is not strictly speaking correct. The remote could be
 		// running a different Go version from the current executable.
-		tag := url.QueryEscape(runtime.Version())
+		tag = url.QueryEscape(runtime.Version())
 		return template.URL(fmt.Sprintf("https://github.com/golang/go/blob/%s/src/%s#L%d", tag, escape(c.RelSrcPath), c.Line)), template.URL(tag)
 	}
 	// One-off support for github. This will cover a fair share of the URLs, but
@@ -170,14 +171,23 @@ func getSrcBranchURL(c *stack.Call) (template.URL, template.URL) {
 			}
 			log.Printf("problematic golang.org URL: %q", rel)
 		default:
+			// For example gopkg.in. In this case there's no known way to find the
+			// link to the source files, but we can still try to extract the version
+			// if fetched from a go module.
+			// Do a best effort to find a version by searching for a '@'.
+			if i := strings.IndexByte(rel, '@'); i != -1 {
+				if j := strings.IndexByte(rel[i:], '/'); j != -1 {
+					tag = rel[i+1 : i+j]
+				}
+			}
 		}
 	}
 
 	if c.LocalSrcPath != "" {
-		return template.URL("file:///" + escape(c.LocalSrcPath)), ""
+		return template.URL("file:///" + escape(c.LocalSrcPath)), template.URL(tag)
 	}
 	if c.SrcPath != "" {
-		return template.URL("file:///" + escape(c.SrcPath)), ""
+		return template.URL("file:///" + escape(c.SrcPath)), template.URL(tag)
 	}
 	return "", ""
 }
