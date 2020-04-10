@@ -67,25 +67,25 @@ func TestParseDump1(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"),
 							SrcPath: "??",
-							Func:    Func{Raw: "github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"},
 						},
 						{
+							Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
+							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							Line:    153,
-							Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
-							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 						},
 						{
+							Func:    newFunc("reflect.Value.assignTo"),
+							Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 							SrcPath: "/goroot/src/reflect/value.go",
 							Line:    2125,
-							Func:    Func{Raw: "reflect.Value.assignTo"},
-							Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 						},
 						{
+							Func:    newFunc("main.main"),
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    428,
-							Func:    Func{Raw: "main.main"},
 						},
 					},
 				},
@@ -133,10 +133,10 @@ func TestParseDumpLongWait(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
+							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							Line:    153,
-							Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
-							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 						},
 					},
 				},
@@ -151,10 +151,10 @@ func TestParseDumpLongWait(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
+							Args:    Args{Values: []Arg{{Value: 0xc208033b21, Name: "#1"}}},
 							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							Line:    153,
-							Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
-							Args:    Args{Values: []Arg{{Value: 0xc208033b21, Name: "#1"}}},
 						},
 					},
 				},
@@ -169,10 +169,10 @@ func TestParseDumpLongWait(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
+							Args:    Args{Values: []Arg{{Value: 0xc208033b22, Name: "#2"}}},
 							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							Line:    153,
-							Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
-							Args:    Args{Values: []Arg{{Value: 0xc208033b22, Name: "#2"}}},
 						},
 					},
 				},
@@ -208,9 +208,9 @@ func TestParseDumpAsm(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("runtime.switchtoM"),
 							SrcPath: "/goroot/src/runtime/asm_amd64.s",
 							Line:    198,
-							Func:    Func{Raw: "runtime.switchtoM"},
 						},
 					},
 				},
@@ -244,9 +244,9 @@ func TestParseDumpAsmGo1dot13(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("runtime.switchtoM"),
 							SrcPath: "/goroot/src/runtime/asm_amd64.s",
 							Line:    198,
-							Func:    Func{Raw: "runtime.switchtoM"},
 						},
 					},
 				},
@@ -275,7 +275,8 @@ func TestParseDumpLineErr(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				Stack: Stack{Calls: []Call{{Func: Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"}}}},
+				Stack: Stack{
+					Calls: []Call{{Func: newFunc("github.com/maruel/panicparse/stack/stack.recurseType")}}},
 			},
 			ID:    1,
 			First: true,
@@ -306,14 +307,14 @@ func TestParseDumpCreatedErr(t *testing.T) {
 			Signature: Signature{
 				State: "running",
 				CreatedBy: Call{
-					Func: Func{Raw: "testing.RunTests"},
+					Func: newFunc("testing.RunTests"),
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("github.com/maruel/panicparse/stack/stack.recurseType"),
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    1,
-							Func:    Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"},
 						},
 					},
 				},
@@ -342,7 +343,7 @@ func TestParseDumpValueErr(t *testing.T) {
 			Signature: Signature{
 				State: "running",
 				Stack: Stack{
-					Calls: []Call{{Func: Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"}}},
+					Calls: []Call{{Func: newFunc("github.com/maruel/panicparse/stack/stack.recurseType")}},
 				},
 			},
 			ID:    1,
@@ -371,7 +372,7 @@ func TestParseDumpInconsistentIndent(t *testing.T) {
 				State: "running",
 				Stack: Stack{
 					Calls: []Call{
-						{Func: Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"}},
+						{Func: newFunc("github.com/maruel/panicparse/stack/stack.recurseType")},
 					},
 				},
 			},
@@ -429,16 +430,14 @@ func TestParseDumpElided(t *testing.T) {
 			Signature: Signature{
 				State: "garbage collection",
 				CreatedBy: Call{
+					Func:    newFunc("testing.RunTests"),
 					SrcPath: "/goroot/src/testing/testing.go",
 					Line:    555,
-					Func:    Func{Raw: "testing.RunTests"},
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    53,
-							Func:    Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"},
+							Func: newFunc("github.com/maruel/panicparse/stack/stack.recurseType"),
 							Args: Args{
 								Values: []Arg{
 									{Value: 0x7f4fa9a3ec70},
@@ -448,6 +447,8 @@ func TestParseDumpElided(t *testing.T) {
 									{Value: 0xc20803a8a0},
 								},
 							},
+							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							Line:    53,
 						},
 					},
 					Elided: true,
@@ -488,16 +489,14 @@ func TestParseDumpSysCall(t *testing.T) {
 			Signature: Signature{
 				State: "syscall",
 				CreatedBy: Call{
+					Func:    newFunc("os/signal.init·1"),
 					SrcPath: "/goroot/src/os/signal/signal_unix.go",
 					Line:    27,
-					Func:    Func{Raw: "os/signal.init·1"},
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SrcPath: "/goroot/src/runtime/lock_futex.go",
-							Line:    201,
-							Func:    Func{Raw: "runtime.notetsleepg"},
+							Func: newFunc("runtime.notetsleepg"),
 							Args: Args{
 								Values: []Arg{
 									{Value: 0x918100},
@@ -505,24 +504,26 @@ func TestParseDumpSysCall(t *testing.T) {
 									{Value: 0x1},
 								},
 							},
+							SrcPath: "/goroot/src/runtime/lock_futex.go",
+							Line:    201,
 						},
 						{
-							SrcPath: "/goroot/src/runtime/sigqueue.go",
-							Line:    109,
-							Func:    Func{Raw: "runtime.signal_recv"},
+							Func: newFunc("runtime.signal_recv"),
 							Args: Args{
 								Values: []Arg{{}},
 							},
+							SrcPath: "/goroot/src/runtime/sigqueue.go",
+							Line:    109,
 						},
 						{
+							Func:    newFunc("os/signal.loop"),
 							SrcPath: "/goroot/src/os/signal/signal_unix.go",
 							Line:    21,
-							Func:    Func{Raw: "os/signal.loop"},
 						},
 						{
+							Func:    newFunc("runtime.goexit"),
 							SrcPath: "/goroot/src/runtime/asm_amd64.s",
 							Line:    2232,
-							Func:    Func{Raw: "runtime.goexit"},
 						},
 					},
 				},
@@ -555,9 +556,9 @@ func TestParseDumpUnavailCreated(t *testing.T) {
 			Signature: Signature{
 				State: "running",
 				CreatedBy: Call{
+					Func:    newFunc("github.com/maruel/panicparse/stack.New"),
 					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:    131,
-					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
 				},
 				Stack: Stack{
 					Calls: []Call{{SrcPath: "<unavailable>"}},
@@ -649,15 +650,15 @@ func TestParseDumpNoOffset(t *testing.T) {
 				State: "runnable",
 				CreatedBy: Call{
 					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Func:    newFunc("github.com/maruel/panicparse/stack.New"),
 					Line:    113,
-					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("github.com/maruel/panicparse/stack.func·002"),
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    110,
-							Func:    Func{Raw: "github.com/maruel/panicparse/stack.func·002"},
 						},
 					},
 				},
@@ -709,7 +710,7 @@ func TestParseDumpFileError(t *testing.T) {
 				State: "running",
 				Stack: Stack{
 					Calls: []Call{
-						{Func: Func{Raw: "github.com/maruel/panicparse/stack.func·002"}},
+						{Func: newFunc("github.com/maruel/panicparse/stack.func·002")},
 					},
 				},
 			},
@@ -743,16 +744,16 @@ func TestParseDumpCreated(t *testing.T) {
 			Signature: Signature{
 				State: "running",
 				CreatedBy: Call{
+					Func:    newFunc("github.com/maruel/panicparse/stack.New"),
 					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:    131,
-					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("github.com/maruel/panicparse/stack.func·002"),
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    110,
-							Func:    Func{Raw: "github.com/maruel/panicparse/stack.func·002"},
 						},
 					},
 				},
@@ -784,14 +785,14 @@ func TestParseDumpCreatedError(t *testing.T) {
 			Signature: Signature{
 				State: "running",
 				CreatedBy: Call{
-					Func: Func{Raw: "github.com/maruel/panicparse/stack.New"},
+					Func: newFunc("github.com/maruel/panicparse/stack.New"),
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("github.com/maruel/panicparse/stack.func·002"),
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    110,
-							Func:    Func{Raw: "github.com/maruel/panicparse/stack.func·002"},
 						},
 					},
 				},
@@ -835,9 +836,7 @@ func TestParseDumpCCode(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SrcPath: "/goroot/src/runtime/sys_linux_amd64.s",
-							Line:    400,
-							Func:    Func{Raw: "runtime.epollwait"},
+							Func: newFunc("runtime.epollwait"),
 							Args: Args{
 								Values: []Arg{
 									{Value: 0x4},
@@ -853,35 +852,37 @@ func TestParseDumpCCode(t *testing.T) {
 								},
 								Elided: true,
 							},
+							SrcPath: "/goroot/src/runtime/sys_linux_amd64.s",
+							Line:    400,
 						},
 						{
+							Func:    newFunc("runtime.netpoll"),
+							Args:    Args{Values: []Arg{{Value: 0x901b01}, {}}},
 							SrcPath: "/goroot/src/runtime/netpoll_epoll.go",
 							Line:    68,
-							Func:    Func{Raw: "runtime.netpoll"},
-							Args:    Args{Values: []Arg{{Value: 0x901b01}, {}}},
 						},
 						{
+							Func:    newFunc("findrunnable"),
+							Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
 							SrcPath: "/goroot/src/runtime/proc.c",
 							Line:    1472,
-							Func:    Func{Raw: "findrunnable"},
-							Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
 						},
 						{
+							Func:    newFunc("schedule"),
 							SrcPath: "/goroot/src/runtime/proc.c",
 							Line:    1575,
-							Func:    Func{Raw: "schedule"},
 						},
 						{
+							Func:    newFunc("runtime.park_m"),
+							Args:    Args{Values: []Arg{{Value: 0xc2080017a0}}},
 							SrcPath: "/goroot/src/runtime/proc.c",
 							Line:    1654,
-							Func:    Func{Raw: "runtime.park_m"},
-							Args:    Args{Values: []Arg{{Value: 0xc2080017a0}}},
 						},
 						{
+							Func:    newFunc("runtime.mcall"),
+							Args:    Args{Values: []Arg{{Value: 0x432684}}},
 							SrcPath: "/goroot/src/runtime/asm_amd64.s",
 							Line:    186,
-							Func:    Func{Raw: "runtime.mcall"},
-							Args:    Args{Values: []Arg{{Value: 0x432684}}},
 						},
 					},
 				},
@@ -918,25 +919,25 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"),
 							SrcPath: "??",
-							Func:    Func{Raw: "github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek"},
 						},
 						{
+							Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
+							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 							SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							Line:    153,
-							Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
-							Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 						},
 						{
+							Func:    newFunc("reflect.Value.assignTo"),
+							Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 							SrcPath: "/goroot/src/reflect/value.go",
 							Line:    2125,
-							Func:    Func{Raw: "reflect.Value.assignTo"},
-							Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 						},
 						{
+							Func:    newFunc("main.main"),
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    428,
-							Func:    Func{Raw: "main.main"},
 						},
 					},
 				},
@@ -981,28 +982,28 @@ func TestParseDumpIndented(t *testing.T) {
 			Signature: Signature{
 				State: "running",
 				CreatedBy: Call{
+					Func:    newFunc("testing.(*T).Run"),
 					SrcPath: "/home/maruel/golang/go/src/testing/testing.go",
 					Line:    916,
-					Func:    Func{Raw: "testing.(*T).Run"},
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("foo/bar.TestArchiveFail.func1.2"),
 							SrcPath: "/home/maruel/go/foo/bar_test.go",
 							Line:    209,
-							Func:    Func{Raw: "foo/bar.TestArchiveFail.func1.2"},
 						},
 						{
+							Func:    newFunc("foo/bar.TestArchiveFail"),
+							Args:    Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}}},
 							SrcPath: "/home/maruel/go/src/foo/bar_test.go",
 							Line:    155,
-							Func:    Func{Raw: "foo/bar.TestArchiveFail"},
-							Args:    Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}}},
 						},
 						{
+							Func:    newFunc("testing.tRunner"),
+							Args:    Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}, {Value: 0x1615bf8}}},
 							SrcPath: "/home/maruel/golang/go/src/testing/testing.go",
 							Line:    865,
-							Func:    Func{Raw: "testing.tRunner"},
-							Args:    Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}, {Value: 0x1615bf8}}},
 						},
 					},
 				},
@@ -1090,9 +1091,9 @@ func TestRaceManual(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("main.panicRace"),
 							SrcPath: "/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:    252,
-							Func:    Func{Raw: "main.panicRace"},
 						},
 					},
 				},
@@ -1106,9 +1107,9 @@ func TestRaceManual(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("main.panicRace"),
 							SrcPath: "/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:    252,
-							Func:    Func{Raw: "main.panicRace"},
 						},
 					},
 				},
@@ -1231,29 +1232,29 @@ func testPanicArgsElided(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SrcPath:      pathJoin(ppDir, "main.go"),
-							LocalSrcPath: pathJoin(ppDir, "main.go"),
-							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
-							Line:         58,
-							Func:         Func{Raw: "main.panicArgsElided"},
+							Func: newFunc("main.panicArgsElided"),
 							Args: Args{
 								Values: []Arg{{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5}, {Value: 6}, {Value: 7}, {Value: 8}, {Value: 9}, {Value: 10}},
 								Elided: true,
 							},
-						},
-						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
+							Line:         58,
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
+						},
+						{
+							Func:         newFunc("main.glob..func1"),
+							SrcPath:      pathJoin(ppDir, "main.go"),
 							Line:         134,
-							Func:         Func{Raw: "main.glob..func1"},
-						},
-						{
-							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
+						},
+						{
+							Func:         newFunc("main.main"),
+							SrcPath:      pathJoin(ppDir, "main.go"),
 							Line:         340,
-							Func:         Func{Raw: "main.main"},
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 						},
 					},
 				},
@@ -1279,30 +1280,30 @@ func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SrcPath:      pathJoin(ppDir, "internal", "incorrect", "correct.go"),
-							LocalSrcPath: pathJoin(ppDir, "internal", "incorrect", "correct.go"),
-							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
-							Line:         7,
 							// This is important to note here that the Go runtime prints out
 							// the package path, and not the package name.
 							//
 							// Here the package name is "correct". There is no way to deduce
 							// this from the stack trace.
-							Func: Func{Raw: "github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic"},
+							Func:         newFunc("github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic"),
+							SrcPath:      pathJoin(ppDir, "internal", "incorrect", "correct.go"),
+							Line:         7,
+							LocalSrcPath: pathJoin(ppDir, "internal", "incorrect", "correct.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 						},
 						{
+							Func:         newFunc("main.glob..func18"),
 							SrcPath:      pathJoin(ppDir, "main.go"),
-							LocalSrcPath: pathJoin(ppDir, "main.go"),
-							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         314,
-							Func:         Func{Raw: "main.glob..func18"},
-						},
-						{
-							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
+						},
+						{
+							Func:         newFunc("main.main"),
+							SrcPath:      pathJoin(ppDir, "main.go"),
 							Line:         340,
-							Func:         Func{Raw: "main.main"},
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 						},
 					},
 				},
@@ -1328,28 +1329,28 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							SrcPath:      pathJoin(ppDir, "main.go"),
-							LocalSrcPath: pathJoin(ppDir, "main.go"),
-							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
-							Line:         50,
-							Func:         Func{Raw: "main.panicstr"},
+							Func: newFunc("main.panicstr"),
 							Args: Args{
 								Values: []Arg{{Value: 0x123456}, {Value: 4}},
 							},
-						},
-						{
 							SrcPath:      pathJoin(ppDir, "main.go"),
+							Line:         50,
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
+						},
+						{
+							Func:         newFunc("main.glob..func17"),
+							SrcPath:      pathJoin(ppDir, "main.go"),
 							Line:         307,
-							Func:         Func{Raw: "main.glob..func17"},
-						},
-						{
-							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
+						},
+						{
+							Func:         newFunc("main.main"),
+							SrcPath:      pathJoin(ppDir, "main.go"),
 							Line:         340,
-							Func:         Func{Raw: "main.main"},
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 						},
 					},
 				},
@@ -1375,31 +1376,31 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							// See TestCallUTF8 in stack_test.go for exercising the methods on
-							// Call in this situation.
-							SrcPath:      pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
-							LocalSrcPath: pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
-							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
-							Line:         10,
 							// This is important to note here the inconsistency in the Go
 							// runtime stack generator. The path is escaped, but symbols are
 							// not.
-							Func: Func{Raw: "github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic"},
+							Func: newFunc("github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic"),
 							Args: Args{Values: []Arg{{Value: 0xc0000b2e48}}},
+							// See TestCallUTF8 in stack_test.go for exercising the methods on
+							// Call in this situation.
+							SrcPath:      pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
+							Line:         10,
+							LocalSrcPath: pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 						},
 						{
+							Func:         newFunc("main.glob..func19"),
 							SrcPath:      pathJoin(ppDir, "main.go"),
-							LocalSrcPath: pathJoin(ppDir, "main.go"),
-							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 							Line:         322,
-							Func:         Func{Raw: "main.glob..func19"},
-						},
-						{
-							SrcPath:      pathJoin(ppDir, "main.go"),
 							LocalSrcPath: pathJoin(ppDir, "main.go"),
 							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
+						},
+						{
+							Func:         newFunc("main.main"),
+							SrcPath:      pathJoin(ppDir, "main.go"),
 							Line:         340,
-							Func:         Func{Raw: "main.main"},
+							LocalSrcPath: pathJoin(ppDir, "main.go"),
+							RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/main.go",
 						},
 					},
 				},
@@ -1539,10 +1540,10 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			Stack: Stack{
 				Calls: []Call{
 					{
+						Func:         newFunc("main.main"),
 						SrcPath:      pathJoin(pwebDir, "main.go"),
-						LocalSrcPath: pathJoin(pwebDir, "main.go"),
 						Line:         80,
-						Func:         Func{Raw: "main.main"},
+						LocalSrcPath: pathJoin(pwebDir, "main.go"),
 						RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
 					},
 				},
@@ -1611,29 +1612,29 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			expected := Signature{
 				State: "chan receive",
 				CreatedBy: Call{
+					Func:         newFunc("main.main"),
 					SrcPath:      pathJoin(pwebDir, "main.go"),
+					Line:         73,
 					LocalSrcPath: pathJoin(pwebDir, "main.go"),
 					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
-					Line:         73,
-					Func:         Func{Raw: "main.main"},
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:         newFunc("main.(*writeHang).Write"),
+							Args:         Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
 							SrcPath:      pathJoin(pwebDir, "main.go"),
+							Line:         92,
 							LocalSrcPath: pathJoin(pwebDir, "main.go"),
 							RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
-							Line:         92,
-							Func:         Func{Raw: "main.(*writeHang).Write"},
-							Args:         Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
 						},
 						{
+							Func:         newFunc(pkgPrefix + "github.com/mattn/go-colorable.(*NonColorable).Write"),
+							Args:         Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
 							SrcPath:      pathJoin(localgopath, pColorable),
+							Line:         30,
 							LocalSrcPath: pathJoin(localgopath, pColorable),
 							RelSrcPath:   pRelColorable,
-							Line:         30,
-							Func:         Func{Raw: pkgPrefix + "github.com/mattn/go-colorable.(*NonColorable).Write"},
-							Args:         Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
 						},
 					},
 				},
@@ -1653,10 +1654,10 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 		// That's the unix.Nanosleep() or windows.SleepEx() call.
 		if b.State == "syscall" {
 			created := Call{
+				Func:         newFunc("main.main"),
 				SrcPath:      pathJoin(pwebDir, "main.go"),
-				LocalSrcPath: pathJoin(pwebDir, "main.go"),
 				Line:         63,
-				Func:         Func{Raw: "main.main"},
+				LocalSrcPath: pathJoin(pwebDir, "main.go"),
 				RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
 			}
 			zapCalls(t, &created, &b.CreatedBy)
@@ -1710,19 +1711,18 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			}
 			rest := []Call{
 				{
+					Func:         newFunc("main.sysHang"),
 					SrcPath:      pathJoin(pwebDir, mainOS),
-					LocalSrcPath: pathJoin(pwebDir, mainOS),
 					Line:         12,
-					Func:         Func{Raw: "main.sysHang"},
-					Args:         Args{},
+					LocalSrcPath: pathJoin(pwebDir, mainOS),
 					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/" + mainOS,
 				},
 				{
-					SrcPath:      pathJoin(pwebDir, "main.go"),
-					LocalSrcPath: pathJoin(pwebDir, "main.go"),
-					Line:         65,
-					Func:         Func{Raw: "main.main.func2"},
+					Func:         newFunc("main.main.func2"),
 					Args:         Args{Values: []Arg{{Value: 0xc000140720, Name: "#135"}}},
+					SrcPath:      pathJoin(pwebDir, "main.go"),
+					Line:         65,
+					LocalSrcPath: pathJoin(pwebDir, "main.go"),
 					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
 				},
 			}

@@ -32,9 +32,9 @@ func TestCalcLengths(t *testing.T) {
 				Stack: stack.Stack{
 					Calls: []stack.Call{
 						{
+							Func:    newFunc("main.func·001"),
 							SrcPath: "/gopath/foo/baz.go",
 							Line:    123,
-							Func:    stack.Func{Raw: "main.func·001"},
 						},
 					},
 				},
@@ -62,11 +62,11 @@ func TestBucketHeader(t *testing.T) {
 		Signature: stack.Signature{
 			State: "chan receive",
 			CreatedBy: stack.Call{
+				Func:    newFunc("main.mainImpl"),
 				SrcPath: "/gopath/src/github.com/foo/bar/baz.go",
+				Line:    74,
 				// Set with -rebase is used. -rebase is implicit when -rel-path is used.
 				RelSrcPath: "github.com/foo/bar/baz.go",
-				Line:       74,
-				Func:       stack.Func{Raw: "main.mainImpl"},
 			},
 			SleepMax: 6,
 			SleepMin: 2,
@@ -101,9 +101,7 @@ func TestStackLines(t *testing.T) {
 		Stack: stack.Stack{
 			Calls: []stack.Call{
 				{
-					SrcPath: "/goroot/src/runtime/sys_linux_amd64.s",
-					Line:    400,
-					Func:    stack.Func{Raw: "runtime.Epollwait"},
+					Func: newFunc("runtime.Epollwait"),
 					Args: stack.Args{
 						Values: []stack.Arg{
 							{Value: 4},
@@ -119,30 +117,32 @@ func TestStackLines(t *testing.T) {
 						},
 						Elided: true,
 					},
+					SrcPath:  "/goroot/src/runtime/sys_linux_amd64.s",
+					Line:     400,
 					IsStdlib: true,
 				},
 				{
+					Func:     newFunc("runtime.netpoll"),
+					Args:     stack.Args{Values: []stack.Arg{{Value: 0x901b01}, {}}},
 					SrcPath:  "/goroot/src/runtime/netpoll_epoll.go",
 					Line:     68,
-					Func:     stack.Func{Raw: "runtime.netpoll"},
-					Args:     stack.Args{Values: []stack.Arg{{Value: 0x901b01}, {}}},
 					IsStdlib: true,
 				},
 				{
+					Func:    newFunc("main.Main"),
+					Args:    stack.Args{Values: []stack.Arg{{Value: 0xc208012000}}},
 					SrcPath: "/gopath/src/main.go",
 					Line:    1472,
-					Func:    stack.Func{Raw: "main.Main"},
-					Args:    stack.Args{Values: []stack.Arg{{Value: 0xc208012000}}},
 				},
 				{
+					Func:    newFunc("foo.OtherExported"),
 					SrcPath: "/gopath/src/foo/bar.go",
 					Line:    1575,
-					Func:    stack.Func{Raw: "foo.OtherExported"},
 				},
 				{
+					Func:    newFunc("foo.otherPrivate"),
 					SrcPath: "/gopath/src/foo/bar.go",
 					Line:    10,
-					Func:    stack.Func{Raw: "foo.otherPrivate"},
 				},
 			},
 			Elided: true,
@@ -168,6 +168,10 @@ func TestStackLines(t *testing.T) {
 }
 
 //
+
+func newFunc(s string) stack.Func {
+	return stack.Func{Raw: s}
+}
 
 func compareInt(t *testing.T, expected, actual int) {
 	helper(t)()

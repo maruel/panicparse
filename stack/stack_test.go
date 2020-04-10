@@ -16,10 +16,10 @@ import (
 
 func TestCallPkg(t *testing.T) {
 	c := Call{
+		Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
+		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 		SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:    153,
-		Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
-		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
 	// Call methods.
 	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
@@ -45,10 +45,10 @@ func TestCallPkg(t *testing.T) {
 
 func TestCallPkgMethod(t *testing.T) {
 	c := Call{
+		Func:    newFunc("gopkg.in/yaml%2ev2.(*decoder).unmarshal"),
+		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 		SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		Line:    153,
-		Func:    Func{Raw: "gopkg.in/yaml%2ev2.(*decoder).unmarshal"},
-		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
 	// Call methods.
 	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
@@ -74,10 +74,10 @@ func TestCallPkgMethod(t *testing.T) {
 
 func TestCallPkgRemote(t *testing.T) {
 	c := Call{
+		Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
+		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 		SrcPath: "/remote/src/gopkg.in/yaml.v2/yaml.go",
 		Line:    153,
-		Func:    Func{Raw: "gopkg.in/yaml%2ev2.handleErr"},
-		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
 	}
 	// Call methods.
 	compareString(t, "/remote/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
@@ -103,10 +103,10 @@ func TestCallPkgRemote(t *testing.T) {
 
 func TestCallStdlib(t *testing.T) {
 	c := Call{
+		Func:    newFunc("reflect.Value.assignTo"),
+		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 		SrcPath: "/goroot/src/reflect/value.go",
 		Line:    2125,
-		Func:    Func{Raw: "reflect.Value.assignTo"},
-		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 	}
 	// Call methods.
 	compareString(t, "/goroot/src/reflect/value.go:2125", c.FullSrcLine())
@@ -133,10 +133,10 @@ func TestCallStdlib(t *testing.T) {
 
 func TestCallStdlibRemote(t *testing.T) {
 	c := Call{
+		Func:    newFunc("reflect.Value.assignTo"),
+		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 		SrcPath: "/remote/src/reflect/value.go",
 		Line:    2125,
-		Func:    Func{Raw: "reflect.Value.assignTo"},
-		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
 	}
 	// Call methods.
 	compareString(t, "/remote/src/reflect/value.go:2125", c.FullSrcLine())
@@ -162,9 +162,9 @@ func TestCallStdlibRemote(t *testing.T) {
 
 func TestCallMain(t *testing.T) {
 	c := Call{
+		Func:    newFunc("main.main"),
 		SrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
 		Line:    428,
-		Func:    Func{Raw: "main.main"},
 	}
 	// Call methods.
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go:428", c.FullSrcLine())
@@ -192,10 +192,10 @@ func TestCallMain(t *testing.T) {
 func TestCallMismatched(t *testing.T) {
 	// See testPanicMismatched in context_test.go.
 	c := Call{
+		Func:         newFunc("github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic"),
 		SrcPath:      "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
-		LocalSrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 		Line:         7,
-		Func:         Func{Raw: "github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic"},
+		LocalSrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 	}
 	// Call methods.
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go:7", c.FullSrcLine())
@@ -223,11 +223,11 @@ func TestCallMismatched(t *testing.T) {
 func TestCallUTF8(t *testing.T) {
 	// See testPanicUTF8 in context_test.go.
 	c := Call{
-		SrcPath:      "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
-		LocalSrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
-		Line:         10,
-		Func:         Func{Raw: "github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic"},
+		Func:         newFunc("github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic"),
 		Args:         Args{Values: []Arg{{Value: 0xc0000b2e48}}},
+		SrcPath:      "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
+		Line:         10,
+		LocalSrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 	}
 	// Call methods.
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go:10", c.FullSrcLine())
@@ -254,10 +254,10 @@ func TestCallUTF8(t *testing.T) {
 
 func TestCallC(t *testing.T) {
 	c := Call{
+		Func:    newFunc("findrunnable"),
+		Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
 		SrcPath: "/goroot/src/runtime/proc.c",
 		Line:    1472,
-		Func:    Func{Raw: "findrunnable"},
-		Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
 	}
 	// Call methods.
 	compareString(t, "/goroot/src/runtime/proc.c:1472", c.FullSrcLine())
@@ -333,7 +333,7 @@ func TestSignature(t *testing.T) {
 		SrcPath: "/gopath/src/foo/bar.go",
 		Line:    72,
 		Func:    Func{Raw: "DoStuff"},
-		Args:    Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
+		Args:    Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
 	}
 	compareString(t, "DoStuff @ bar.go:72", s.CreatedByString(false))
 	compareString(t, "DoStuff @ /gopath/src/foo/bar.go:72", s.CreatedByString(true))
@@ -376,6 +376,10 @@ func TestSignature_Less(t *testing.T) {
 }
 
 //
+
+func newFunc(s string) Func {
+	return Func{Raw: s}
+}
 
 func compareBool(t *testing.T, expected, actual bool) {
 	helper(t)()
@@ -499,39 +503,39 @@ func getSignature() *Signature {
 		Stack: Stack{
 			Calls: []Call{
 				{
+					Func:    newFunc("main.func·001"),
+					Args:    Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
 					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:    72,
-					Func:    Func{Raw: "main.func·001"},
-					Args:    Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
 				},
 				{
+					Func:     newFunc("sliceInternal"),
+					Args:     Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
 					SrcPath:  "/golang/src/sort/slices.go",
 					Line:     72,
-					Func:     Func{Raw: "sliceInternal"},
-					Args:     Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
 					IsStdlib: true,
 				},
 				{
+					Func:     newFunc("Slice"),
+					Args:     Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
 					SrcPath:  "/golang/src/sort/slices.go",
 					Line:     72,
-					Func:     Func{Raw: "Slice"},
-					Args:     Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
 					IsStdlib: true,
 				},
 				{
+					Func:    newFunc("DoStuff"),
+					Args:    Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
 					SrcPath: "/gopath/src/foo/bar.go",
 					Line:    72,
-					Func:    Func{Raw: "DoStuff"},
-					Args:    Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
 				},
 				{
-					SrcPath: "/gopath/src/foo/bar.go",
-					Line:    72,
-					Func:    Func{Raw: "doStuffInternal"},
+					Func: newFunc("doStuffInternal"),
 					Args: Args{
-						Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}},
+						Values: []Arg{{Value: 0x11000000}, {Value: 2}},
 						Elided: true,
 					},
+					SrcPath: "/gopath/src/foo/bar.go",
+					Line:    72,
 				},
 			},
 		},

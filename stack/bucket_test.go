@@ -40,10 +40,10 @@ func TestAggregateNotAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("main.func·001"),
+							Args:    Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    72,
-							Func:    Func{Raw: "main.func·001"},
-							Args:    Args{Values: []Arg{{Value: 0x11000000, Name: ""}, {Value: 2}}},
 						},
 					},
 				},
@@ -57,10 +57,10 @@ func TestAggregateNotAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("main.func·001"),
+							Args:    Args{Values: []Arg{{Value: 0x21000000, Name: "#1"}, {Value: 2}}},
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    72,
-							Func:    Func{Raw: "main.func·001"},
-							Args:    Args{Values: []Arg{{Value: 0x21000000, Name: "#1"}, {Value: 2}}},
 						},
 					},
 				},
@@ -99,16 +99,16 @@ func TestAggregateExactMatching(t *testing.T) {
 			Signature: Signature{
 				State: "chan receive",
 				CreatedBy: Call{
+					Func:    newFunc("main.mainImpl"),
 					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:    74,
-					Func:    Func{Raw: "main.mainImpl"},
 				},
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("main.func·001"),
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    72,
-							Func:    Func{Raw: "main.func·001"},
 						},
 					},
 				},
@@ -152,10 +152,10 @@ func TestAggregateAggressive(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
+							Func:    newFunc("main.func·001"),
+							Args:    Args{Values: []Arg{{Value: 0x11000000, Name: "*"}, {Value: 2}}},
 							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							Line:    72,
-							Func:    Func{Raw: "main.func·001"},
-							Args:    Args{Values: []Arg{{Value: 0x11000000, Name: "*"}, {Value: 2}}},
 						},
 					},
 				},
