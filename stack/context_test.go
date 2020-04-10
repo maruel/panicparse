@@ -60,7 +60,7 @@ func TestParseDump1(t *testing.T) {
 		t.Fatal(err)
 	}
 	compareString(t, long+"\npanic: reflect.Set: value of type\n\n", extra.String())
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -94,10 +94,10 @@ func TestParseDump1(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+	for i := range want {
+		want[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 }
 
 func TestParseDumpLongWait(t *testing.T) {
@@ -124,7 +124,7 @@ func TestParseDumpLongWait(t *testing.T) {
 		t.Fatal(err)
 	}
 	compareString(t, "panic: bleh\n\n", extra.String())
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State:    "chan send",
@@ -181,10 +181,10 @@ func TestParseDumpLongWait(t *testing.T) {
 			ID: 3,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+	for i := range want {
+		want[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 }
 
 func TestParseDumpAsm(t *testing.T) {
@@ -201,7 +201,7 @@ func TestParseDumpAsm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "garbage collection",
@@ -219,7 +219,7 @@ func TestParseDumpAsm(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -237,7 +237,7 @@ func TestParseDumpAsmGo1dot13(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "garbage collection",
@@ -255,7 +255,7 @@ func TestParseDumpAsmGo1dot13(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -271,7 +271,7 @@ func TestParseDumpLineErr(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("failed to parse int on line: \"/gopath/src/github.com/maruel/panicparse/stack/stack.go:12345678901234567890\""), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -282,10 +282,10 @@ func TestParseDumpLineErr(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+	for i := range want {
+		want[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 }
 
 func TestParseDumpCreatedErr(t *testing.T) {
@@ -302,7 +302,7 @@ func TestParseDumpCreatedErr(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("failed to parse int on line: \"/goroot/src/testing/testing.go:123456789012345678901 +0xa8b\""), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -323,7 +323,7 @@ func TestParseDumpCreatedErr(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 }
 
 func TestParseDumpValueErr(t *testing.T) {
@@ -338,7 +338,7 @@ func TestParseDumpValueErr(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("failed to parse int on line: \"github.com/maruel/panicparse/stack/stack.recurseType(123456789012345678901)\""), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -350,10 +350,10 @@ func TestParseDumpValueErr(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range expected {
-		expected[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+	for i := range want {
+		want[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 }
 
 func TestParseDumpInconsistentIndent(t *testing.T) {
@@ -366,7 +366,7 @@ func TestParseDumpInconsistentIndent(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New(`inconsistent indentation: " \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1", expected "  "`), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -380,7 +380,7 @@ func TestParseDumpInconsistentIndent(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "", extra.String())
 }
 
@@ -397,14 +397,14 @@ func TestParseDumpOrderErr(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("expected a function after a goroutine header, got: \"/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6\""), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{State: "garbage collection"},
 			ID:        16,
 			First:     true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -425,7 +425,7 @@ func TestParseDumpElided(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "garbage collection",
@@ -458,7 +458,7 @@ func TestParseDumpElided(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -484,7 +484,7 @@ func TestParseDumpSysCall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "syscall",
@@ -532,7 +532,7 @@ func TestParseDumpSysCall(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -551,7 +551,7 @@ func TestParseDumpUnavailCreated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -568,7 +568,7 @@ func TestParseDumpUnavailCreated(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -586,7 +586,7 @@ func TestParseDumpUnavail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -598,7 +598,7 @@ func TestParseDumpUnavail(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -613,7 +613,7 @@ func TestParseDumpUnavailError(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("expected empty line after unavailable stack, got: \"junk\""), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -625,7 +625,7 @@ func TestParseDumpUnavailError(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -644,7 +644,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedGR := []*Goroutine{
+	wantGR := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "runnable",
@@ -667,7 +667,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expectedGR, c.Goroutines)
+	compareGoroutines(t, wantGR, c.Goroutines)
 }
 
 func TestParseDumpHeaderError(t *testing.T) {
@@ -681,14 +681,14 @@ func TestParseDumpHeaderError(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("expected a function after a goroutine header, got: \"junk\""), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{State: "running"},
 			ID:        1,
 			First:     true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -704,7 +704,7 @@ func TestParseDumpFileError(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("expected a file after a function, got: \"junk\""), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -718,7 +718,7 @@ func TestParseDumpFileError(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -739,7 +739,7 @@ func TestParseDumpCreated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -762,7 +762,7 @@ func TestParseDumpCreated(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\nexit status 2", extra.String())
 }
 
@@ -780,7 +780,7 @@ func TestParseDumpCreatedError(t *testing.T) {
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString(strings.Join(data, "\n")), extra, false)
 	compareErr(t, errors.New("expected a file after a created line, got: \"junk\""), err)
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -801,7 +801,7 @@ func TestParseDumpCreatedError(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
 }
 
@@ -829,7 +829,7 @@ func TestParseDumpCCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedGR := []*Goroutine{
+	wantGR := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "idle",
@@ -891,7 +891,7 @@ func TestParseDumpCCode(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expectedGR, c.Goroutines)
+	compareGoroutines(t, wantGR, c.Goroutines)
 }
 
 func TestParseDumpWithCarriageReturn(t *testing.T) {
@@ -912,7 +912,7 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -946,7 +946,7 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 }
 
 func TestParseDumpIndented(t *testing.T) {
@@ -977,7 +977,7 @@ func TestParseDumpIndented(t *testing.T) {
 		t.Fatal(err)
 	}
 	compareString(t, strings.Join(data[:7], "\n")+"\n", extra.String())
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -1012,7 +1012,7 @@ func TestParseDumpIndented(t *testing.T) {
 			First: true,
 		},
 	}
-	compareGoroutines(t, expected, c.Goroutines)
+	compareGoroutines(t, want, c.Goroutines)
 }
 
 func TestParseDumpRace(t *testing.T) {
@@ -1084,7 +1084,7 @@ func TestRaceManual(t *testing.T) {
 		"",
 	}
 	extra := &bytes.Buffer{}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -1129,9 +1129,9 @@ func TestRaceManual(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	compareGoroutines(t, expected, s.goroutines)
-	expectedOps := []raceOp{{false, 0xc0000e4030, 7}, {true, 0xc0000e4030, 6}}
-	if !reflect.DeepEqual(expectedOps, s.races) {
+	compareGoroutines(t, want, s.goroutines)
+	wantOps := []raceOp{{false, 0xc0000e4030, 7}, {true, 0xc0000e4030, 6}}
+	if !reflect.DeepEqual(wantOps, s.races) {
 		t.Fatalf("%v", s.races)
 	}
 }
@@ -1158,7 +1158,7 @@ func TestGetGOPATHS(t *testing.T) {
 // ones above.
 func TestPanic(t *testing.T) {
 	cmds := internaltest.PanicOutputs()
-	expected := map[string]int{
+	want := map[string]int{
 		"chan_receive":              2,
 		"chan_send":                 2,
 		"goroutine_1":               2,
@@ -1207,12 +1207,12 @@ func TestPanic(t *testing.T) {
 			if c.GOROOT != runtime.GOROOT() {
 				//t.Logf("GOROOT is %q", c.GOROOT)
 			}
-			e := expected[cmd]
+			e := want[cmd]
 			if e == 0 {
 				e = 1
 			}
-			if actual := len(c.Goroutines); actual != e {
-				t.Fatalf("unexpected Goroutines; expected %d, got %d", e, actual)
+			if got := len(c.Goroutines); got != e {
+				t.Fatalf("unexpected Goroutines; want %d, got %d", e, got)
 			}
 		})
 	}
@@ -1225,7 +1225,7 @@ func testPanicArgsElided(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 	if b.String() != "GOTRACEBACK=all\npanic: 1\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -1263,7 +1263,7 @@ func testPanicArgsElided(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 			First: true,
 		},
 	}
-	similarGoroutines(t, expected, c.Goroutines)
+	similarGoroutines(t, want, c.Goroutines)
 }
 
 func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
@@ -1273,7 +1273,7 @@ func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -1312,7 +1312,7 @@ func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 			First: true,
 		},
 	}
-	similarGoroutines(t, expected, c.Goroutines)
+	similarGoroutines(t, want, c.Goroutines)
 }
 
 func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
@@ -1322,7 +1322,7 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 	if b.String() != "GOTRACEBACK=all\npanic: allo\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -1359,7 +1359,7 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 			First: true,
 		},
 	}
-	similarGoroutines(t, expected, c.Goroutines)
+	similarGoroutines(t, want, c.Goroutines)
 }
 
 func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
@@ -1369,7 +1369,7 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
-	expected := []*Goroutine{
+	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
@@ -1409,7 +1409,7 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 			First: true,
 		},
 	}
-	similarGoroutines(t, expected, c.Goroutines)
+	similarGoroutines(t, want, c.Goroutines)
 }
 
 // TestPanicweb implements the parsing of panicweb output.
@@ -1431,19 +1431,19 @@ func TestPanicweb(t *testing.T) {
 		t.Fatalf("output: %q", b.String())
 	}
 	if c.GOROOT != strings.Replace(runtime.GOROOT(), "\\", "/", -1) {
-		t.Fatalf("GOROOT mismatch; expected:%q detected:%q", runtime.GOROOT(), c.GOROOT)
+		t.Fatalf("GOROOT mismatch; want:%q got:%q", runtime.GOROOT(), c.GOROOT)
 	}
-	if actual := len(c.Goroutines); actual < 30 {
-		t.Fatalf("unexpected Goroutines; expected at least 30, got %d", actual)
+	if got := len(c.Goroutines); got < 30 {
+		t.Fatalf("unexpected Goroutines; want at least 30, got %d", got)
 	}
 	// Reduce the goroutines.
-	actual := Aggregate(c.Goroutines, AnyPointer)
+	got := Aggregate(c.Goroutines, AnyPointer)
 	// The goal here is not to find the exact match since it'll change across
 	// OSes and Go versions, but to find some of the expected signatures.
 	pwebDir := pathJoin(getPanicParseDir(t), "cmd", "panicweb")
 	// Categorize the signatures.
 	var types []panicwebSignatureType
-	for _, b := range actual {
+	for _, b := range got {
 		types = append(types, identifyPanicwebSignature(t, b, pwebDir))
 	}
 	// Count the expected types.
@@ -1609,7 +1609,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			} else {
 				t.Logf("Using go module")
 			}
-			expected := Signature{
+			want := Signature{
 				State: "chan receive",
 				CreatedBy: Call{
 					Func:         newFunc("main.main"),
@@ -1648,7 +1648,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					b.Signature.Stack.Calls[i].Args.Values[j].Name = ""
 				}
 			}
-			similarSignatures(t, &expected, &b.Signature)
+			similarSignatures(t, &want, &b.Signature)
 			return pstColorable
 		}
 		// That's the unix.Nanosleep() or windows.SleepEx() call.
@@ -1726,11 +1726,11 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
 				},
 			}
-			actual := b.Stack.Calls[2:]
+			got := b.Stack.Calls[2:]
 			for i := range rest {
-				zapCalls(t, &actual[i], &rest[i])
+				zapCalls(t, &got[i], &rest[i])
 			}
-			if diff := cmp.Diff(rest, actual); diff != "" {
+			if diff := cmp.Diff(rest, got); diff != "" {
 				t.Fatalf("rest of stack mismatch (-want +got):\n%s", diff)
 			}
 			return pstStdlib

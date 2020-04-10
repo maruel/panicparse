@@ -32,8 +32,7 @@ func TestAggregateNotAggressive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	actual := Aggregate(c.Goroutines, ExactLines)
-	expected := []*Bucket{
+	want := []*Bucket{
 		{
 			Signature: Signature{
 				State: "chan receive",
@@ -68,7 +67,7 @@ func TestAggregateNotAggressive(t *testing.T) {
 			IDs: []int{7},
 		},
 	}
-	compareBuckets(t, expected, actual)
+	compareBuckets(t, want, Aggregate(c.Goroutines, ExactLines))
 }
 
 func TestAggregateExactMatching(t *testing.T) {
@@ -93,8 +92,7 @@ func TestAggregateExactMatching(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	actual := Aggregate(c.Goroutines, ExactLines)
-	expected := []*Bucket{
+	want := []*Bucket{
 		{
 			Signature: Signature{
 				State: "chan receive",
@@ -117,7 +115,7 @@ func TestAggregateExactMatching(t *testing.T) {
 			First: true,
 		},
 	}
-	compareBuckets(t, expected, actual)
+	compareBuckets(t, want, Aggregate(c.Goroutines, ExactLines))
 }
 
 func TestAggregateAggressive(t *testing.T) {
@@ -142,8 +140,7 @@ func TestAggregateAggressive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	actual := Aggregate(c.Goroutines, AnyPointer)
-	expected := []*Bucket{
+	want := []*Bucket{
 		{
 			Signature: Signature{
 				State:    "chan receive",
@@ -164,7 +161,7 @@ func TestAggregateAggressive(t *testing.T) {
 			First: true,
 		},
 	}
-	compareBuckets(t, expected, actual)
+	compareBuckets(t, want, Aggregate(c.Goroutines, AnyPointer))
 }
 
 func BenchmarkAggregate(b *testing.B) {
@@ -185,9 +182,9 @@ func BenchmarkAggregate(b *testing.B) {
 	}
 }
 
-func compareBuckets(t *testing.T, expected, actual []*Bucket) {
+func compareBuckets(t *testing.T, want, got []*Bucket) {
 	helper(t)()
-	if diff := cmp.Diff(expected, actual); diff != "" {
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("Bucket mismatch (-want +got):\n%s", diff)
 	}
 }

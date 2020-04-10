@@ -209,8 +209,8 @@ func TestGetSrcBranchURL(t *testing.T) {
 
 func TestSymbol(t *testing.T) {
 	data := []struct {
-		in       stack.Func
-		expected template.URL
+		in   stack.Func
+		want template.URL
 	}{
 		{
 			newFunc("github.com/mattn/go-colorable.(*NonColorable).Write"),
@@ -230,8 +230,8 @@ func TestSymbol(t *testing.T) {
 		},
 	}
 	for i, line := range data {
-		if s := symbol(&line.in); s != line.expected {
-			t.Fatalf("#%d: %q != %q", i, s, line.expected)
+		if s := symbol(&line.in); s != line.want {
+			t.Fatalf("#%d: %q != %q", i, s, line.want)
 		}
 	}
 }

@@ -26,7 +26,7 @@ func TestAugment(t *testing.T) {
 		// Starting with go1.11, non-pointer call shows an elided argument, while
 		// there was no argument listed before.
 		workaroundGo111Extra bool
-		expected             Stack
+		want                 Stack
 	}{
 		{
 			"Local function doesn't interfere",
@@ -584,25 +584,24 @@ func TestAugment(t *testing.T) {
 			t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 		}
 		// On go1.4, there's one less space.
-		actual := extra.String()
-		if actual != "panic: ooh\n\nexit status 2\n" && actual != "panic: ooh\nexit status 2\n" {
+		if got := extra.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
 			clean()
-			t.Fatalf("Unexpected panic output:\n%#v", actual)
+			t.Fatalf("Unexpected panic output:\n%#v", got)
 		}
 
 		// On go1.11 with non-pointer method, it shows elided argument where there
 		// used to be none before. It's only for test case "non-pointer method".
 		if line.workaroundGo111Extra && zapArguments() {
-			line.expected.Calls[0].Args.Elided = true
+			line.want.Calls[0].Args.Elided = true
 		}
 
 		s := c.Goroutines[0].Signature.Stack
 		t.Logf("Test #%d: %v", i, line.name)
-		zapPointers(t, line.name, line.workaroundGo111Elided, &line.expected, &s)
+		zapPointers(t, line.name, line.workaroundGo111Elided, &line.want, &s)
 		zapPaths(&s)
 		clean()
-		if !reflect.DeepEqual(line.expected, s) {
-			t.Logf("Different (expected, then actual):\n- %#v\n- %#v", line.expected, s)
+		if !reflect.DeepEqual(line.want, s) {
+			t.Logf("Different (want then got):\n- %#v\n- %#v", line.want, s)
 			t.Logf("Source code:\n%s", input)
 			t.Logf("Output:\n%s", content)
 			t.FailNow()
@@ -632,7 +631,7 @@ func TestLoad(t *testing.T) {
 	c.load("bad.go")
 	c.load("doesnt_exist.go")
 	if l := len(c.parsed); l != 3 {
-		t.Fatalf("expected 3, got %d", l)
+		t.Fatalf("want 3, got %d", l)
 	}
 	if c.parsed["foo.asm"] != nil {
 		t.Fatalf("foo.asm is not present; should not have been loaded")
@@ -694,29 +693,29 @@ func getCrash(t *testing.T, content string) (string, []byte, func()) {
 }
 
 // zapPointers zaps out pointers.
-func zapPointers(t *testing.T, name string, workaroundGo111Elided bool, expected, s *Stack) {
+func zapPointers(t *testing.T, name string, workaroundGo111Elided bool, want, s *Stack) {
 	helper(t)()
 	for i := range s.Calls {
-		if i >= len(expected.Calls) {
+		if i >= len(want.Calls) {
 			// When using GOTRACEBACK=2, it'll include runtime.main() and
 			// runtime.goexit(). Ignore these since they could be changed in a future
 			// version.
-			s.Calls = s.Calls[:len(expected.Calls)]
+			s.Calls = s.Calls[:len(want.Calls)]
 			break
 		}
 		if workaroundGo111Elided && zapArguments() {
 			// See https://github.com/maruel/panicparse/issues/42 for explanation.
-			if len(expected.Calls[i].Args.Values) != 0 {
-				expected.Calls[i].Args.Elided = true
+			if len(want.Calls[i].Args.Values) != 0 {
+				want.Calls[i].Args.Elided = true
 			}
-			expected.Calls[i].Args.Values = nil
+			want.Calls[i].Args.Values = nil
 			continue
 		}
 		for j := range s.Calls[i].Args.Values {
-			if j >= len(expected.Calls[i].Args.Values) {
+			if j >= len(want.Calls[i].Args.Values) {
 				break
 			}
-			if expected.Calls[i].Args.Values[j].Value == pointer {
+			if want.Calls[i].Args.Values[j].Value == pointer {
 				// Replace the pointer value.
 				if s.Calls[i].Args.Values[j].Value == 0 {
 					t.Fatalf("%s: Call %d, value %d, expected pointer, got 0", name, i, j)

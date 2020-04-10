@@ -381,34 +381,34 @@ func newFunc(s string) Func {
 	return Func{Raw: s}
 }
 
-func compareBool(t *testing.T, expected, actual bool) {
+func compareBool(t *testing.T, want, got bool) {
 	helper(t)()
-	if expected != actual {
-		t.Fatalf("%t != %t", expected, actual)
+	if want != got {
+		t.Fatalf("%t != %t", want, got)
 	}
 }
 
-func compareErr(t *testing.T, expected, actual error) {
+func compareErr(t *testing.T, want, got error) {
 	helper(t)()
-	if actual == nil || expected.Error() != actual.Error() {
-		t.Fatalf("%v != %v", expected, actual)
+	if got == nil || want.Error() != got.Error() {
+		t.Fatalf("%v != %v", want, got)
 	}
 }
 
-func compareString(t *testing.T, expected, actual string) {
+func compareString(t *testing.T, want, got string) {
 	helper(t)()
-	if expected != actual {
-		t.Fatalf("%q != %q", expected, actual)
+	if want != got {
+		t.Fatalf("%q != %q", want, got)
 	}
 }
 
 // similarGoroutines compares slice of Goroutine to be similar enough.
 //
 // Warning: it mutates inputs.
-func similarGoroutines(t *testing.T, expected, actual []*Goroutine) {
+func similarGoroutines(t *testing.T, want, got []*Goroutine) {
 	helper(t)()
-	zapGoroutines(t, expected, actual)
-	if diff := cmp.Diff(expected, actual); diff != "" {
+	zapGoroutines(t, want, got)
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -427,10 +427,10 @@ func zapGoroutines(t *testing.T, a, b []*Goroutine) {
 // similarSignatures compares Signature to be similar enough.
 //
 // Warning: it mutates inputs.
-func similarSignatures(t *testing.T, expected, actual *Signature) {
+func similarSignatures(t *testing.T, want, got *Signature) {
 	helper(t)()
-	zapSignatures(t, expected, actual)
-	if diff := cmp.Diff(expected, actual); diff != "" {
+	zapSignatures(t, want, got)
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("Signature mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -483,16 +483,16 @@ func zapArgs(t *testing.T, a, b *Args) {
 	}
 }
 
-func compareGoroutines(t *testing.T, expected, actual []*Goroutine) {
+func compareGoroutines(t *testing.T, want, got []*Goroutine) {
 	helper(t)()
-	if diff := cmp.Diff(expected, actual); diff != "" {
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
 	}
 }
 
-func compareSignatures(t *testing.T, expected, actual *Signature) {
+func compareSignatures(t *testing.T, want, got *Signature) {
 	helper(t)()
-	if diff := cmp.Diff(expected, actual); diff != "" {
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("Signature mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -542,9 +542,9 @@ func getSignature() *Signature {
 	}
 }
 
-func compareCalls(t *testing.T, expected, actual *Call) {
+func compareCalls(t *testing.T, want, got *Call) {
 	helper(t)()
-	if diff := cmp.Diff(expected, actual); diff != "" {
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("Call mismatch (-want +got):\n%s", diff)
 	}
 }

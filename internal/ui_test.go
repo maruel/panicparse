@@ -149,22 +149,22 @@ func TestStackLines(t *testing.T) {
 		},
 	}
 	// When printing, it prints the remote path, not the transposed local path.
-	expected := "" +
+	want := "" +
 		"    Eruntime    F/goroot/src/runtime/sys_linux_amd64.s:400 HEpollwaitL(4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
 		"    Eruntime    F/goroot/src/runtime/netpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
 		"    Emain       F/gopath/src/main.go:1472 IMainL(0xc208012000)A\n" +
 		"    Efoo        F/gopath/src/foo/bar.go:1575 KOtherExportedL()A\n" +
 		"    Efoo        F/gopath/src/foo/bar.go:10 JotherPrivateL()A\n" +
 		"    (...)\n"
-	compareString(t, expected, testPalette.StackLines(s, 10, 10, fullPath))
-	expected = "" +
+	compareString(t, want, testPalette.StackLines(s, 10, 10, fullPath))
+	want = "" +
 		"    Eruntime    Fsys_linux_amd64.s:400 HEpollwaitL(4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
 		"    Eruntime    Fnetpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
 		"    Emain       Fmain.go:1472 IMainL(0xc208012000)A\n" +
 		"    Efoo        Fbar.go:1575 KOtherExportedL()A\n" +
 		"    Efoo        Fbar.go:10  JotherPrivateL()A\n" +
 		"    (...)\n"
-	compareString(t, expected, testPalette.StackLines(s, 10, 10, basePath))
+	compareString(t, want, testPalette.StackLines(s, 10, 10, basePath))
 }
 
 //
@@ -173,9 +173,9 @@ func newFunc(s string) stack.Func {
 	return stack.Func{Raw: s}
 }
 
-func compareInt(t *testing.T, expected, actual int) {
+func compareInt(t *testing.T, want, got int) {
 	helper(t)()
-	if expected != actual {
-		t.Fatalf("%d != %d", expected, actual)
+	if want != got {
+		t.Fatalf("%d != %d", want, got)
 	}
 }

@@ -27,8 +27,8 @@ func TestProcess(t *testing.T) {
 	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	expected := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
-	compareString(t, expected, out.String())
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
+	compareString(t, want, out.String())
 }
 
 func TestProcessFullPath(t *testing.T) {
@@ -42,8 +42,8 @@ func TestProcessFullPath(t *testing.T) {
 	}
 	// "/" is used even on Windows.
 	p := strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)
-	expected := fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:52 ImainL()A\n", p)
-	compareString(t, expected, out.String())
+	want := fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:52 ImainL()A\n", p)
+	compareString(t, want, out.String())
 }
 
 func TestProcessNoColor(t *testing.T) {
@@ -51,8 +51,8 @@ func TestProcessNoColor(t *testing.T) {
 	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	expected := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
-	compareString(t, expected, out.String())
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
+	compareString(t, want, out.String())
 }
 
 func TestProcessMatch(t *testing.T) {
@@ -61,8 +61,8 @@ func TestProcessMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "GOTRACEBACK=all\npanic: simple\n\n"
-	compareString(t, expected, out.String())
+	want := "GOTRACEBACK=all\npanic: simple\n\n"
+	compareString(t, want, out.String())
 }
 
 func TestProcessFilter(t *testing.T) {
@@ -71,8 +71,8 @@ func TestProcessFilter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
-	compareString(t, expected, out.String())
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
+	compareString(t, want, out.String())
 }
 
 func TestMainFn(t *testing.T) {
@@ -84,22 +84,22 @@ func TestMainFn(t *testing.T) {
 
 //
 
-func compareString(t *testing.T, expected, actual string) {
+func compareString(t *testing.T, want, got string) {
 	helper(t)()
-	if diff := cmp.Diff(expected, actual); diff != "" {
+	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("Mismatch (-want +got):\n%s", diff)
 	}
 }
 
-func compareLines(t *testing.T, expected, actual []string) {
+func compareLines(t *testing.T, want, got []string) {
 	helper(t)()
-	for i := 0; i < len(actual) && i < len(expected); i++ {
-		if expected[i] != actual[i] {
-			t.Fatalf("Different lines #%d:\n- %q\n- %q", i, expected[i], actual[i])
+	for i := 0; i < len(got) && i < len(want); i++ {
+		if want[i] != got[i] {
+			t.Fatalf("Different lines #%d:\n- %q\n- %q", i, want[i], got[i])
 		}
 	}
-	if len(expected) != len(actual) {
-		t.Fatalf("different length %d != %d", len(expected), len(actual))
+	if len(want) != len(got) {
+		t.Fatalf("different length %d != %d", len(want), len(got))
 	}
 }
 
