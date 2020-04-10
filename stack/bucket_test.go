@@ -98,6 +98,11 @@ func TestAggregateExactMatching(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "chan receive",
+				CreatedBy: Call{
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    74,
+					Func:    Func{Raw: "main.mainImpl"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -106,11 +111,6 @@ func TestAggregateExactMatching(t *testing.T) {
 							Func:    Func{Raw: "main.func·001"},
 						},
 					},
-				},
-				CreatedBy: Call{
-					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:    74,
-					Func:    Func{Raw: "main.mainImpl"},
 				},
 			},
 			IDs:   []int{6, 7},

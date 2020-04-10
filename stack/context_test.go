@@ -305,6 +305,9 @@ func TestParseDumpCreatedErr(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
+				CreatedBy: Call{
+					Func: Func{Raw: "testing.RunTests"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -313,9 +316,6 @@ func TestParseDumpCreatedErr(t *testing.T) {
 							Func:    Func{Raw: "github.com/maruel/panicparse/stack/stack.recurseType"},
 						},
 					},
-				},
-				CreatedBy: Call{
-					Func: Func{Raw: "testing.RunTests"},
 				},
 			},
 			ID:    1,
@@ -428,6 +428,11 @@ func TestParseDumpElided(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "garbage collection",
+				CreatedBy: Call{
+					SrcPath: "/goroot/src/testing/testing.go",
+					Line:    555,
+					Func:    Func{Raw: "testing.RunTests"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -446,11 +451,6 @@ func TestParseDumpElided(t *testing.T) {
 						},
 					},
 					Elided: true,
-				},
-				CreatedBy: Call{
-					SrcPath: "/goroot/src/testing/testing.go",
-					Line:    555,
-					Func:    Func{Raw: "testing.RunTests"},
 				},
 			},
 			ID:    16,
@@ -487,6 +487,11 @@ func TestParseDumpSysCall(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "syscall",
+				CreatedBy: Call{
+					SrcPath: "/goroot/src/os/signal/signal_unix.go",
+					Line:    27,
+					Func:    Func{Raw: "os/signal.init·1"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -521,11 +526,6 @@ func TestParseDumpSysCall(t *testing.T) {
 						},
 					},
 				},
-				CreatedBy: Call{
-					SrcPath: "/goroot/src/os/signal/signal_unix.go",
-					Line:    27,
-					Func:    Func{Raw: "os/signal.init·1"},
-				},
 			},
 			ID:    5,
 			First: true,
@@ -554,13 +554,13 @@ func TestParseDumpUnavailCreated(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				Stack: Stack{
-					Calls: []Call{{SrcPath: "<unavailable>"}},
-				},
 				CreatedBy: Call{
 					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 					Line:    131,
 					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
+				},
+				Stack: Stack{
+					Calls: []Call{{SrcPath: "<unavailable>"}},
 				},
 			},
 			ID:    24,
@@ -647,6 +647,11 @@ func TestParseDumpNoOffset(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "runnable",
+				CreatedBy: Call{
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    113,
+					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -655,11 +660,6 @@ func TestParseDumpNoOffset(t *testing.T) {
 							Func:    Func{Raw: "github.com/maruel/panicparse/stack.func·002"},
 						},
 					},
-				},
-				CreatedBy: Call{
-					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:    113,
-					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
 				},
 			},
 			ID:    37,
@@ -742,6 +742,11 @@ func TestParseDumpCreated(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
+				CreatedBy: Call{
+					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					Line:    131,
+					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -750,11 +755,6 @@ func TestParseDumpCreated(t *testing.T) {
 							Func:    Func{Raw: "github.com/maruel/panicparse/stack.func·002"},
 						},
 					},
-				},
-				CreatedBy: Call{
-					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:    131,
-					Func:    Func{Raw: "github.com/maruel/panicparse/stack.New"},
 				},
 			},
 			ID:    1,
@@ -783,6 +783,9 @@ func TestParseDumpCreatedError(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
+				CreatedBy: Call{
+					Func: Func{Raw: "github.com/maruel/panicparse/stack.New"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -791,9 +794,6 @@ func TestParseDumpCreatedError(t *testing.T) {
 							Func:    Func{Raw: "github.com/maruel/panicparse/stack.func·002"},
 						},
 					},
-				},
-				CreatedBy: Call{
-					Func: Func{Raw: "github.com/maruel/panicparse/stack.New"},
 				},
 			},
 			ID:    1,
@@ -980,6 +980,11 @@ func TestParseDumpIndented(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
+				CreatedBy: Call{
+					SrcPath: "/home/maruel/golang/go/src/testing/testing.go",
+					Line:    916,
+					Func:    Func{Raw: "testing.(*T).Run"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -1000,11 +1005,6 @@ func TestParseDumpIndented(t *testing.T) {
 							Args:    Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}, {Value: 0x1615bf8}}},
 						},
 					},
-				},
-				CreatedBy: Call{
-					SrcPath: "/home/maruel/golang/go/src/testing/testing.go",
-					Line:    916,
-					Func:    Func{Raw: "testing.(*T).Run"},
 				},
 			},
 			ID:    8,
@@ -1610,6 +1610,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			}
 			expected := Signature{
 				State: "chan receive",
+				CreatedBy: Call{
+					SrcPath:      pathJoin(pwebDir, "main.go"),
+					LocalSrcPath: pathJoin(pwebDir, "main.go"),
+					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
+					Line:         73,
+					Func:         Func{Raw: "main.main"},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						{
@@ -1629,13 +1636,6 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 							Args:         Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
 						},
 					},
-				},
-				CreatedBy: Call{
-					SrcPath:      pathJoin(pwebDir, "main.go"),
-					LocalSrcPath: pathJoin(pwebDir, "main.go"),
-					RelSrcPath:   "github.com/maruel/panicparse/cmd/panicweb/main.go",
-					Line:         73,
-					Func:         Func{Raw: "main.main"},
 				},
 				Locked: true,
 			}
