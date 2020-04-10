@@ -2,6 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
+//go:generate stringer -type state
+
 package stack
 
 import (
@@ -284,6 +286,11 @@ type scanningState struct {
 
 // scan scans one line, updates goroutines and move to the next state.
 func (s *scanningState) scan(line string) (string, error) {
+	/* This is very useful to debug issues in the state machine.
+	defer func() {
+		log.Printf("scan(%q) -> %s", line, s.state)
+	}()
+	//*/
 	var cur *Goroutine
 	if len(s.goroutines) != 0 {
 		cur = s.goroutines[len(s.goroutines)-1]
