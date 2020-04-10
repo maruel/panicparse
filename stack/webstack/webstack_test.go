@@ -23,32 +23,41 @@ func TestSnapshotHandler(t *testing.T) {
 		"/debug?similarity=anyvalue",
 	}
 	for _, url := range data {
-		req := httptest.NewRequest("GET", url, nil)
-		w := httptest.NewRecorder()
-		SnapshotHandler(w, req)
-		if w.Code != 200 {
-			t.Fatalf("%s: %d\n%s", url, w.Code, w.Body.String())
-		}
+		url := url
+		t.Run(url, func(t *testing.T) {
+			req := httptest.NewRequest("GET", url, nil)
+			w := httptest.NewRecorder()
+			SnapshotHandler(w, req)
+			if w.Code != 200 {
+				t.Fatalf("%s: %d\n%s", url, w.Code, w.Body.String())
+			}
+		})
 	}
 }
 
 func TestSnapshotHandler_Err(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"/debug?augment=2",
 		"/debug?maxmem=abc",
 		"/debug?similarity=alike",
 	}
 	for _, url := range data {
-		req := httptest.NewRequest("GET", url, nil)
-		w := httptest.NewRecorder()
-		SnapshotHandler(w, req)
-		if w.Code != 400 {
-			t.Fatalf("%s: %d\n%s", url, w.Code, w.Body.String())
-		}
+		url := url
+		t.Run(url, func(t *testing.T) {
+			t.Parallel()
+			req := httptest.NewRequest("GET", url, nil)
+			w := httptest.NewRecorder()
+			SnapshotHandler(w, req)
+			if w.Code != 400 {
+				t.Fatalf("%s: %d\n%s", url, w.Code, w.Body.String())
+			}
+		})
 	}
 }
 
 func TestSnapshotHandler_Method_POST(t *testing.T) {
+	t.Parallel()
 	req := httptest.NewRequest("POST", "/debug", nil)
 	w := httptest.NewRecorder()
 	SnapshotHandler(w, req)

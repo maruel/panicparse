@@ -15,6 +15,7 @@ import (
 )
 
 func TestAggregateNotAggressive(t *testing.T) {
+	t.Parallel()
 	// 2 goroutines with similar but not exact same signature.
 	data := []string{
 		"panic: runtime error: index out of range",
@@ -71,6 +72,7 @@ func TestAggregateNotAggressive(t *testing.T) {
 }
 
 func TestAggregateExactMatching(t *testing.T) {
+	t.Parallel()
 	// 2 goroutines with the exact same signature.
 	data := []string{
 		"panic: runtime error: index out of range",
@@ -119,6 +121,7 @@ func TestAggregateExactMatching(t *testing.T) {
 }
 
 func TestAggregateAggressive(t *testing.T) {
+	t.Parallel()
 	// 3 goroutines with similar signatures.
 	data := []string{
 		"panic: runtime error: index out of range",

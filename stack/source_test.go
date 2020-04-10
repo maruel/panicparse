@@ -17,6 +17,7 @@ import (
 )
 
 func TestAugment(t *testing.T) {
+	t.Parallel()
 	data := []struct {
 		name  string
 		input string
@@ -561,55 +562,59 @@ func TestAugment(t *testing.T) {
 	}
 
 	for i, line := range data {
-		// Marshal the code a bit to make it nicer. Inject 'package main'.
-		lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)
-		for i := 2; i < len(lines); i++ {
-			// Strip the 3 first tab characters. It's very adhoc but good enough here
-			// and makes test failure much more readable.
-			if lines[i][:3] != "\t\t\t" {
-				t.Fatal("expected line to start with 3 tab characters")
+		line := line
+		t.Run(fmt.Sprintf("#%d: %s", i, line.name), func(t *testing.T) {
+			t.Parallel()
+			// Marshal the code a bit to make it nicer. Inject 'package main'.
+			lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)
+			for i := 2; i < len(lines); i++ {
+				// Strip the 3 first tab characters. It's very adhoc but good enough here
+				// and makes test failure much more readable.
+				if lines[i][:3] != "\t\t\t" {
+					t.Fatal("expected line to start with 3 tab characters")
+				}
+				lines[i] = lines[i][3:]
 			}
-			lines[i] = lines[i][3:]
-		}
-		input := strings.Join(lines, "\n")
+			input := strings.Join(lines, "\n")
 
-		// Run the command.
-		_, content, clean := getCrash(t, input)
+			// Run the command.
+			_, content, clean := getCrash(t, input)
 
-		// Analyze it.
-		extra := bytes.Buffer{}
-		c, err := ParseDump(bytes.NewBuffer(content), &extra, false)
-		if err != nil {
+			// Analyze it.
+			extra := bytes.Buffer{}
+			c, err := ParseDump(bytes.NewBuffer(content), &extra, false)
+			if err != nil {
+				clean()
+				t.Fatalf("failed to parse input for test %s: %v", line.name, err)
+			}
+			// On go1.4, there's one less space.
+			if got := extra.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
+				clean()
+				t.Fatalf("Unexpected panic output:\n%#v", got)
+			}
+
+			// On go1.11 with non-pointer method, it shows elided argument where there
+			// used to be none before. It's only for test case "non-pointer method".
+			if line.workaroundGo111Extra && zapArguments() {
+				line.want.Calls[0].Args.Elided = true
+			}
+
+			s := c.Goroutines[0].Signature.Stack
+			zapPointers(t, line.name, line.workaroundGo111Elided, &line.want, &s)
+			zapPaths(&s)
 			clean()
-			t.Fatalf("failed to parse input for test %s: %v", line.name, err)
-		}
-		// On go1.4, there's one less space.
-		if got := extra.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
-			clean()
-			t.Fatalf("Unexpected panic output:\n%#v", got)
-		}
-
-		// On go1.11 with non-pointer method, it shows elided argument where there
-		// used to be none before. It's only for test case "non-pointer method".
-		if line.workaroundGo111Extra && zapArguments() {
-			line.want.Calls[0].Args.Elided = true
-		}
-
-		s := c.Goroutines[0].Signature.Stack
-		t.Logf("Test #%d: %v", i, line.name)
-		zapPointers(t, line.name, line.workaroundGo111Elided, &line.want, &s)
-		zapPaths(&s)
-		clean()
-		if !reflect.DeepEqual(line.want, s) {
-			t.Logf("Different (want then got):\n- %#v\n- %#v", line.want, s)
-			t.Logf("Source code:\n%s", input)
-			t.Logf("Output:\n%s", content)
-			t.FailNow()
-		}
+			if !reflect.DeepEqual(line.want, s) {
+				t.Logf("Different (want then got):\n- %#v\n- %#v", line.want, s)
+				t.Logf("Source code:\n%s", input)
+				t.Logf("Output:\n%s", content)
+				t.FailNow()
+			}
+		})
 	}
 }
 
 func TestAugmentDummy(t *testing.T) {
+	t.Parallel()
 	goroutines := []*Goroutine{
 		{
 			Signature: Signature{
@@ -623,6 +628,7 @@ func TestAugmentDummy(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
+	t.Parallel()
 	c := &cache{
 		files:  map[string][]byte{"bad.go": []byte("bad content")},
 		parsed: map[string]*parsedFile{},

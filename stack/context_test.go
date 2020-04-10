@@ -24,6 +24,7 @@ import (
 )
 
 func TestParseDumpNothing(t *testing.T) {
+	t.Parallel()
 	extra := &bytes.Buffer{}
 	c, err := ParseDump(bytes.NewBufferString("\n"), extra, true)
 	if err != nil {
@@ -35,6 +36,7 @@ func TestParseDumpNothing(t *testing.T) {
 }
 
 func TestParseDump1(t *testing.T) {
+	t.Parallel()
 	// One call from main, one from stdlib, one from third party.
 	// Create a long first line that will be ignored. It is to guard against
 	// https://github.com/maruel/panicparse/issues/17.
@@ -101,6 +103,7 @@ func TestParseDump1(t *testing.T) {
 }
 
 func TestParseDumpLongWait(t *testing.T) {
+	t.Parallel()
 	// One call from main, one from stdlib, one from third party.
 	data := []string{
 		"panic: bleh",
@@ -188,6 +191,7 @@ func TestParseDumpLongWait(t *testing.T) {
 }
 
 func TestParseDumpAsm(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -224,6 +228,7 @@ func TestParseDumpAsm(t *testing.T) {
 }
 
 func TestParseDumpAsmGo1dot13(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -260,6 +265,7 @@ func TestParseDumpAsmGo1dot13(t *testing.T) {
 }
 
 func TestParseDumpLineErr(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -289,6 +295,7 @@ func TestParseDumpLineErr(t *testing.T) {
 }
 
 func TestParseDumpCreatedErr(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -327,6 +334,7 @@ func TestParseDumpCreatedErr(t *testing.T) {
 }
 
 func TestParseDumpValueErr(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -357,6 +365,7 @@ func TestParseDumpValueErr(t *testing.T) {
 }
 
 func TestParseDumpInconsistentIndent(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"  goroutine 1 [running]:",
 		"  github.com/maruel/panicparse/stack/stack.recurseType()",
@@ -385,6 +394,7 @@ func TestParseDumpInconsistentIndent(t *testing.T) {
 }
 
 func TestParseDumpOrderErr(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -409,6 +419,7 @@ func TestParseDumpOrderErr(t *testing.T) {
 }
 
 func TestParseDumpElided(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -463,6 +474,7 @@ func TestParseDumpElided(t *testing.T) {
 }
 
 func TestParseDumpSysCall(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -537,6 +549,7 @@ func TestParseDumpSysCall(t *testing.T) {
 }
 
 func TestParseDumpUnavailCreated(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -573,6 +586,7 @@ func TestParseDumpUnavailCreated(t *testing.T) {
 }
 
 func TestParseDumpUnavail(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -603,6 +617,7 @@ func TestParseDumpUnavail(t *testing.T) {
 }
 
 func TestParseDumpUnavailError(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: reflect.Set: value of type",
 		"",
@@ -630,6 +645,7 @@ func TestParseDumpUnavailError(t *testing.T) {
 }
 
 func TestParseDumpNoOffset(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"panic: runtime error: index out of range",
 		"",
@@ -671,6 +687,7 @@ func TestParseDumpNoOffset(t *testing.T) {
 }
 
 func TestParseDumpHeaderError(t *testing.T) {
+	t.Parallel()
 	// For coverage of scanLines.
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -693,6 +710,7 @@ func TestParseDumpHeaderError(t *testing.T) {
 }
 
 func TestParseDumpFileError(t *testing.T) {
+	t.Parallel()
 	// For coverage of scanLines.
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -723,6 +741,7 @@ func TestParseDumpFileError(t *testing.T) {
 }
 
 func TestParseDumpCreated(t *testing.T) {
+	t.Parallel()
 	// For coverage of scanLines.
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -767,6 +786,7 @@ func TestParseDumpCreated(t *testing.T) {
 }
 
 func TestParseDumpCreatedError(t *testing.T) {
+	t.Parallel()
 	// For coverage of scanLines.
 	data := []string{
 		"panic: reflect.Set: value of type",
@@ -806,6 +826,7 @@ func TestParseDumpCreatedError(t *testing.T) {
 }
 
 func TestParseDumpCCode(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"SIGQUIT: quit",
 		"PC=0x43f349",
@@ -895,6 +916,7 @@ func TestParseDumpCCode(t *testing.T) {
 }
 
 func TestParseDumpWithCarriageReturn(t *testing.T) {
+	t.Parallel()
 	data := []string{
 		"goroutine 1 [running]:",
 		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
@@ -950,6 +972,7 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 }
 
 func TestParseDumpIndented(t *testing.T) {
+	t.Parallel()
 	// goconvey is culprit of this.
 	data := []string{
 		"Failures:",
@@ -1016,6 +1039,7 @@ func TestParseDumpIndented(t *testing.T) {
 }
 
 func TestParseDumpRace(t *testing.T) {
+	t.Parallel()
 	// Generated with "panic race":
 	data := []string{
 		"==================",
@@ -1057,6 +1081,7 @@ func TestParseDumpRace(t *testing.T) {
 // This test should be deleted once Context state.raceDetectionEnabled is
 // removed and the race detector results is stored in Context.
 func TestRaceManual(t *testing.T) {
+	t.Parallel()
 	// Generated with "panic race":
 	data := []string{
 		"==================",
@@ -1137,6 +1162,7 @@ func TestRaceManual(t *testing.T) {
 }
 
 func TestSplitPath(t *testing.T) {
+	t.Parallel()
 	if p := splitPath(""); p != nil {
 		t.Fatalf("expected nil, got: %v", p)
 	}
@@ -1157,6 +1183,7 @@ func TestGetGOPATHS(t *testing.T) {
 // Later they'll be used for the actual expectations instead of the hardcoded
 // ones above.
 func TestPanic(t *testing.T) {
+	t.Parallel()
 	cmds := internaltest.PanicOutputs()
 	want := map[string]int{
 		"chan_receive":              2,
@@ -1183,7 +1210,10 @@ func TestPanic(t *testing.T) {
 	}
 
 	for cmd, data := range cmds {
+		cmd := cmd
+		data := data
 		t.Run(cmd, func(t *testing.T) {
+			t.Parallel()
 			b := bytes.Buffer{}
 			c, err := ParseDump(bytes.NewReader(data), &b, true)
 			if err != nil {

@@ -26,6 +26,7 @@ var testPalette = &Palette{
 }
 
 func TestCalcLengths(t *testing.T) {
+	t.Parallel()
 	b := []*stack.Bucket{
 		{
 			Signature: stack.Signature{
@@ -58,6 +59,7 @@ func TestCalcLengths(t *testing.T) {
 }
 
 func TestBucketHeader(t *testing.T) {
+	t.Parallel()
 	b := &stack.Bucket{
 		Signature: stack.Signature{
 			State: "chan receive",
@@ -96,6 +98,7 @@ func TestBucketHeader(t *testing.T) {
 }
 
 func TestStackLines(t *testing.T) {
+	t.Parallel()
 	s := &stack.Signature{
 		State: "idle",
 		Stack: stack.Stack{

@@ -23,6 +23,7 @@ import (
 )
 
 func TestProcess(t *testing.T) {
+	t.Parallel()
 	out := &bytes.Buffer{}
 	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
@@ -32,6 +33,7 @@ func TestProcess(t *testing.T) {
 }
 
 func TestProcessFullPath(t *testing.T) {
+	t.Parallel()
 	out := &bytes.Buffer{}
 	if err := process(getReader(t), out, testPalette, stack.AnyValue, fullPath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
@@ -47,6 +49,7 @@ func TestProcessFullPath(t *testing.T) {
 }
 
 func TestProcessNoColor(t *testing.T) {
+	t.Parallel()
 	out := &bytes.Buffer{}
 	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
@@ -56,6 +59,7 @@ func TestProcessNoColor(t *testing.T) {
 }
 
 func TestProcessMatch(t *testing.T) {
+	t.Parallel()
 	out := &bytes.Buffer{}
 	err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, regexp.MustCompile(`notpresent`))
 	if err != nil {
@@ -66,6 +70,7 @@ func TestProcessMatch(t *testing.T) {
 }
 
 func TestProcessFilter(t *testing.T) {
+	t.Parallel()
 	out := &bytes.Buffer{}
 	err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", regexp.MustCompile(`notpresent`), nil)
 	if err != nil {
@@ -76,6 +81,7 @@ func TestProcessFilter(t *testing.T) {
 }
 
 func TestMainFn(t *testing.T) {
+	t.Parallel()
 	// It doesn't do anything since stdin is closed.
 	if err := Main(); err != nil {
 		t.Fatal(err)

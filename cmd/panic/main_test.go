@@ -11,6 +11,7 @@ import (
 )
 
 func TestMain(t *testing.T) {
+	t.Parallel()
 	if !testing.Verbose() {
 		stdErr = ioutil.Discard
 		defer func() {
@@ -38,7 +39,9 @@ func TestMain(t *testing.T) {
 			continue
 		}
 
+		l := l
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			defer func() {
 				if err := recover(); err == nil {
 					t.Fatal("expected error")

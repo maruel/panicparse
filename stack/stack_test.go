@@ -15,6 +15,7 @@ import (
 )
 
 func TestCallPkg(t *testing.T) {
+	t.Parallel()
 	c := Call{
 		Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
 		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
@@ -44,6 +45,7 @@ func TestCallPkg(t *testing.T) {
 }
 
 func TestCallPkgMethod(t *testing.T) {
+	t.Parallel()
 	c := Call{
 		Func:    newFunc("gopkg.in/yaml%2ev2.(*decoder).unmarshal"),
 		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
@@ -73,6 +75,7 @@ func TestCallPkgMethod(t *testing.T) {
 }
 
 func TestCallPkgRemote(t *testing.T) {
+	t.Parallel()
 	c := Call{
 		Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
 		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
@@ -102,6 +105,7 @@ func TestCallPkgRemote(t *testing.T) {
 }
 
 func TestCallStdlib(t *testing.T) {
+	t.Parallel()
 	c := Call{
 		Func:    newFunc("reflect.Value.assignTo"),
 		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
@@ -132,6 +136,7 @@ func TestCallStdlib(t *testing.T) {
 }
 
 func TestCallStdlibRemote(t *testing.T) {
+	t.Parallel()
 	c := Call{
 		Func:    newFunc("reflect.Value.assignTo"),
 		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
@@ -161,6 +166,7 @@ func TestCallStdlibRemote(t *testing.T) {
 }
 
 func TestCallMain(t *testing.T) {
+	t.Parallel()
 	c := Call{
 		Func:    newFunc("main.main"),
 		SrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
@@ -190,6 +196,7 @@ func TestCallMain(t *testing.T) {
 }
 
 func TestCallMismatched(t *testing.T) {
+	t.Parallel()
 	// See testPanicMismatched in context_test.go.
 	c := Call{
 		Func:         newFunc("github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic"),
@@ -221,6 +228,7 @@ func TestCallMismatched(t *testing.T) {
 }
 
 func TestCallUTF8(t *testing.T) {
+	t.Parallel()
 	// See testPanicUTF8 in context_test.go.
 	c := Call{
 		Func:         newFunc("github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic"),
@@ -253,6 +261,7 @@ func TestCallUTF8(t *testing.T) {
 }
 
 func TestCallC(t *testing.T) {
+	t.Parallel()
 	c := Call{
 		Func:    newFunc("findrunnable"),
 		Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
@@ -282,6 +291,7 @@ func TestCallC(t *testing.T) {
 }
 
 func TestArgs(t *testing.T) {
+	t.Parallel()
 	a := Args{
 		Values: []Arg{
 			{Value: 0x4},
@@ -304,6 +314,7 @@ func TestArgs(t *testing.T) {
 }
 
 func TestFuncAnonymous(t *testing.T) {
+	t.Parallel()
 	f := Func{Raw: "main.func·001"}
 	compareString(t, "main.func·001", f.String())
 	compareString(t, "main.func·001", f.PkgDotName())
@@ -313,6 +324,7 @@ func TestFuncAnonymous(t *testing.T) {
 }
 
 func TestFuncGC(t *testing.T) {
+	t.Parallel()
 	f := Func{Raw: "gc"}
 	compareString(t, "gc", f.String())
 	compareString(t, "gc", f.PkgDotName())
@@ -322,6 +334,7 @@ func TestFuncGC(t *testing.T) {
 }
 
 func TestSignature(t *testing.T) {
+	t.Parallel()
 	s := getSignature()
 	compareString(t, "", s.SleepString())
 	s.SleepMax = 10
@@ -340,6 +353,7 @@ func TestSignature(t *testing.T) {
 }
 
 func TestSignature_Equal(t *testing.T) {
+	t.Parallel()
 	s1 := getSignature()
 	s2 := getSignature()
 	if !s1.equal(s2) {
@@ -352,6 +366,7 @@ func TestSignature_Equal(t *testing.T) {
 }
 
 func TestSignature_Similar(t *testing.T) {
+	t.Parallel()
 	s1 := getSignature()
 	s2 := getSignature()
 	if !s1.similar(s2, ExactFlags) {
@@ -364,6 +379,7 @@ func TestSignature_Similar(t *testing.T) {
 }
 
 func TestSignature_Less(t *testing.T) {
+	t.Parallel()
 	s1 := getSignature()
 	s2 := getSignature()
 	if s1.less(s2) {

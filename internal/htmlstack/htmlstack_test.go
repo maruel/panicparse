@@ -6,6 +6,7 @@ package htmlstack
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"regexp"
@@ -88,6 +89,7 @@ func TestWriteLive(t *testing.T) {
 }
 
 func TestGenerate(t *testing.T) {
+	t.Parallel()
 	// Confirms that nobody forgot to regenate data.go.
 	htmlRaw, err := loadGoroutines()
 	if err != nil {
@@ -100,6 +102,7 @@ func TestGenerate(t *testing.T) {
 
 // TestGetSrcBranchURL also tests pkgURL and srcURL and symbol.
 func TestGetSrcBranchURL(t *testing.T) {
+	t.Parallel()
 	ver := runtime.Version()
 	data := []struct {
 		c           stack.Call
@@ -190,24 +193,29 @@ func TestGetSrcBranchURL(t *testing.T) {
 			"",
 		},
 	}
-	for _, line := range data {
-		url, branch := getSrcBranchURL(&line.c)
-		if url != line.url {
-			t.Fatalf("%q != %q", url, line.url)
-		}
-		if branch != line.branch {
-			t.Fatalf("%q != %q", branch, line.branch)
-		}
-		if url := srcURL(&line.c); url != line.url {
-			t.Fatalf("%q != %q", url, line.url)
-		}
-		if url := pkgURL(&line.c); url != line.pkgURL {
-			t.Fatalf("%q != %q", url, line.pkgURL)
-		}
+	for i, line := range data {
+		line := line
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			t.Parallel()
+			url, branch := getSrcBranchURL(&line.c)
+			if url != line.url {
+				t.Fatalf("%q != %q", url, line.url)
+			}
+			if branch != line.branch {
+				t.Fatalf("%q != %q", branch, line.branch)
+			}
+			if url := srcURL(&line.c); url != line.url {
+				t.Fatalf("%q != %q", url, line.url)
+			}
+			if url := pkgURL(&line.c); url != line.pkgURL {
+				t.Fatalf("%q != %q", url, line.pkgURL)
+			}
+		})
 	}
 }
 
 func TestSymbol(t *testing.T) {
+	t.Parallel()
 	data := []struct {
 		in   stack.Func
 		want template.URL
@@ -230,9 +238,12 @@ func TestSymbol(t *testing.T) {
 		},
 	}
 	for i, line := range data {
-		if s := symbol(&line.in); s != line.want {
-			t.Fatalf("#%d: %q != %q", i, s, line.want)
-		}
+		line := line
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			if s := symbol(&line.in); s != line.want {
+				t.Fatalf("%q != %q", s, line.want)
+			}
+		})
 	}
 }
 
