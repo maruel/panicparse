@@ -382,34 +382,23 @@ func (s *scanningState) scan(line string) (string, error) {
 		return "", fmt.Errorf("expected a function after a goroutine header, got: %q", strings.TrimSpace(trimmed))
 
 	case gotFunc:
-		// Look for a file.
-		if match := reFile.FindStringSubmatch(trimmed); match != nil {
-			num, err := strconv.Atoi(match[2])
-			if err != nil {
-				return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(trimmed))
-			}
-			// cur.Stack.Calls is guaranteed to have at least one item.
-			i := len(cur.Stack.Calls) - 1
-			cur.Stack.Calls[i].SrcPath = match[1]
-			cur.Stack.Calls[i].Line = num
-			s.state = gotFileFunc
-			return "", nil
+		// cur.Stack.Calls is guaranteed to have at least one item.
+		if found, err := parseFile(&cur.Stack.Calls[len(cur.Stack.Calls)-1], trimmed); err != nil {
+			return "", err
+		} else if !found {
+			return "", fmt.Errorf("expected a file after a function, got: %q", strings.TrimSpace(trimmed))
 		}
-		return "", fmt.Errorf("expected a file after a function, got: %q", strings.TrimSpace(trimmed))
+		s.state = gotFileFunc
+		return "", nil
 
 	case gotCreated:
-		// Look for a file.
-		if match := reFile.FindStringSubmatch(trimmed); match != nil {
-			num, err := strconv.Atoi(match[2])
-			if err != nil {
-				return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(trimmed))
-			}
-			cur.CreatedBy.SrcPath = match[1]
-			cur.CreatedBy.Line = num
-			s.state = gotFileCreated
-			return "", nil
+		if found, err := parseFile(&cur.CreatedBy, trimmed); err != nil {
+			return "", err
+		} else if !found {
+			return "", fmt.Errorf("expected a file after a created line, got: %q", trimmed)
 		}
-		return "", fmt.Errorf("expected a file after a created line, got: %q", trimmed)
+		s.state = gotFileCreated
+		return "", nil
 
 	case gotFileFunc:
 		if match := reCreated.FindStringSubmatch(trimmed); match != nil {
@@ -505,36 +494,27 @@ func (s *scanningState) scan(line string) (string, error) {
 		return "", fmt.Errorf("expected a function after a race operation, got: %q", trimmed)
 
 	case gotRaceOperationFunc:
-		if match := reFile.FindStringSubmatch(trimmed); match != nil {
-			_, err := strconv.Atoi(match[2])
-			if err != nil {
-				return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(trimmed))
-			}
-			/* TODO(maruel): Figure out.
-			// cur.Stack.Calls is guaranteed to have at least one item.
-			i := len(cur.Stack.Calls) - 1
-			cur.Stack.Calls[i].SrcPath = match[1]
-			cur.Stack.Calls[i].Line = num
-			*/
-			s.state = gotRaceOperationFile
-			return "", nil
+		// cur.Stack.Calls is guaranteed to have at least one item.
+		// TODO(maruel): Bug, should be cur.Stack.Calls[len(cur.Stack.Calls)-1] but
+		// s.goroutine isn't initialized properly.
+		c := Call{}
+		if found, err := parseFile(&c, trimmed); err != nil {
+			return "", err
+		} else if !found {
+			return "", fmt.Errorf("expected a file after a race function, got: %q", trimmed)
 		}
-		return "", fmt.Errorf("expected a file after a race function, got: %q", trimmed)
+		s.state = gotRaceOperationFile
+		return "", nil
 
 	case gotRaceGoroutineFunc:
-		if match := reFile.FindStringSubmatch(trimmed); match != nil {
-			num, err := strconv.Atoi(match[2])
-			if err != nil {
-				return "", fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(trimmed))
-			}
-			// cur.Stack.Calls is guaranteed to have at least one item.
-			i := len(cur.Stack.Calls) - 1
-			cur.Stack.Calls[i].SrcPath = match[1]
-			cur.Stack.Calls[i].Line = num
-			s.state = gotRaceGoroutineFile
-			return "", nil
+		// cur.Stack.Calls is guaranteed to have at least one item.
+		if found, err := parseFile(&cur.Stack.Calls[len(cur.Stack.Calls)-1], trimmed); err != nil {
+			return "", err
+		} else if !found {
+			return "", fmt.Errorf("expected a file after a race function, got: %q", trimmed)
 		}
-		return "", fmt.Errorf("expected a file after a race function, got: %q", trimmed)
+		s.state = gotRaceGoroutineFile
+		return "", nil
 
 	case gotRaceOperationFile:
 		if trimmed == "" {
@@ -620,6 +600,20 @@ func parseFunc(line string) (*Call, error) {
 		return call, nil
 	}
 	return nil, nil
+}
+
+// parseFile only return an error if also processing a Call.
+func parseFile(c *Call, line string) (bool, error) {
+	if match := reFile.FindStringSubmatch(line); match != nil {
+		num, err := strconv.Atoi(match[2])
+		if err != nil {
+			return true, fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
+		}
+		c.SrcPath = match[1]
+		c.Line = num
+		return true, nil
+	}
+	return false, nil
 }
 
 // hasSrcPrefix returns true if any of s is the prefix of p.
