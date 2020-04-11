@@ -42,7 +42,7 @@ func Example() {
 	pkgLen := 0
 	for _, bucket := range buckets {
 		for _, line := range bucket.Signature.Stack.Calls {
-			if l := len(fmt.Sprintf("%s:%d", line.SrcName(), line.Line)); l > srcLen {
+			if l := len(fmt.Sprintf("%s:%d", line.SrcName, line.Line)); l > srcLen {
 				srcLen = l
 			}
 			if l := len(filepath.Base(line.Func.ImportPath)); l > pkgLen {
@@ -62,7 +62,7 @@ func Example() {
 		}
 
 		if bucket.CreatedBy.Func.DirName != "" {
-			extra += fmt.Sprintf(" [Created by %s.%s @ %s:%d]", bucket.CreatedBy.Func.DirName, bucket.CreatedBy.Func.Name, bucket.CreatedBy.SrcName(), bucket.CreatedBy.Line)
+			extra += fmt.Sprintf(" [Created by %s.%s @ %s:%d]", bucket.CreatedBy.Func.DirName, bucket.CreatedBy.Func.Name, bucket.CreatedBy.SrcName, bucket.CreatedBy.Line)
 		}
 		fmt.Printf("%d: %s%s\n", len(bucket.IDs), bucket.State, extra)
 
@@ -71,7 +71,7 @@ func Example() {
 			fmt.Printf(
 				"    %-*s %-*s %s(%s)\n",
 				pkgLen, line.Func.DirName, srcLen,
-				fmt.Sprintf("%s:%d", line.SrcName(), line.Line),
+				fmt.Sprintf("%s:%d", line.SrcName, line.Line),
 				line.Func.Name, &line.Args)
 		}
 		if bucket.Stack.Elided {

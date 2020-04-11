@@ -742,8 +742,9 @@ func parseFile(c *Call, line string) (bool, error) {
 		if err != nil {
 			return true, fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
 		}
-		c.SrcPath = match[1]
-		c.Line = num
+		// TODO(maruel): This returns a string slice inside line. We may want to
+		// trim memory further.
+		c.init(match[1], num)
 		return true, nil
 	}
 	return false, nil

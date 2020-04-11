@@ -1597,11 +1597,11 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.Stack.Calls[0].SrcName() != "internal.go" {
+		if b.Stack.Calls[0].SrcName != "internal.go" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.CreatedBy.SrcName() != "server.go" {
+		if b.CreatedBy.SrcName != "server.go" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}

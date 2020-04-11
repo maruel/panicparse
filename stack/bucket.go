@@ -78,6 +78,9 @@ type Bucket struct {
 	// First is true if this Bucket contains the first goroutine, e.g. the one
 	// Signature that likely generated the panic() call, if any.
 	First bool
+
+	// Disallow initialization with unnamed parameters.
+	_ struct{}
 }
 
 // less does reverse sort.

@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
@@ -236,63 +235,37 @@ func (a *Args) merge(r *Args) Args {
 
 // Call is an item in the stack trace.
 type Call struct {
-	// SrcPath is the full path name of the source file as seen in the trace.
-	SrcPath string
-	// LocalSrcPath is the full path name of the source file as seen in the host,
-	// if found.
-	LocalSrcPath string
-	// Line is the line number.
-	Line int
+	// The following are initialized on the first line of the call stack.
 	// Func is the fully qualified function name (encoded).
 	Func Func
 	// Args is the call arguments.
 	Args Args
 
+	// The following are initialized on the second line of the call stack.
+	// SrcPath is the full path name of the source file as seen in the trace.
+	SrcPath string
+	// Line is the line number.
+	Line int
+	// SrcName returns the base file name of the source file. It is a subset of
+	// SrcPath.
+	SrcName string
+	// DirSrc is one directory plus the file name of the source file. It is a
+	// subset of SrcPath.
+	DirSrc string
+
 	// The following are only set if guesspaths is set to true in ParseDump().
-	// IsStdlib is true if it is a Go standard library function. This includes
-	// the 'go test' generated main executable.
-	IsStdlib bool
+	// LocalSrcPath is the full path name of the source file as seen in the host,
+	// if found.
+	LocalSrcPath string
 	// RelSrcPath is the relative path to GOROOT or GOPATH. Only set when
 	// Augment() is called.
 	RelSrcPath string
-}
+	// IsStdlib is true if it is a Go standard library function. This includes
+	// the 'go test' generated main executable.
+	IsStdlib bool
 
-// equal returns true only if both calls are exactly equal.
-func (c *Call) equal(r *Call) bool {
-	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.SrcPath == r.SrcPath && c.Args.equal(&r.Args)
-}
-
-// similar returns true if the two Call are equal or almost but not quite
-// equal.
-func (c *Call) similar(r *Call, similar Similarity) bool {
-	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.SrcPath == r.SrcPath && c.Args.similar(&r.Args, similar)
-}
-
-// merge merges two similar Call, zapping out differences.
-func (c *Call) merge(r *Call) Call {
-	return Call{
-		SrcPath:      c.SrcPath,
-		LocalSrcPath: c.LocalSrcPath,
-		Line:         c.Line,
-		Func:         c.Func,
-		Args:         c.Args.merge(&r.Args),
-		IsStdlib:     c.IsStdlib,
-		RelSrcPath:   c.RelSrcPath,
-	}
-}
-
-// SrcName returns the base file name of the source file.
-func (c *Call) SrcName() string {
-	return filepath.Base(c.SrcPath)
-}
-
-// PkgSrc returns one directory plus the file name of the source file.
-//
-// Since the package name can differ from the package import path, the result
-// is incorrect when there's a mismatch between the directory name containing
-// the package and the package name.
-func (c *Call) PkgSrc() string {
-	return pathJoin(filepath.Base(filepath.Dir(c.SrcPath)), c.SrcName())
+	// Disallow initialization with unnamed parameters.
+	_ struct{}
 }
 
 // ImportPath returns the fully qualified package import path.
@@ -315,6 +288,20 @@ func (c *Call) ImportPath() string {
 	return ""
 }
 
+// Init initializes SrcPath, SrcName, DirName, Line and IsStdlib for test main.
+func (c *Call) init(srcPath string, line int) {
+	c.SrcPath = srcPath
+	c.Line = line
+	if i := strings.LastIndexByte(c.SrcPath, '/'); i != -1 {
+		c.SrcName = c.SrcPath[i+1:]
+		if i = strings.LastIndexByte(c.SrcPath[:i], '/'); i != -1 {
+			c.DirSrc = c.SrcPath[i+1:]
+		}
+	}
+	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
+	c.IsStdlib = c.DirSrc == testMainSrc
+}
+
 const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 
 // updateLocations initializes LocalSrcPath, RelSrcPath and IsStdlib.
@@ -332,7 +319,7 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 			c.RelSrcPath = c.SrcPath[len(prefix):]
 			c.LocalSrcPath = pathJoin(localgoroot, "src", c.RelSrcPath)
 			c.IsStdlib = true
-			goto done
+			return
 		}
 	}
 	// Check GOPATH.
@@ -341,13 +328,13 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 		if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
 			c.RelSrcPath = c.SrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "src", c.RelSrcPath)
-			goto done
+			return
 		}
 		// For modules, the path has to be altered, as it contains the version.
 		if p := prefix + "/pkg/mod/"; strings.HasPrefix(c.SrcPath, p) {
 			c.RelSrcPath = c.SrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "pkg/mod", c.RelSrcPath)
-			goto done
+			return
 		}
 	}
 	// Go module path detection only works with stack traces created on the local
@@ -356,13 +343,34 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 		if prefix := localgomod + "/"; strings.HasPrefix(c.SrcPath, prefix) {
 			c.RelSrcPath = gomodImportPath + "/" + c.SrcPath[len(prefix):]
 			c.LocalSrcPath = c.SrcPath
-			goto done
+			return
 		}
 	}
-done:
-	if !c.IsStdlib {
-		// Consider _test/_testmain.go as stdlib since it's injected by "go test".
-		c.IsStdlib = c.PkgSrc() == testMainSrc
+}
+
+// equal returns true only if both calls are exactly equal.
+func (c *Call) equal(r *Call) bool {
+	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.SrcPath == r.SrcPath && c.Args.equal(&r.Args)
+}
+
+// similar returns true if the two Call are equal or almost but not quite
+// equal.
+func (c *Call) similar(r *Call, similar Similarity) bool {
+	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.SrcPath == r.SrcPath && c.Args.similar(&r.Args, similar)
+}
+
+// merge merges two similar Call, zapping out differences.
+func (c *Call) merge(r *Call) Call {
+	return Call{
+		Func:         c.Func,
+		Args:         c.Args.merge(&r.Args),
+		SrcPath:      c.SrcPath,
+		Line:         c.Line,
+		SrcName:      c.SrcName,
+		DirSrc:       c.DirSrc,
+		LocalSrcPath: c.LocalSrcPath,
+		RelSrcPath:   c.RelSrcPath,
+		IsStdlib:     c.IsStdlib,
 	}
 }
 
@@ -374,6 +382,9 @@ type Stack struct {
 	// Elided is set when there's >100 items in Stack, currently hardcoded in
 	// package runtime.
 	Elided bool
+
+	// Disallow initialization with unnamed parameters.
+	_ struct{}
 }
 
 // equal returns true on if both call stacks are exactly equal.
@@ -462,16 +473,17 @@ func (s *Stack) less(r *Stack) bool {
 		if s.Calls[x].Func.Complete > r.Calls[x].Func.Complete {
 			return true
 		}
-		if s.Calls[x].PkgSrc() < r.Calls[x].PkgSrc() {
+		if s.Calls[x].DirSrc < r.Calls[x].DirSrc {
 			return true
 		}
-		if s.Calls[x].PkgSrc() > r.Calls[x].PkgSrc() {
+		if s.Calls[x].DirSrc > r.Calls[x].DirSrc {
 			return true
 		}
 		if s.Calls[x].Line < r.Calls[x].Line {
 			return true
 		}
 		if s.Calls[x].Line > r.Calls[x].Line {
+			// ??
 			return true
 		}
 	}
@@ -519,6 +531,9 @@ type Signature struct {
 	Stack Stack
 	// Locked is set if the goroutine was locked to an OS thread.
 	Locked bool
+
+	// Disallow initialization with unnamed parameters.
+	_ struct{}
 }
 
 // equal returns true only if both signatures are exactly equal.
@@ -615,6 +630,9 @@ type Goroutine struct {
 	ID int
 	// First is the goroutine first printed, normally the one that crashed.
 	First bool
+
+	// Disallow initialization with unnamed parameters.
+	_ struct{}
 }
 
 // Private stuff.

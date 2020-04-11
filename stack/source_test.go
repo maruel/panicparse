@@ -640,6 +640,8 @@ func zapPointers(t *testing.T, want, got *Stack) {
 func zapPaths(s *Stack) {
 	for j := range s.Calls {
 		s.Calls[j].SrcPath = filepath.Base(s.Calls[j].SrcPath)
+		s.Calls[j].SrcName = ""
+		s.Calls[j].DirSrc = ""
 		s.Calls[j].LocalSrcPath = ""
 	}
 }
