@@ -355,6 +355,10 @@ func (s *scanningState) scan(line string) (string, error) {
 					ID:    id,
 					First: len(s.goroutines) == 0,
 				}
+				// Increase performance by always allocating 4 goroutines minimally.
+				if s.goroutines == nil {
+					s.goroutines = make([]*Goroutine, 0, 4)
+				}
 				s.goroutines = append(s.goroutines, g)
 				s.state = gotRoutineHeader
 				s.prefix = match[1]
@@ -420,6 +424,10 @@ func (s *scanningState) scan(line string) (string, error) {
 		}
 		c := Call{}
 		if found, err := parseFunc(&c, trimmed); found {
+			// Increase performance by always allocating 4 calls minimally.
+			if cur.Stack.Calls == nil {
+				cur.Stack.Calls = make([]Call, 0, 4)
+			}
 			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotFunc
 			return "", err
@@ -474,6 +482,10 @@ func (s *scanningState) scan(line string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
 			}
+			// Increase performance by always allocating 4 race operations minimally.
+			if s.races == nil {
+				s.races = make([]raceOp, 0, 4)
+			}
 			s.races = append(s.races, raceOp{w, addr, id})
 			s.state = gotRaceOperationHeader
 			return "", nil
@@ -494,6 +506,10 @@ func (s *scanningState) scan(line string) (string, error) {
 	case gotRaceGoroutineHeader:
 		c := Call{}
 		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
+			// Increase performance by always allocating 4 calls minimally.
+			if cur.Stack.Calls == nil {
+				cur.Stack.Calls = make([]Call, 0, 4)
+			}
 			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotRaceGoroutineFunc
 			return "", err
@@ -560,6 +576,10 @@ func (s *scanningState) scan(line string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
 			}
+			// Increase performance by always allocating 4 race operations minimally.
+			if s.races == nil {
+				s.races = make([]raceOp, 0, 4)
+			}
 			s.races = append(s.races, raceOp{w, addr, id})
 			s.state = gotRaceOperationHeader
 			return "", nil
@@ -573,6 +593,10 @@ func (s *scanningState) scan(line string) (string, error) {
 				Signature: Signature{State: match[2]},
 				ID:        id,
 				First:     len(s.goroutines) == 0,
+			}
+			// Increase performance by always allocating 4 goroutines minimally.
+			if s.goroutines == nil {
+				s.goroutines = make([]*Goroutine, 0, 4)
 			}
 			s.goroutines = append(s.goroutines, g)
 			s.state = gotRaceGoroutineHeader
@@ -601,6 +625,10 @@ func parseFunc(c *Call, line string) (bool, error) {
 			v, err := strconv.ParseUint(a, 0, 64)
 			if err != nil {
 				return true, fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
+			}
+			// Increase performance by always allocating 4 values minimally.
+			if c.Args.Values == nil {
+				c.Args.Values = make([]Arg, 0, 4)
 			}
 			c.Args.Values = append(c.Args.Values, Arg{Value: v})
 		}
