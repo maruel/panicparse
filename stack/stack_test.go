@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -16,12 +18,11 @@ import (
 
 func TestCallPkg(t *testing.T) {
 	t.Parallel()
-	c := Call{
-		Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
-		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
-		SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-		Line:    153,
-	}
+	c := newCall(
+		"gopkg.in/yaml%2ev2.handleErr",
+		Args{Values: []Arg{{Value: 0xc208033b20}}},
+		"/gopath/src/gopkg.in/yaml.v2/yaml.go",
+		153)
 	// Call methods.
 	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
@@ -46,12 +47,11 @@ func TestCallPkg(t *testing.T) {
 
 func TestCallPkgMethod(t *testing.T) {
 	t.Parallel()
-	c := Call{
-		Func:    newFunc("gopkg.in/yaml%2ev2.(*decoder).unmarshal"),
-		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
-		SrcPath: "/gopath/src/gopkg.in/yaml.v2/yaml.go",
-		Line:    153,
-	}
+	c := newCall(
+		"gopkg.in/yaml%2ev2.(*decoder).unmarshal",
+		Args{Values: []Arg{{Value: 0xc208033b20}}},
+		"/gopath/src/gopkg.in/yaml.v2/yaml.go",
+		153)
 	// Call methods.
 	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
@@ -76,12 +76,11 @@ func TestCallPkgMethod(t *testing.T) {
 
 func TestCallPkgRemote(t *testing.T) {
 	t.Parallel()
-	c := Call{
-		Func:    newFunc("gopkg.in/yaml%2ev2.handleErr"),
-		Args:    Args{Values: []Arg{{Value: 0xc208033b20}}},
-		SrcPath: "/remote/src/gopkg.in/yaml.v2/yaml.go",
-		Line:    153,
-	}
+	c := newCall(
+		"gopkg.in/yaml%2ev2.handleErr",
+		Args{Values: []Arg{{Value: 0xc208033b20}}},
+		"/remote/src/gopkg.in/yaml.v2/yaml.go",
+		153)
 	// Call methods.
 	compareString(t, "/remote/src/gopkg.in/yaml.v2/yaml.go:153", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
@@ -106,12 +105,11 @@ func TestCallPkgRemote(t *testing.T) {
 
 func TestCallStdlib(t *testing.T) {
 	t.Parallel()
-	c := Call{
-		Func:    newFunc("reflect.Value.assignTo"),
-		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
-		SrcPath: "/goroot/src/reflect/value.go",
-		Line:    2125,
-	}
+	c := newCall(
+		"reflect.Value.assignTo",
+		Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+		"/goroot/src/reflect/value.go",
+		2125)
 	// Call methods.
 	compareString(t, "/goroot/src/reflect/value.go:2125", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
@@ -137,12 +135,11 @@ func TestCallStdlib(t *testing.T) {
 
 func TestCallStdlibRemote(t *testing.T) {
 	t.Parallel()
-	c := Call{
-		Func:    newFunc("reflect.Value.assignTo"),
-		Args:    Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
-		SrcPath: "/remote/src/reflect/value.go",
-		Line:    2125,
-	}
+	c := newCall(
+		"reflect.Value.assignTo",
+		Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+		"/remote/src/reflect/value.go",
+		2125)
 	// Call methods.
 	compareString(t, "/remote/src/reflect/value.go:2125", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
@@ -167,11 +164,11 @@ func TestCallStdlibRemote(t *testing.T) {
 
 func TestCallMain(t *testing.T) {
 	t.Parallel()
-	c := Call{
-		Func:    newFunc("main.main"),
-		SrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
-		Line:    428,
-	}
+	c := newCall(
+		"main.main",
+		Args{},
+		"/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
+		428)
 	// Call methods.
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go:428", c.FullSrcLine())
 	compareBool(t, true, c.IsPkgMain())
@@ -198,12 +195,11 @@ func TestCallMain(t *testing.T) {
 func TestCallMismatched(t *testing.T) {
 	t.Parallel()
 	// See testPanicMismatched in context_test.go.
-	c := Call{
-		Func:         newFunc("github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic"),
-		SrcPath:      "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
-		Line:         7,
-		LocalSrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
-	}
+	c := newCall(
+		"github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic",
+		Args{},
+		"/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
+		7)
 	// Call methods.
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go:7", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
@@ -230,13 +226,11 @@ func TestCallMismatched(t *testing.T) {
 func TestCallUTF8(t *testing.T) {
 	t.Parallel()
 	// See testPanicUTF8 in context_test.go.
-	c := Call{
-		Func:         newFunc("github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic"),
-		Args:         Args{Values: []Arg{{Value: 0xc0000b2e48}}},
-		SrcPath:      "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
-		Line:         10,
-		LocalSrcPath: "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
-	}
+	c := newCall(
+		"github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic",
+		Args{Values: []Arg{{Value: 0xc0000b2e48}}},
+		"/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
+		10)
 	// Call methods.
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go:10", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
@@ -262,12 +256,11 @@ func TestCallUTF8(t *testing.T) {
 
 func TestCallC(t *testing.T) {
 	t.Parallel()
-	c := Call{
-		Func:    newFunc("findrunnable"),
-		Args:    Args{Values: []Arg{{Value: 0xc208012000}}},
-		SrcPath: "/goroot/src/runtime/proc.c",
-		Line:    1472,
-	}
+	c := newCall(
+		"findrunnable",
+		Args{Values: []Arg{{Value: 0xc208012000}}},
+		"/goroot/src/runtime/proc.c",
+		1472)
 	// Call methods.
 	compareString(t, "/goroot/src/runtime/proc.c:1472", c.FullSrcLine())
 	compareBool(t, false, c.IsPkgMain())
@@ -342,12 +335,11 @@ func TestSignature(t *testing.T) {
 	s.SleepMin = 10
 	compareString(t, "10 minutes", s.SleepString())
 	compareString(t, "", s.CreatedByString(true))
-	s.CreatedBy = Call{
-		SrcPath: "/gopath/src/foo/bar.go",
-		Line:    72,
-		Func:    Func{Raw: "DoStuff"},
-		Args:    Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
-	}
+	s.CreatedBy = newCall(
+		"DoStuff",
+		Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
+		"/gopath/src/foo/bar.go",
+		72)
 	compareString(t, "DoStuff @ bar.go:72", s.CreatedByString(false))
 	compareString(t, "DoStuff @ /gopath/src/foo/bar.go:72", s.CreatedByString(true))
 }
@@ -395,6 +387,32 @@ func TestSignature_Less(t *testing.T) {
 
 func newFunc(s string) Func {
 	return Func{Raw: s}
+}
+
+func newCall(f string, a Args, s string, l int) Call {
+	return Call{Func: newFunc(f), Args: a, SrcPath: s, Line: l}
+}
+
+var (
+	local   sync.Once
+	goroot  string
+	gopaths map[string]string
+)
+
+func newCallLocal(f string, a Args, s string, l int) Call {
+	local.Do(func() {
+		goroot = runtime.GOROOT()
+		gopaths = map[string]string{}
+		for _, p := range getGOPATHs() {
+			gopaths[p] = p
+		}
+	})
+	c := newCall(f, a, s, l)
+	c.updateLocations(goroot, goroot, gopaths)
+	if c.LocalSrcPath == "" || c.RelSrcPath == "" {
+		panic("invariant failed")
+	}
+	return c
 }
 
 func compareBool(t *testing.T, want, got bool) {

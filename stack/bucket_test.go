@@ -39,12 +39,11 @@ func TestAggregateNotAggressive(t *testing.T) {
 				State: "chan receive",
 				Stack: Stack{
 					Calls: []Call{
-						{
-							Func:    newFunc("main.func·001"),
-							Args:    Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    72,
-						},
+						newCall(
+							"main.func·001",
+							Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							72),
 					},
 				},
 			},
@@ -56,12 +55,11 @@ func TestAggregateNotAggressive(t *testing.T) {
 				State: "chan receive",
 				Stack: Stack{
 					Calls: []Call{
-						{
-							Func:    newFunc("main.func·001"),
-							Args:    Args{Values: []Arg{{Value: 0x21000000, Name: "#1"}, {Value: 2}}},
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    72,
-						},
+						newCall(
+							"main.func·001",
+							Args{Values: []Arg{{Value: 0x21000000, Name: "#1"}, {Value: 2}}},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							72),
 					},
 				},
 			},
@@ -98,18 +96,18 @@ func TestAggregateExactMatching(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "chan receive",
-				CreatedBy: Call{
-					Func:    newFunc("main.mainImpl"),
-					SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					Line:    74,
-				},
+				CreatedBy: newCall(
+					"main.mainImpl",
+					Args{},
+					"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+					74),
 				Stack: Stack{
 					Calls: []Call{
-						{
-							Func:    newFunc("main.func·001"),
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    72,
-						},
+						newCall(
+							"main.func·001",
+							Args{},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							72),
 					},
 				},
 			},
@@ -151,12 +149,11 @@ func TestAggregateAggressive(t *testing.T) {
 				SleepMax: 100,
 				Stack: Stack{
 					Calls: []Call{
-						{
-							Func:    newFunc("main.func·001"),
-							Args:    Args{Values: []Arg{{Value: 0x11000000, Name: "*"}, {Value: 2}}},
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    72,
-						},
+						newCall(
+							"main.func·001",
+							Args{Values: []Arg{{Value: 0x11000000, Name: "*"}, {Value: 2}}},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							72),
 					},
 				},
 			},

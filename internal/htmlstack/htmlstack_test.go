@@ -105,97 +105,91 @@ func TestGetSrcBranchURL(t *testing.T) {
 	t.Parallel()
 	ver := runtime.Version()
 	data := []struct {
+		name        string
 		c           stack.Call
 		url, branch template.URL
 		pkgURL      template.URL
 	}{
-		// Stdlib.
 		{
-			stack.Call{
-				Func:         newFunc("net/http.(*Server).Serve"),
-				SrcPath:      "/goroot/src/net/http/server.go",
-				Line:         2933,
-				LocalSrcPath: "/goroot/src/net/http/server.go",
-				RelSrcPath:   "net/http/server.go",
-				IsStdlib:     true,
-			},
+			"stdlib",
+			newCallLocal(
+				"net/http.(*Server).Serve",
+				stack.Args{},
+				"/goroot/src/net/http/server.go",
+				2933),
 			template.URL("https://github.com/golang/go/blob/" + ver + "/src/net/http/server.go#L2933"),
 			template.URL(ver),
 			"https://golang.org/pkg/net/http#Server.Serve",
 		},
-		// Go mod ref.
 		{
-			stack.Call{
-				Func:         newFunc("github.com/mattn/go-colorable.(*NonColorable).Write"),
-				SrcPath:      "/home/user/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
-				Line:         30,
-				LocalSrcPath: "/home/user/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
-				RelSrcPath:   "github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
-			},
+			"gomodref",
+			newCallLocal(
+				"github.com/mattn/go-colorable.(*NonColorable).Write",
+				stack.Args{},
+				"/home/user/go/pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go",
+				30),
 			"https://github.com/mattn/go-colorable/blob/v0.1.6/noncolorable.go#L30",
 			"v0.1.6",
 			"https://pkg.go.dev/github.com/mattn/go-colorable@v0.1.6#NonColorable.Write",
 		},
 		{
-			stack.Call{
-				Func:         newFunc("gopkg.in/fsnotify%2ev1.NewWatcher"),
-				SrcPath:      "/home/user/go/pkg/mod/gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
-				Line:         59,
-				LocalSrcPath: "/home/user/go/pkg/mod/gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
-				RelSrcPath:   "gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
-			},
+			"gomodref_with_dot",
+			newCallLocal(
+				"gopkg.in/fsnotify%2ev1.NewWatcher",
+				stack.Args{},
+				"/home/user/go/pkg/mod/gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
+				59),
 			"file:////home/user/go/pkg/mod/gopkg.in/fsnotify.v1@v1.4.7/inotify.go",
 			"v1.4.7",
 			"https://pkg.go.dev/gopkg.in/fsnotify.v1@v1.4.7#NewWatcher",
 		},
-		// Go mod auto-ref.
 		{
-			stack.Call{
-				Func:         newFunc("golang.org/x/sys/unix.Nanosleep"),
-				SrcPath:      "/home/user/go/pkg/mod/golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go",
-				Line:         1160,
-				LocalSrcPath: "/home/user/go/pkg/mod/golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go",
-				RelSrcPath:   "golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go",
-			},
+			"gomod_commit_ref",
+			newCallLocal(
+				"golang.org/x/sys/unix.Nanosleep",
+				stack.Args{},
+				"/home/user/go/pkg/mod/golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go",
+				1160),
 			"https://github.com/golang/sys/blob/d5e6a3e2c0ae/unix/zsyscall_linux_amd64.go#L1160",
 			"v0.0.0-20200223170610-d5e6a3e2c0ae",
 			"https://pkg.go.dev/golang.org/x/sys@v0.0.0-20200223170610-d5e6a3e2c0ae/unix#Nanosleep",
 		},
-		// Vendor.
 		{
-			stack.Call{
-				Func:         newFunc("github.com/maruel/panicparse/vendor/golang.org/x/sys/unix.Nanosleep"),
-				SrcPath:      "/home/user/go/src/github.com/maruel/panicparse/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go",
-				Line:         1100,
-				LocalSrcPath: "/home/user/go/src/github.com/maruel/panicparse/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go",
-				RelSrcPath:   "github.com/maruel/panicparse/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go",
-			},
+			"vendor",
+			newCallLocal(
+				"github.com/maruel/panicparse/vendor/golang.org/x/sys/unix.Nanosleep",
+				stack.Args{},
+				"/home/user/go/src/github.com/maruel/panicparse/vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go",
+				1100),
 			"https://github.com/golang/sys/blob/master/unix/zsyscall_linux_amd64.go#L1100",
 			"master",
 			"https://godoc.org/golang.org/x/sys/unix#Nanosleep",
 		},
 		{
+			"windows",
 			stack.Call{SrcPath: "c:/random.go"},
 			"file:///c:/random.go",
 			"",
 			"",
 		},
 		{
+			"windows_local",
 			stack.Call{LocalSrcPath: "c:/random.go"},
 			"file:///c:/random.go",
 			"",
 			"",
 		},
 		{
+			"empty",
 			stack.Call{},
 			"",
 			"",
 			"",
 		},
 	}
-	for i, line := range data {
+	for _, line := range data {
 		line := line
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(line.name, func(t *testing.T) {
 			t.Parallel()
 			url, branch := getSrcBranchURL(&line.c)
 			if url != line.url {
@@ -271,6 +265,30 @@ func newFunc(s string) stack.Func {
 	return stack.Func{Raw: s}
 }
 
+func newCall(f string, a stack.Args, s string, l int) stack.Call {
+	return stack.Call{Func: newFunc(f), Args: a, SrcPath: s, Line: l}
+}
+
+func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {
+	c := newCall(f, a, s, l)
+	const goroot = "/goroot/src/"
+	const gopath = "/home/user/go/src/"
+	const gopathmod = "/home/user/go/pkg/mod/"
+	// Do the equivalent of Call.updateLocations().
+	if strings.HasPrefix(s, goroot) {
+		c.LocalSrcPath = s
+		c.RelSrcPath = s[len(goroot):]
+		c.IsStdlib = true
+	} else if strings.HasPrefix(s, gopath) {
+		c.LocalSrcPath = s
+		c.RelSrcPath = s[len(gopath):]
+	} else if strings.HasPrefix(s, gopathmod) {
+		c.LocalSrcPath = s
+		c.RelSrcPath = s[len(gopathmod):]
+	}
+	return c
+}
+
 // loadGoroutines should match what is in regen.go.
 func loadGoroutines() ([]byte, error) {
 	htmlRaw, err := ioutil.ReadFile("goroutines.tpl")
@@ -291,12 +309,11 @@ func getBuckets() []*stack.Bucket {
 				State: "chan receive",
 				Stack: stack.Stack{
 					Calls: []stack.Call{
-						{
-							Func:    newFunc("main.func·001"),
-							Args:    stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
-							SrcPath: "/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							Line:    72,
-						},
+						newCall(
+							"main.func·001",
+							stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							72),
 						{
 							Func:     newFunc("sliceInternal"),
 							Args:     stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
@@ -311,21 +328,19 @@ func getBuckets() []*stack.Bucket {
 							Line:     72,
 							IsStdlib: true,
 						},
-						{
-							Func:    newFunc("DoStuff"),
-							Args:    stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
-							SrcPath: "/gopath/src/foo/bar.go",
-							Line:    72,
-						},
-						{
-							Func: newFunc("doStuffInternal"),
-							Args: stack.Args{
+						newCall(
+							"DoStuff",
+							stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
+							"/gopath/src/foo/bar.go",
+							72),
+						newCall(
+							"doStuffInternal",
+							stack.Args{
 								Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}},
 								Elided: true,
 							},
-							SrcPath: "/gopath/src/foo/bar.go",
-							Line:    72,
-						},
+							"/gopath/src/foo/bar.go",
+							72),
 					},
 				},
 			},
@@ -336,10 +351,7 @@ func getBuckets() []*stack.Bucket {
 			IDs: []int{3},
 			Signature: stack.Signature{
 				State: "running",
-				Stack: stack.Stack{
-					Calls:  []stack.Call{},
-					Elided: true,
-				},
+				Stack: stack.Stack{Elided: true},
 			},
 		},
 	}

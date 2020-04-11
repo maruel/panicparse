@@ -11,9 +11,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestAugment(t *testing.T) {
@@ -31,539 +32,427 @@ func TestAugment(t *testing.T) {
 	}{
 		{
 			"Local function doesn't interfere",
-			`func f(s string) {
+			`func main() {
+				f("yo")
+			}
+			func f(s string) {
 				a := func(i int) int {
 					return 1 + i
 				}
 				_ = a(3)
 				panic("ooh")
-			}
-			func main() {
-				f("yo")
 			}`,
 			false,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.f"),
-						Args:    Args{Values: []Arg{{Value: pointer}, {Value: 2}}},
-						SrcPath: "main.go",
-						Line:    7,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    10,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: 2}}},
+						"main.go",
+						10),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"func",
-			`func f(a func() string) {
-				panic(a())
-			}
-			func main() {
+			`func main() {
 				f(func() string { return "ooh" })
+			}
+			func f(a func() string) {
+				panic(a())
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.f"),
-						Args:    Args{Values: []Arg{{Value: pointer}}},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"func ellipsis",
-			`func f(a ...func() string) {
-				panic(a[0]())
-			}
-			func main() {
+			`func main() {
 				f(func() string { return "ooh" })
+			}
+			func f(a ...func() string) {
+				panic(a[0]())
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
-							Values: []Arg{{Value: pointer}, {Value: 1}, {Value: 1}},
-						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: 1}, {Value: 1}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"interface{}",
-			`func f(a []interface{}) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(make([]interface{}, 5, 7))
+			}
+			func f(a []interface{}) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
-							Values: []Arg{{Value: pointer}, {Value: 5}, {Value: 7}},
-						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: 5}, {Value: 7}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"[]int",
-			`func f(a []int) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(make([]int, 5, 7))
+			}
+			func f(a []int) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
-							Values: []Arg{{Value: pointer}, {Value: 5}, {Value: 7}},
-						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: 5}, {Value: 7}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"[]interface{}",
-			`func f(a []interface{}) {
-				panic(a[0].(string))
-			}
-			func main() {
+			`func main() {
 				f([]interface{}{"ooh"})
+			}
+			func f(a []interface{}) {
+				panic(a[0].(string))
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
-							Values: []Arg{{Value: pointer}, {Value: 1}, {Value: 1}},
-						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: 1}, {Value: 1}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"map[int]int",
-			`func f(a map[int]int) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(map[int]int{1: 2})
+			}
+			func f(a map[int]int) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.f"),
-						Args:    Args{Values: []Arg{{Value: pointer}}},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"map[interface{}]interface{}",
-			`func f(a map[interface{}]interface{}) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(make(map[interface{}]interface{}))
+			}
+			func f(a map[interface{}]interface{}) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.f"),
-						Args:    Args{Values: []Arg{{Value: pointer}}},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"chan int",
-			`func f(a chan int) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(make(chan int))
+			}
+			func f(a chan int) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.f"),
-						Args:    Args{Values: []Arg{{Value: pointer}}},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"chan interface{}",
-			`func f(a chan interface{}) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(make(chan interface{}))
+			}
+			func f(a chan interface{}) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
-							Values: []Arg{{Value: pointer}},
-						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"non-pointer method",
-			`type S struct {
-				}
-				func (s S) f() {
-					panic("ooh")
-				}
-				func main() {
-					var s S
-					s.f()
-				}`,
+			`func main() {
+				var s S
+				s.f()
+			}
+			type S struct {}
+			func (s S) f() {
+				panic("ooh")
+			}`,
 			true,
 			true,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.S.f"),
-						SrcPath: "main.go",
-						Line:    5,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    9,
-					},
+					newCall(
+						"main.S.f",
+						Args{},
+						"main.go",
+						8),
+					newCall("main.main", Args{}, "main.go", 4),
 				},
 			},
 		},
 		{
 			"pointer method",
-			`type S struct {
-			}
-			func (s *S) f() {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				var s S
 				s.f()
+			}
+			type S struct {}
+			func (s *S) f() {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.(*S).f"),
-						Args:    Args{Values: []Arg{{Value: pointer}}},
-						SrcPath: "main.go",
-						Line:    5,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    9,
-					},
+					newCall(
+						"main.(*S).f",
+						Args{Values: []Arg{{Value: pointer}}},
+						"main.go",
+						8),
+					newCall("main.main", Args{}, "main.go", 4),
 				},
 			},
 		},
 		{
 			"string",
-			`func f(s string) {
-				panic(s)
-			}
-			func main() {
+			`func main() {
 			  f("ooh")
+			}
+			func f(s string) {
+				panic(s)
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.f"),
-						Args:    Args{Values: []Arg{{Value: pointer}, {Value: 3}}},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: 3}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"string and int",
-			`func f(s string, i int) {
-				panic(s)
-			}
-			func main() {
+			`func main() {
 			  f("ooh", 42)
+			}
+			func f(s string, i int) {
+				panic(s)
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
-							Values: []Arg{{Value: pointer}, {Value: 3}, {Value: 42}},
-						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: 3}, {Value: 42}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"values are elided",
-			`func f(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12 int, s13 interface{}) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(0, 0, 0, 0, 0, 0, 0, 0, 42, 43, 44, 45, nil)
+			}
+			func f(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12 int, s13 interface{}) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
+					newCall(
+						"main.f",
+						Args{
 							Values: []Arg{
 								{}, {}, {}, {}, {}, {}, {}, {}, {Value: 42}, {Value: 43},
 							},
 							Elided: true,
 						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"error",
 			`import "errors"
-			func f(err error) {
-				panic(err.Error())
-			}
 			func main() {
 				f(errors.New("ooh"))
+			}
+			func f(err error) {
+				panic(err.Error())
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.f"),
-						Args:    Args{Values: []Arg{{Value: pointer}, {Value: pointer}}},
-						SrcPath: "main.go",
-						Line:    4,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    7,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: pointer}}},
+						"main.go",
+						7),
+					newCall("main.main", Args{}, "main.go", 4),
 				},
 			},
 		},
 		{
 			"error unnamed",
 			`import "errors"
-			func f(error) {
-				panic("ooh")
-			}
 			func main() {
 				f(errors.New("ooh"))
+			}
+			func f(error) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func:    newFunc("main.f"),
-						Args:    Args{Values: []Arg{{Value: pointer}, {Value: pointer}}},
-						SrcPath: "main.go",
-						Line:    4,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    7,
-					},
+					newCall(
+						"main.f",
+						Args{Values: []Arg{{Value: pointer}, {Value: pointer}}},
+						"main.go",
+						7),
+					newCall("main.main", Args{}, "main.go", 4),
 				},
 			},
 		},
 		{
 			"float32",
-			`func f(v float32) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(0.5)
+			}
+			func f(v float32) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
-							// The value is NOT a pointer but floating point encoding is not
-							// deterministic.
-							Values: []Arg{{Value: pointer}},
-						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						SrcPath: "main.go",
-						Line:    6,
-						Func:    newFunc("main.main"),
-					},
+					newCall(
+						"main.f",
+						// The value is NOT a pointer but floating point encoding is not
+						// deterministic.
+						Args{Values: []Arg{{Value: pointer}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 		{
 			"float64",
-			`func f(v float64) {
-				panic("ooh")
-			}
-			func main() {
+			`func main() {
 				f(0.5)
+			}
+			func f(v float64) {
+				panic("ooh")
 			}`,
 			true,
 			false,
 			Stack{
 				Calls: []Call{
-					{
-						Func: newFunc("main.f"),
-						Args: Args{
-							// The value is NOT a pointer but floating point encoding is not
-							// deterministic.
-							Values: []Arg{{Value: pointer}},
-						},
-						SrcPath: "main.go",
-						Line:    3,
-					},
-					{
-						Func:    newFunc("main.main"),
-						SrcPath: "main.go",
-						Line:    6,
-					},
+					newCall(
+						"main.f",
+						// The value is NOT a pointer but floating point encoding is not
+						// deterministic.
+						Args{Values: []Arg{{Value: pointer}}},
+						"main.go",
+						6),
+					newCall("main.main", Args{}, "main.go", 3),
 				},
 			},
 		},
 	}
 
-	for i, line := range data {
+	for _, line := range data {
 		line := line
-		t.Run(fmt.Sprintf("#%d: %s", i, line.name), func(t *testing.T) {
+		t.Run(line.name, func(t *testing.T) {
 			t.Parallel()
 			// Marshal the code a bit to make it nicer. Inject 'package main'.
 			lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)
@@ -603,8 +492,8 @@ func TestAugment(t *testing.T) {
 			zapPointers(t, line.name, line.workaroundGo111Elided, &line.want, &s)
 			zapPaths(&s)
 			clean()
-			if !reflect.DeepEqual(line.want, s) {
-				t.Logf("Different (want then got):\n- %#v\n- %#v", line.want, s)
+			if diff := cmp.Diff(line.want, s); diff != "" {
+				t.Logf("Different (-want +got):\n%s", diff)
 				t.Logf("Source code:\n%s", input)
 				t.Logf("Output:\n%s", content)
 				t.FailNow()
