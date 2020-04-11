@@ -380,9 +380,9 @@ func (s *scanningState) scan(line string) (string, error) {
 			s.state = gotUnavail
 			return "", nil
 		}
-		call, err := parseFunc(trimmed)
-		if call != nil {
-			cur.Stack.Calls = append(cur.Stack.Calls, *call)
+		c := Call{}
+		if found, err := parseFunc(&c, trimmed); found {
+			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotFunc
 			return "", err
 		}
@@ -418,9 +418,9 @@ func (s *scanningState) scan(line string) (string, error) {
 			// TODO(maruel): New state.
 			return "", nil
 		}
-		call, err := parseFunc(trimmed)
-		if call != nil {
-			cur.Stack.Calls = append(cur.Stack.Calls, *call)
+		c := Call{}
+		if found, err := parseFunc(&c, trimmed); found {
+			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotFunc
 			return "", err
 		}
@@ -482,8 +482,8 @@ func (s *scanningState) scan(line string) (string, error) {
 		return line, nil
 
 	case gotRaceOperationHeader:
-		call, err := parseFunc(trimmed)
-		if call != nil {
+		c := Call{}
+		if found, err := parseFunc(&c, trimmed); found {
 			// TODO(maruel): Figure out.
 			//cur.Stack.Calls = append(cur.Stack.Calls, *call)
 			s.state = gotRaceOperationFunc
@@ -492,9 +492,9 @@ func (s *scanningState) scan(line string) (string, error) {
 		return "", fmt.Errorf("expected a function after a race operation, got: %q", trimmed)
 
 	case gotRaceGoroutineHeader:
-		call, err := parseFunc(strings.TrimLeft(trimmed, "\t "))
-		if call != nil {
-			cur.Stack.Calls = append(cur.Stack.Calls, *call)
+		c := Call{}
+		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
+			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotRaceGoroutineFunc
 			return "", err
 		}
@@ -540,8 +540,8 @@ func (s *scanningState) scan(line string) (string, error) {
 			s.state = normal
 			return "", nil
 		}
-		call, err := parseFunc(strings.TrimLeft(trimmed, "\t "))
-		if call != nil {
+		c := Call{}
+		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
 			// TODO(maruel): Process match.
 			s.state = gotRaceGoroutineFunc
 			return "", err
@@ -586,12 +586,12 @@ func (s *scanningState) scan(line string) (string, error) {
 }
 
 // parseFunc only return an error if also returning a Call.
-func parseFunc(line string) (*Call, error) {
+func parseFunc(c *Call, line string) (bool, error) {
 	if match := reFunc.FindStringSubmatch(line); match != nil {
-		call := &Call{Func: Func{Raw: match[1]}}
+		c.Func.Raw = match[1]
 		for _, a := range strings.Split(match[2], ", ") {
 			if a == "..." {
-				call.Args.Elided = true
+				c.Args.Elided = true
 				continue
 			}
 			if a == "" {
@@ -600,13 +600,13 @@ func parseFunc(line string) (*Call, error) {
 			}
 			v, err := strconv.ParseUint(a, 0, 64)
 			if err != nil {
-				return call, fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
+				return true, fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
 			}
-			call.Args.Values = append(call.Args.Values, Arg{Value: v})
+			c.Args.Values = append(c.Args.Values, Arg{Value: v})
 		}
-		return call, nil
+		return true, nil
 	}
-	return nil, nil
+	return false, nil
 }
 
 // parseFile only return an error if also processing a Call.
