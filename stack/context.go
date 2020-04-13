@@ -489,7 +489,9 @@ func (s *scanningState) scan(line string) (string, error) {
 
 	case gotFileFunc:
 		if match := reCreated.FindStringSubmatch(trimmed); match != nil {
-			cur.CreatedBy.Func.Raw = match[1]
+			if err := cur.CreatedBy.Func.Init(match[1]); err != nil {
+				return "", err
+			}
 			s.state = gotCreated
 			return "", nil
 		}
@@ -532,7 +534,9 @@ func (s *scanningState) scan(line string) (string, error) {
 			return "", nil
 		}
 		if match := reCreated.FindStringSubmatch(trimmed); match != nil {
-			cur.CreatedBy.Func.Raw = match[1]
+			if err := cur.CreatedBy.Func.Init(match[1]); err != nil {
+				return "", err
+			}
 			s.state = gotCreated
 			return "", nil
 		}
@@ -700,7 +704,9 @@ func (s *scanningState) scan(line string) (string, error) {
 // Uses reFunc.
 func parseFunc(c *Call, line string) (bool, error) {
 	if match := reFunc.FindStringSubmatch(line); match != nil {
-		c.Func.Raw = match[1]
+		if err := c.Func.Init(match[1]); err != nil {
+			return true, err
+		}
 		for _, a := range strings.Split(match[2], ", ") {
 			if a == "..." {
 				c.Args.Elided = true

@@ -228,7 +228,7 @@ func TestSymbol(t *testing.T) {
 		},
 		{
 			newFunc("main.baz"),
-			"",
+			"baz",
 		},
 	}
 	for i, line := range data {
@@ -262,7 +262,11 @@ func BenchmarkWrite(b *testing.B) {
 //
 
 func newFunc(s string) stack.Func {
-	return stack.Func{Raw: s}
+	f := stack.Func{}
+	if err := f.Init(s); err != nil {
+		panic(err)
+	}
+	return f
 }
 
 func newCall(f string, a stack.Args, s string, l int) stack.Call {

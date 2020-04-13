@@ -67,13 +67,13 @@ func isDebug() bool {
 
 func funcClass(line *stack.Call) template.HTML {
 	if line.IsStdlib {
-		if line.Func.IsExported() {
+		if line.Func.IsExported {
 			return "FuncStdLibExported"
 		}
 		return "FuncStdLib"
-	} else if line.IsPkgMain() {
+	} else if line.Func.IsPkgMain {
 		return "FuncMain"
-	} else if line.Func.IsExported() {
+	} else if line.Func.IsExported {
 		return "FuncOtherExported"
 	}
 	return "FuncOther"
@@ -109,7 +109,7 @@ func pkgURL(c *stack.Call) template.URL {
 			url = "https://pkg.go.dev/"
 		}
 	}
-	if c.Func.IsExported() {
+	if c.Func.IsExported {
 		return template.URL(url + ip + "#" + symbol(&c.Func))
 	}
 	return template.URL(url + ip)
@@ -224,15 +224,7 @@ func splitTag(s string) (string, string, template.URL) {
 // All of godoc/gddo, pkg.go.dev and golang.org/godoc use the same symbol
 // reference format.
 func symbol(f *stack.Func) template.URL {
-	i := strings.LastIndexByte(f.Raw, '/')
-	if i == -1 {
-		return ""
-	}
-	j := strings.IndexByte(f.Raw[i:], '.')
-	if j == -1 {
-		return ""
-	}
-	s := f.Raw[i+j+1:]
+	s := f.Name
 	if reMethodSymbol.MatchString(s) {
 		// Transform the method form.
 		s = reMethodSymbol.ReplaceAllString(s, "$1$2")

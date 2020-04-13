@@ -60,11 +60,10 @@ func (pf pathFormat) formatCall(c *stack.Call) string {
 }
 
 func (pf pathFormat) createdByString(s *stack.Signature) string {
-	created := s.CreatedBy.Func.PkgDotName()
-	if created == "" {
+	if s.CreatedBy.Func.DirName == "" {
 		return ""
 	}
-	return created + " @ " + pf.formatCall(&s.CreatedBy)
+	return s.CreatedBy.Func.DirName + "." + s.CreatedBy.Func.Name + " @ " + pf.formatCall(&s.CreatedBy)
 }
 
 // calcLengths returns the maximum length of the source lines and package names.
@@ -76,7 +75,7 @@ func calcLengths(buckets []*stack.Bucket, pf pathFormat) (int, int) {
 			if l := len(pf.formatCall(&line)); l > srcLen {
 				srcLen = l
 			}
-			if l := len(line.Func.PkgName()); l > pkgLen {
+			if l := len(line.Func.DirName); l > pkgLen {
 				pkgLen = l
 			}
 		}
@@ -88,13 +87,13 @@ func calcLengths(buckets []*stack.Bucket, pf pathFormat) (int, int) {
 // the type of package the function is in.
 func (p *Palette) functionColor(line *stack.Call) string {
 	if line.IsStdlib {
-		if line.Func.IsExported() {
+		if line.Func.IsExported {
 			return p.FuncStdLibExported
 		}
 		return p.FuncStdLib
-	} else if line.IsPkgMain() {
+	} else if line.Func.IsPkgMain {
 		return p.FuncMain
-	} else if line.Func.IsExported() {
+	} else if line.Func.IsExported {
 		return p.FuncOtherExported
 	}
 	return p.FuncOther
@@ -131,9 +130,9 @@ func (p *Palette) BucketHeader(bucket *stack.Bucket, pf pathFormat, multipleBuck
 func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, pf pathFormat) string {
 	return fmt.Sprintf(
 		"    %s%-*s %s%-*s %s%s%s(%s)%s",
-		p.Package, pkgLen, line.Func.PkgName(),
+		p.Package, pkgLen, line.Func.DirName,
 		p.SrcFile, srcLen, pf.formatCall(line),
-		p.functionColor(line), line.Func.Name(),
+		p.functionColor(line), line.Func.Name,
 		p.Arguments, &line.Args,
 		p.EOLReset)
 }

@@ -9,6 +9,7 @@
 package stack
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -19,100 +20,86 @@ import (
 	"unicode/utf8"
 )
 
-// Func is a function call as read in a goroutine stack trace.
+// Func is a function call in a goroutine stack trace.
+type Func struct {
+	// Complete is the complete reference. It can be ambiguous in case where a
+	// path contains dots.
+	Complete string
+	// ImportPath is the directory name for this function reference, or "main" if
+	// it was in package main.
+	ImportPath string
+	// DirName is the directory name containing the package in which the function
+	// is. Normally this matches the package name, but sometimes there's smartass
+	// folks that use a different directory name than the package name.
+	DirName string
+	// Name is the function name or fully quality method name.
+	Name string
+	// IsExported returns true if the function is exported.
+	IsExported bool
+	// IsPkgMain is true if it is in the main package.
+	IsPkgMain bool
+
+	// Disallow initialization with unnamed parameters.
+	_ struct{}
+}
+
+// Init parses the raw function call line from a goroutine stack trace.
 //
 // Go stack traces print a mangled function call, this wrapper unmangle the
 // string before printing and adds other filtering methods.
 //
 // The main caveat is that for calls in package main, the package import URL is
 // left out.
-type Func struct {
-	Raw string
+func (f *Func) Init(raw string) error {
+	// Format can be:
+	//  - gopkg.in/yaml%2ev2.(*Struct).Method  (handling dots is tricky)
+	//  - main.func·001  (go statements)
+	//  - foo  (C code)
+	//
+	// The function is optimized to reduce its memory usage.
+	endPkg := 0
+	if lastSlash := strings.LastIndexByte(raw, '/'); lastSlash != -1 {
+		// Cut the path elements.
+		r := strings.IndexByte(raw[lastSlash+1:], '.')
+		if r == -1 {
+			return errors.New("bad function reference: expected to have at least one dot")
+		}
+		endPkg = lastSlash + r + 1
+	} else {
+		// It's fine if there's no dot, it happens in C code in go1.4 and lower.
+		endPkg = strings.IndexByte(raw, '.')
+	}
+	// Only the path part is escaped.
+	var err error
+	if f.Complete, err = url.QueryUnescape(raw); err != nil {
+		return fmt.Errorf("bad function reference: "+wrap, err)
+	}
+	// Update the index in the unescaped string.
+	endPkg += len(f.Complete) - len(raw)
+	if endPkg != -1 {
+		f.ImportPath = f.Complete[:endPkg]
+	}
+	f.Name = f.Complete[endPkg+1:]
+	f.DirName = f.ImportPath
+	if i := strings.LastIndexByte(f.DirName, '/'); i != -1 {
+		f.DirName = f.DirName[i+1:]
+	}
+	if f.ImportPath == "main" {
+		f.IsPkgMain = true
+		if f.Name == "main" {
+			f.IsExported = true
+		}
+	} else {
+		parts := strings.Split(f.Name, ".")
+		r, _ := utf8.DecodeRuneInString(parts[len(parts)-1])
+		f.IsExported = unicode.ToUpper(r) == r
+	}
+	return nil
 }
 
-// String return the fully qualified package import path dot function/method
-// name.
-//
-// It returns the unmangled form of .Raw.
+// String returns Complete.
 func (f *Func) String() string {
-	s, _ := url.QueryUnescape(f.Raw)
-	return s
-}
-
-// Name returns the function name.
-//
-// Methods are fully qualified, including the struct type.
-func (f *Func) Name() string {
-	// This works even on Windows as filepath.Base() splits also on "/".
-	// TODO(maruel): This code will fail on a source file with a dot in its name.
-	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
-	if len(parts) == 1 {
-		return parts[0]
-	}
-	return parts[1]
-}
-
-// importPath returns the fully qualified package import URL as a guess from
-// the function signature.
-//
-// Not exported because Call.ImportPath() should be called instead, as this
-// function can't return the import path for package main.
-func (f *Func) importPath() string {
-	i := strings.LastIndexByte(f.Raw, '/')
-	if i == -1 {
-		return ""
-	}
-	j := strings.IndexByte(f.Raw[i:], '.')
-	if j == -1 {
-		return ""
-	}
-	s, _ := url.QueryUnescape(f.Raw[:i+j])
-	return s
-}
-
-// PkgName returns the guessed package name for this function reference.
-//
-// Since the package name can differ from the package import path, the result
-// is incorrect when there's a mismatch between the directory name containing
-// the package and the package name.
-func (f *Func) PkgName() string {
-	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
-	if len(parts) == 1 {
-		return ""
-	}
-	s, _ := url.QueryUnescape(parts[0])
-	return s
-}
-
-// PkgDotName returns "<package>.<func>" format.
-//
-// Since the package name can differ from the package import path, the result
-// is incorrect when there's a mismatch between the directory name containing
-// the package and the package name.
-func (f *Func) PkgDotName() string {
-	parts := strings.SplitN(filepath.Base(f.Raw), ".", 2)
-	s, _ := url.QueryUnescape(parts[0])
-	if len(parts) == 1 {
-		return parts[0]
-	}
-	if s != "" || parts[1] != "" {
-		return s + "." + parts[1]
-	}
-	return ""
-}
-
-// IsExported returns true if the function is exported.
-func (f *Func) IsExported() bool {
-	name := f.Name()
-	// TODO(maruel): Something like serverHandler.ServeHTTP in package net/host
-	// should not be considered exported. We need something similar to the
-	// decoding done in symbol() in internal/htmlstack.
-	parts := strings.Split(name, ".")
-	r, _ := utf8.DecodeRuneInString(parts[len(parts)-1])
-	if unicode.ToUpper(r) == r {
-		return true
-	}
-	return f.PkgName() == "main" && name == "main"
+	return f.Complete
 }
 
 // Arg is an argument on a Call.
@@ -266,13 +253,13 @@ type Call struct {
 
 // equal returns true only if both calls are exactly equal.
 func (c *Call) equal(r *Call) bool {
-	return c.SrcPath == r.SrcPath && c.Line == r.Line && c.Func == r.Func && c.Args.equal(&r.Args)
+	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.SrcPath == r.SrcPath && c.Args.equal(&r.Args)
 }
 
 // similar returns true if the two Call are equal or almost but not quite
 // equal.
 func (c *Call) similar(r *Call, similar Similarity) bool {
-	return c.SrcPath == r.SrcPath && c.Line == r.Line && c.Func == r.Func && c.Args.similar(&r.Args, similar)
+	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.SrcPath == r.SrcPath && c.Args.similar(&r.Args, similar)
 }
 
 // merge merges two similar Call, zapping out differences.
@@ -302,11 +289,6 @@ func (c *Call) PkgSrc() string {
 	return pathJoin(filepath.Base(filepath.Dir(c.SrcPath)), c.SrcName())
 }
 
-// IsPkgMain returns true if it is in the main package.
-func (c *Call) IsPkgMain() bool {
-	return c.Func.PkgName() == "main"
-}
-
 // ImportPath returns the fully qualified package import path.
 //
 // In the case of package "main", it returns the underlying path to the main
@@ -319,8 +301,8 @@ func (c *Call) ImportPath() string {
 		}
 	}
 	// Fallback to best effort.
-	if !c.IsPkgMain() {
-		return c.Func.importPath()
+	if !c.Func.IsPkgMain {
+		return c.Func.ImportPath
 	}
 	// In package main, it can only work well if guesspath=true was used. Return
 	// an empty string instead of garbagge.
@@ -468,10 +450,10 @@ func (s *Stack) less(r *Stack) bool {
 
 	// Stack lengths are the same.
 	for x := range s.Calls {
-		if s.Calls[x].Func.Raw < r.Calls[x].Func.Raw {
+		if s.Calls[x].Func.Complete < r.Calls[x].Func.Complete {
 			return true
 		}
-		if s.Calls[x].Func.Raw > r.Calls[x].Func.Raw {
+		if s.Calls[x].Func.Complete > r.Calls[x].Func.Complete {
 			return true
 		}
 		if s.Calls[x].PkgSrc() < r.Calls[x].PkgSrc() {

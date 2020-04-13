@@ -1588,7 +1588,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 
 	// We should find exactly 10 sleeping routines in the URL1Handler handler
 	// signature and 3 in URL2Handler.
-	if s := b.Stack.Calls[0].Func.Name(); s == "URL1Handler" || s == "URL2Handler" {
+	if s := b.Stack.Calls[0].Func.Name; s == "URL1Handler" || s == "URL2Handler" {
 		if b.State != "chan receive" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
@@ -1605,7 +1605,11 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.CreatedBy.Func.PkgDotName() != "http.(*Server).Serve" {
+		if b.CreatedBy.ImportPath() != "net/http" {
+			t.Fatalf("suspicious: %#v", b)
+			return pstUnknown
+		}
+		if b.CreatedBy.Func.Name != "(*Server).Serve" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
@@ -1617,13 +1621,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 
 	// Find the client goroutine signatures. For the client, it is likely that
 	// they haven't all bucketed perfectly.
-	if b.CreatedBy.Func.PkgDotName() == "internal.GetAsync" {
+	if b.CreatedBy.ImportPath() == "github.com/maruel/panicparse"+ver+"/cmd/panicweb/internal" && b.CreatedBy.Func.Name == "GetAsync" {
 		// TODO(maruel): More checks.
 		return pstClient
 	}
 
 	// Now find the two goroutine started by main.
-	if b.CreatedBy.Func.PkgDotName() == "main.main" {
+	if b.CreatedBy.ImportPath() == "github.com/maruel/panicparse"+ver+"/cmd/panicweb" && b.CreatedBy.Func.ImportPath == "main" && b.CreatedBy.Func.Name == "main" {
 		if b.State == "IO wait" {
 			return pstServe
 		}
@@ -1691,15 +1695,17 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				}
 			}
 			// Process the golang.org/x/sys call specifically.
-			fn := "golang.org/x/sys/unix.Nanosleep"
+			path := "golang.org/x/sys/unix"
+			fn := "Nanosleep"
 			mainOS := "main_unix.go"
 			if runtime.GOOS == "windows" {
-				fn = "golang.org/x/sys/windows.SleepEx"
+				path = "golang.org/x/sys/windows"
+				fn = "SleepEx"
 				mainOS = "main_windows.go"
 			}
 			usingModules := internaltest.IsUsingModules()
-			if b.Stack.Calls[1].Func.Raw != fn {
-				t.Fatalf("expected %q, got %q", fn, b.Stack.Calls[1].Func.Raw)
+			if b.Stack.Calls[1].Func.ImportPath != path || b.Stack.Calls[1].Func.Name != fn {
+				t.Fatalf("expected %q & %q, got %#v", path, fn, b.Stack.Calls[1].Func)
 			}
 			prefix := "golang.org/x/sys@v0.0.0-"
 			if !usingModules {
@@ -1744,8 +1750,8 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 	}
 
 	// On older Go version, there's often an assembly stack in asm_amd64.s.
-	if b.CreatedBy.Func.Raw == "" {
-		if len(b.Stack.Calls) == 1 && b.Stack.Calls[0].Func.Raw == "runtime.goexit" {
+	if b.CreatedBy.Func.Complete == "" {
+		if len(b.Stack.Calls) == 1 && b.Stack.Calls[0].Func.Complete == "runtime.goexit" {
 			return pstStdlib
 		}
 	}

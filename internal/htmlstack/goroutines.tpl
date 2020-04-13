@@ -28,11 +28,11 @@
 {{- /* Accepts a Call */ -}}
 {{- define "RenderCall" -}}
   <span class="call"><a href="{{srcURL .}}">{{.SrcName}}:{{.Line}}</a> <span class="{{funcClass .}}">
-  <a href="{{pkgURL .}}">{{.Func.PkgName}}.{{.Func.Name}}</a></span>({{template "RenderArgs" .Args}})</span>
+  <a href="{{pkgURL .}}">{{.Func.DirName}}.{{.Func.Name}}</a></span>({{template "RenderArgs" .Args}})</span>
   {{- if isDebug -}}
   <br>SrcPath: {{.SrcPath}}
   <br>LocalSrcPath: {{.LocalSrcPath}}
-  <br>Func: {{.Func.Raw}}
+  <br>Func: {{.Func.Complete}}
   <br>IsStdlib: {{.IsStdlib}}
   {{- end -}}
 {{- end -}}
@@ -44,7 +44,7 @@
       <tr>
         <td>{{$i}}</td>
         <td>
-          <a href="{{pkgURL $e}}">{{$e.Func.PkgName}}</a>
+          <a href="{{pkgURL $e}}">{{$e.Func.DirName}}</a>
         </td>
         <td>
           <a href="{{srcURL $e}}">{{$e.SrcName}}:{{$e.Line}}</a>
@@ -214,7 +214,7 @@ document.addEventListener("DOMContentLoaded", ready);
     </h1>
     {{if $e.Locked}} <span class="locked">[locked]</span>
     {{- end -}}
-    {{- if $e.CreatedBy.Func.Raw}} <span class="created">Created by: {{template "RenderCall" $e.CreatedBy}}</span>
+    {{- if $e.CreatedBy.Func.Complete}} <span class="created">Created by: {{template "RenderCall" $e.CreatedBy}}</span>
     {{- end -}}
     {{template "RenderCalls" $e.Signature.Stack}}
   {{- end -}}

@@ -106,7 +106,7 @@ func (c *cache) load(fileName string) {
 
 func (c *cache) getFuncAST(call *Call) *ast.FuncDecl {
 	if p := c.parsed[call.LocalSrcPath]; p != nil {
-		return p.getFuncAST(call.Func.Name(), call.Line)
+		return p.getFuncAST(call.Func.Name, call.Line)
 	}
 	return nil
 }

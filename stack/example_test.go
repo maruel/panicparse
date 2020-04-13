@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/maruel/panicparse/v2/stack"
 )
@@ -44,7 +45,7 @@ func Example() {
 			if l := len(fmt.Sprintf("%s:%d", line.SrcName(), line.Line)); l > srcLen {
 				srcLen = l
 			}
-			if l := len(line.Func.PkgName()); l > pkgLen {
+			if l := len(filepath.Base(line.Func.ImportPath)); l > pkgLen {
 				pkgLen = l
 			}
 		}
@@ -60,8 +61,8 @@ func Example() {
 			extra += " [locked]"
 		}
 
-		if c := bucket.CreatedBy.Func.PkgDotName(); c != "" {
-			extra += fmt.Sprintf(" [Created by %s @ %s:%d]", c, bucket.CreatedBy.SrcName(), bucket.CreatedBy.Line)
+		if bucket.CreatedBy.Func.DirName != "" {
+			extra += fmt.Sprintf(" [Created by %s.%s @ %s:%d]", bucket.CreatedBy.Func.DirName, bucket.CreatedBy.Func.Name, bucket.CreatedBy.SrcName(), bucket.CreatedBy.Line)
 		}
 		fmt.Printf("%d: %s%s\n", len(bucket.IDs), bucket.State, extra)
 
@@ -69,9 +70,9 @@ func Example() {
 		for _, line := range bucket.Stack.Calls {
 			fmt.Printf(
 				"    %-*s %-*s %s(%s)\n",
-				pkgLen, line.Func.PkgName(), srcLen,
+				pkgLen, line.Func.DirName, srcLen,
 				fmt.Sprintf("%s:%d", line.SrcName(), line.Line),
-				line.Func.Name(), &line.Args)
+				line.Func.Name, &line.Args)
 		}
 		if bucket.Stack.Elided {
 			io.WriteString(os.Stdout, "    (...)\n")

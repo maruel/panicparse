@@ -45,13 +45,13 @@ func TestCalcLengths(t *testing.T) {
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "/home/user/go/src/foo/baz.go:123", fullPath.formatCall(&b[0].Signature.Stack.Calls[0]))
 	compareInt(t, len("/home/user/go/src/foo/baz.go:123"), srcLen)
-	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.PkgName())
+	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.ImportPath)
 	compareInt(t, len("main"), pkgLen)
 
 	srcLen, pkgLen = calcLengths(b, basePath)
 	compareString(t, "baz.go:123", basePath.formatCall(&b[0].Signature.Stack.Calls[0]))
 	compareInt(t, len("baz.go:123"), srcLen)
-	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.PkgName())
+	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.ImportPath)
 	compareInt(t, len("main"), pkgLen)
 }
 
@@ -160,7 +160,11 @@ func TestStackLines(t *testing.T) {
 //
 
 func newFunc(s string) stack.Func {
-	return stack.Func{Raw: s}
+	f := stack.Func{}
+	if err := f.Init(s); err != nil {
+		panic(err)
+	}
+	return f
 }
 
 func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {

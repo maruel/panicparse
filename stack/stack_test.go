@@ -17,6 +17,67 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestFuncInit(t *testing.T) {
+	t.Parallel()
+	data := []struct {
+		raw  string
+		want Func
+	}{
+		{
+			"github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic",
+			Func{
+				Complete:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8.(*Strùct).Pànic",
+				ImportPath: "github.com/maruel/panicparse/cmd/panic/internal/ùtf8",
+				DirName:    "ùtf8",
+				Name:       "(*Strùct).Pànic",
+				IsExported: true,
+			},
+		},
+		{
+			"gopkg.in/yaml%2ev2.handleErr",
+			Func{
+				Complete:   "gopkg.in/yaml.v2.handleErr",
+				ImportPath: "gopkg.in/yaml.v2",
+				DirName:    "yaml.v2",
+				Name:       "handleErr",
+			},
+		},
+		{
+			"github.com/maruel/panicparse/vendor/golang.org/x/sys/unix.Nanosleep",
+			Func{
+				Complete:   "github.com/maruel/panicparse/vendor/golang.org/x/sys/unix.Nanosleep",
+				ImportPath: "github.com/maruel/panicparse/vendor/golang.org/x/sys/unix",
+				DirName:    "unix",
+				Name:       "Nanosleep",
+				IsExported: true,
+			},
+		},
+		{
+			"main.func·001",
+			Func{
+				Complete:   "main.func·001",
+				ImportPath: "main",
+				DirName:    "main",
+				Name:       "func·001",
+				IsPkgMain:  true,
+			},
+		},
+		{
+			"gc",
+			Func{
+				Complete: "gc",
+				Name:     "gc",
+			},
+		},
+	}
+	for _, line := range data {
+		got := newFunc(line.raw)
+		if diff := cmp.Diff(line.want, got); diff != "" {
+			t.Fatalf("Call mismatch (-want +got):\n%s", diff)
+		}
+	}
+}
+
 func TestCallPkg(t *testing.T) {
 	t.Parallel()
 	c := newCall(
@@ -25,16 +86,8 @@ func TestCallPkg(t *testing.T) {
 		"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		153)
 	// Call methods.
-	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("yaml.v2", "yaml.go"), c.PkgSrc())
 	compareString(t, "yaml.go", c.SrcName())
-
-	// Func methods.
-	compareBool(t, false, c.Func.IsExported())
-	compareString(t, "handleErr", c.Func.Name())
-	compareString(t, "yaml.v2.handleErr", c.Func.PkgDotName())
-	compareString(t, "yaml.v2", c.Func.PkgName())
-	compareString(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
 
 	// ParseDump(guesspaths=true).
 	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
@@ -52,16 +105,8 @@ func TestCallPkgMethod(t *testing.T) {
 		"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 		153)
 	// Call methods.
-	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("yaml.v2", "yaml.go"), c.PkgSrc())
 	compareString(t, "yaml.go", c.SrcName())
-
-	// Func methods.
-	compareBool(t, false, c.Func.IsExported())
-	compareString(t, "(*decoder).unmarshal", c.Func.Name())
-	compareString(t, "yaml.v2.(*decoder).unmarshal", c.Func.PkgDotName())
-	compareString(t, "yaml.v2", c.Func.PkgName())
-	compareString(t, "gopkg.in/yaml.v2.(*decoder).unmarshal", c.Func.String())
 
 	// ParseDump(guesspaths=true).
 	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
@@ -79,16 +124,8 @@ func TestCallPkgRemote(t *testing.T) {
 		"/remote/src/gopkg.in/yaml.v2/yaml.go",
 		153)
 	// Call methods.
-	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("yaml.v2", "yaml.go"), c.PkgSrc())
 	compareString(t, "yaml.go", c.SrcName())
-
-	// Func methods.
-	compareBool(t, false, c.Func.IsExported())
-	compareString(t, "handleErr", c.Func.Name())
-	compareString(t, "yaml.v2.handleErr", c.Func.PkgDotName())
-	compareString(t, "yaml.v2", c.Func.PkgName())
-	compareString(t, "gopkg.in/yaml.v2.handleErr", c.Func.String())
 
 	// ParseDump(guesspaths=true).
 	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/remote": "/local"})
@@ -106,17 +143,9 @@ func TestCallStdlib(t *testing.T) {
 		"/goroot/src/reflect/value.go",
 		2125)
 	// Call methods.
-	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("reflect", "value.go"), c.PkgSrc())
 	compareString(t, "value.go", c.SrcName())
-
-	// Func methods.
-	compareString(t, "", c.ImportPath())
-	compareBool(t, false, c.Func.IsExported())
-	compareString(t, "Value.assignTo", c.Func.Name())
-	compareString(t, "reflect.Value.assignTo", c.Func.PkgDotName())
-	compareString(t, "reflect", c.Func.PkgName())
-	compareString(t, "reflect.Value.assignTo", c.Func.String())
+	compareString(t, "reflect", c.ImportPath())
 
 	// ParseDump(guesspaths=true).
 	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
@@ -134,16 +163,8 @@ func TestCallStdlibRemote(t *testing.T) {
 		"/remote/src/reflect/value.go",
 		2125)
 	// Call methods.
-	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("reflect", "value.go"), c.PkgSrc())
 	compareString(t, "value.go", c.SrcName())
-
-	// Func methods.
-	compareBool(t, false, c.Func.IsExported())
-	compareString(t, "Value.assignTo", c.Func.Name())
-	compareString(t, "reflect.Value.assignTo", c.Func.PkgDotName())
-	compareString(t, "reflect", c.Func.PkgName())
-	compareString(t, "reflect.Value.assignTo", c.Func.String())
 
 	// ParseDump(guesspaths=true).
 	c.updateLocations("/remote", "/local", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
@@ -161,17 +182,9 @@ func TestCallMain(t *testing.T) {
 		"/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go",
 		428)
 	// Call methods.
-	compareBool(t, true, c.IsPkgMain())
 	compareString(t, pathJoin("pp", "main.go"), c.PkgSrc())
 	compareString(t, "main.go", c.SrcName())
-
-	// Func methods.
 	compareString(t, "", c.ImportPath())
-	compareBool(t, true, c.Func.IsExported())
-	compareString(t, "main", c.Func.Name())
-	compareString(t, "main.main", c.Func.PkgDotName())
-	compareString(t, "main", c.Func.PkgName())
-	compareString(t, "main.main", c.Func.String())
 
 	// ParseDump(guesspaths=true).
 	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
@@ -190,17 +203,9 @@ func TestCallMismatched(t *testing.T) {
 		"/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 		7)
 	// Call methods.
-	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("incorrect", "correct.go"), c.PkgSrc())
 	compareString(t, "correct.go", c.SrcName())
-
-	// Func methods.
 	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/incorrect", c.ImportPath())
-	compareBool(t, true, c.Func.IsExported())
-	compareString(t, "Panic", c.Func.Name())
-	compareString(t, "incorrect.Panic", c.Func.PkgDotName())
-	compareString(t, "incorrect", c.Func.PkgName())
-	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic", c.Func.String())
 
 	// ParseDump(guesspaths=true).
 	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
@@ -219,17 +224,9 @@ func TestCallUTF8(t *testing.T) {
 		"/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 		10)
 	// Call methods.
-	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("ùtf8", "ùtf8.go"), c.PkgSrc())
 	compareString(t, "ùtf8.go", c.SrcName())
-
-	// Func methods.
 	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/ùtf8", c.ImportPath())
-	compareBool(t, true, c.Func.IsExported())
-	compareString(t, "(*Strùct).Pànic", c.Func.Name())
-	compareString(t, "ùtf8.(*Strùct).Pànic", c.Func.PkgDotName())
-	compareString(t, "ùtf8", c.Func.PkgName())
-	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/ùtf8.(*Strùct).Pànic", c.Func.String())
 
 	// ParseDump(guesspaths=true).
 	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
@@ -247,15 +244,13 @@ func TestCallC(t *testing.T) {
 		"/goroot/src/runtime/proc.c",
 		1472)
 	// Call methods.
-	compareBool(t, false, c.IsPkgMain())
 	compareString(t, pathJoin("runtime", "proc.c"), c.PkgSrc())
 	compareString(t, "proc.c", c.SrcName())
 
 	// Func methods.
 	compareString(t, "", c.ImportPath())
-	compareBool(t, false, c.Func.IsExported())
-	compareString(t, "findrunnable", c.Func.Name())
-	compareString(t, "", c.Func.PkgName())
+	compareBool(t, false, c.Func.IsExported)
+	compareString(t, "findrunnable", c.Func.Name)
 	compareString(t, "findrunnable", c.Func.String())
 
 	// ParseDump(guesspaths=true).
@@ -287,26 +282,6 @@ func TestArgs(t *testing.T) {
 
 	a = Args{Processed: []string{"yo"}}
 	compareString(t, "yo", a.String())
-}
-
-func TestFuncAnonymous(t *testing.T) {
-	t.Parallel()
-	f := Func{Raw: "main.func·001"}
-	compareString(t, "main.func·001", f.String())
-	compareString(t, "main.func·001", f.PkgDotName())
-	compareString(t, "func·001", f.Name())
-	compareString(t, "main", f.PkgName())
-	compareBool(t, false, f.IsExported())
-}
-
-func TestFuncGC(t *testing.T) {
-	t.Parallel()
-	f := Func{Raw: "gc"}
-	compareString(t, "gc", f.String())
-	compareString(t, "gc", f.PkgDotName())
-	compareString(t, "gc", f.Name())
-	compareString(t, "", f.PkgName())
-	compareBool(t, false, f.IsExported())
 }
 
 func TestSignature(t *testing.T) {
@@ -395,7 +370,13 @@ func init() {
 }
 
 func newFunc(s string) Func {
-	return Func{Raw: s}
+	f := Func{}
+	if s != "" {
+		if err := f.Init(s); err != nil {
+			panic(err)
+		}
+	}
+	return f
 }
 
 func newCall(f string, a Args, s string, l int) Call {
