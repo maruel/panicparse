@@ -15,7 +15,6 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -1541,7 +1540,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			// is used instead.
 			pColorable := "pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go"
 			pkgPrefix := ""
-			if !isUsingModules(t) {
+			if !internaltest.IsUsingModules() {
 				t.Logf("Using vendored")
 				pColorable = "src/github.com/maruel/panicparse/vendor/github.com/mattn/go-colorable/noncolorable.go"
 				pkgPrefix = "github.com/maruel/panicparse/vendor/"
@@ -1607,7 +1606,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				fn = "golang.org/x/sys/windows.SleepEx"
 				mainOS = "main_windows.go"
 			}
-			usingModules := isUsingModules(t)
+			usingModules := internaltest.IsUsingModules()
 			if !usingModules {
 				fn = "github.com/maruel/panicparse/vendor/" + fn
 			}
@@ -1668,34 +1667,6 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 }
 
 //
-
-// isUsingModules is best guess to know if go module are enabled.
-func isUsingModules(t *testing.T) bool {
-	def := false
-	if ver := runtime.Version(); strings.HasPrefix(ver, "devel ") {
-		t.Logf("build %q; assuming a recent version", ver)
-		def = true
-	} else if strings.HasPrefix(ver, "go1.") {
-		v := ver[4:]
-		// Only keep the major version. In practice for Go 1.9 and 1.10 we should
-		// check the minor version too. Please submit a PR if you need to handle
-		// this case.
-		if i := strings.IndexByte(v, '.'); i != -1 {
-			v = v[:i]
-		}
-		if m, err := strconv.Atoi(v); m >= 14 {
-			def = true
-		} else if err != nil {
-			t.Errorf("failed to parse %q: %v", ver, err)
-		}
-	} else {
-		// This will break on go2. Please submit a PR to fix this once Go2 is
-		// released.
-		t.Fatalf("unexpected go version %q", ver)
-	}
-	s := os.Getenv("GO111MODULE")
-	return (def && (s == "auto" || s == "")) || s == "on"
-}
 
 // getPanicParseDir returns the path to the root directory of panicparse
 // package, using "/" as path separator.

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -100,6 +101,20 @@ func StaticPanicwebOutput() []byte {
 	return []byte(staticPanicweb)
 }
 
+// IsUsingModules is best guess to know if go module are enabled.
+//
+// Panics if an inernal error occurs.
+//
+// It reads the current value of GO111MODULES.
+func IsUsingModules() bool {
+	// Calculate the default. We assume developper builds are recent (go1.14 and
+	// later).
+	ver := getGoMinorVersion()
+	def := (ver == 0 || ver >= 14)
+	s := os.Getenv("GO111MODULE")
+	return (def && (s == "auto" || s == "")) || s == "on"
+}
+
 //
 
 var (
@@ -109,9 +124,35 @@ var (
 	panicOutputs     map[string][]byte
 )
 
+// getGoMinorVersion returns the Go1 minor version.
+//
+// Returns 0 for a developper build, panics if can't parse the version.
+//
+// Ignores the revision (go1.<minor>.<revision>).
+func getGoMinorVersion() int {
+	ver := runtime.Version()
+	if strings.HasPrefix(ver, "devel ") {
+		return 0
+	}
+	if !strings.HasPrefix(ver, "go1.") {
+		// This will break on go2. Please submit a PR to fix this once Go2 is
+		// released.
+		panic(fmt.Sprintf("unexpected go version %q", ver))
+	}
+	v := ver[4:]
+	if i := strings.IndexByte(v, '.'); i != -1 {
+		v = v[:i]
+	}
+	m, err := strconv.Atoi(v)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse %q: %v", ver, err))
+	}
+	return m
+}
+
 // build creates a temporary file and returns the path to it.
-func build(s string, race bool) string {
-	p := filepath.Join(os.TempDir(), s)
+func build(tool string, race bool) string {
+	p := filepath.Join(os.TempDir(), tool)
 	if race {
 		p += "_race"
 	}
@@ -129,7 +170,8 @@ func build(s string, race bool) string {
 	if race {
 		args = append(args, "-race")
 	}
-	c := exec.Command("go", append(args, "github.com/maruel/panicparse/cmd/"+s)...)
+	path := "github.com/maruel/panicparse/cmd/"
+	c := exec.Command("go", append(args, path+tool)...)
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	if err := c.Run(); err != nil {
