@@ -10,6 +10,7 @@ package webstack
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"runtime"
@@ -117,4 +118,20 @@ func snapshot(maxmem int) (*stack.Context, error) {
 	// TODO(maruel): No disk I/O should be done here, albeit GOROOT should still
 	// be guessed. Thus guesspaths shall be neither true nor false.
 	return stack.ParseDump(bytes.NewReader(buf), ioutil.Discard, true)
+}
+
+// PanicToHTML parses Go stack traces from in, writing formatted HTML to out.
+func PanicToHTML(in io.Reader, out io.Writer) error {
+	// This is effectively panicparse/internal.process, lightly formatted to use
+	// the defaults and write HTML to an io.Writer instead of a file.
+	const rebase = false
+	c, err := stack.ParseDump(in, out, rebase)
+	if c == nil || err != nil {
+		return err
+	}
+
+	s := stack.AnyPointer
+	buckets := stack.Aggregate(c.Goroutines, s)
+	const needsEnv = false
+	return htmlstack.Write(out, buckets, needsEnv, false)
 }

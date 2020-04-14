@@ -5,8 +5,10 @@
 package webstack
 
 import (
+	"bytes"
 	"context"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -131,3 +133,18 @@ func BenchmarkSnapshotHandle(b *testing.B) {
 func dummy(ctx context.Context, a1, a2, a3, a4, a5, a6, a7, a8, a9 *int) {
 	<-ctx.Done()
 }
+
+func TestPanicToHTML(t *testing.T) {
+	buf := &bytes.Buffer{}
+	err := PanicToHTML(strings.NewReader(singlePanic), buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("example.go")) {
+		t.Error("Output should contain the source file name")
+	}
+}
+
+const singlePanic = `goroutine 182 [semacquire]:
+main.b2(0xc000192068)
+  /example/example.go:86 +0x66`
