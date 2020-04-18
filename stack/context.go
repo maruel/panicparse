@@ -724,7 +724,9 @@ func parseFunc(c *Call, line string) (bool, error) {
 			if c.Args.Values == nil {
 				c.Args.Values = make([]Arg, 0, 4)
 			}
-			c.Args.Values = append(c.Args.Values, Arg{Value: v})
+			// Assume the stack was generated with the same bitness (32 vs 64) than
+			// the code processing it.
+			c.Args.Values = append(c.Args.Values, Arg{Value: v, IsPtr: v > pointerFloor && v < pointerCeiling})
 		}
 		return true, nil
 	}

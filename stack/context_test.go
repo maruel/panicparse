@@ -109,12 +109,12 @@ func TestParseDump1(t *testing.T) {
 							Args{}, "??", 0),
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0x433b20}}},
+							Args{Values: []Arg{{Value: 0x433b20, IsPtr: true}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 						newCall(
 							"reflect.Value.assignTo",
-							Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+							Args{Values: []Arg{{Value: 0x570860, IsPtr: true}, {Value: 0xc20803f3e0, IsPtr: true}, {Value: 0x15}}},
 							"/goroot/src/reflect/value.go",
 							2125),
 						newCall(
@@ -170,7 +170,7 @@ func TestParseDumpLongWait(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0x433b20}}},
+							Args{Values: []Arg{{Value: 0x433b20, IsPtr: true}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 					},
@@ -187,7 +187,7 @@ func TestParseDumpLongWait(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0x8033b21, Name: "#1"}}},
+							Args{Values: []Arg{{Value: 0x8033b21, Name: "#1", IsPtr: true}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 					},
@@ -204,7 +204,7 @@ func TestParseDumpLongWait(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0x8033b22, Name: "#2"}}},
+							Args{Values: []Arg{{Value: 0x8033b22, Name: "#2", IsPtr: true}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 					},
@@ -484,11 +484,11 @@ func TestParseDumpElided(t *testing.T) {
 							"github.com/maruel/panicparse/stack/stack.recurseType",
 							Args{
 								Values: []Arg{
-									{Value: 0x7f4fa9a3ec70},
-									{Value: 0xc208062580},
-									{Value: 0x7f4fa9a3e818},
-									{Value: 0x50a820},
-									{Value: 0xc20803a8a0},
+									{Value: 0x7f4fa9a3ec70, IsPtr: true},
+									{Value: 0xc208062580, IsPtr: true},
+									{Value: 0x7f4fa9a3e818, IsPtr: true},
+									{Value: 0x50a820, IsPtr: true},
+									{Value: 0xc20803a8a0, IsPtr: true},
 								},
 							},
 							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
@@ -543,7 +543,7 @@ func TestParseDumpSysCall(t *testing.T) {
 							"runtime.notetsleepg",
 							Args{
 								Values: []Arg{
-									{Value: 0x918100},
+									{Value: 0x918100, IsPtr: true},
 									{Value: 0xffffffffffffffff},
 									{Value: 0x1},
 								},
@@ -887,7 +887,7 @@ func TestParseDumpCCode(t *testing.T) {
 							Args{
 								Values: []Arg{
 									{Value: 0x4},
-									{Value: 0x7fff671c7118},
+									{Value: 0x7fff671c7118, IsPtr: true},
 									{Value: 0xffffffff00000080},
 									{},
 									{Value: 0xffffffff0028c1be},
@@ -903,23 +903,23 @@ func TestParseDumpCCode(t *testing.T) {
 							400),
 						newCall(
 							"runtime.netpoll",
-							Args{Values: []Arg{{Value: 0x901b01}, {}}},
+							Args{Values: []Arg{{Value: 0x901b01, IsPtr: true}, {}}},
 							"/goroot/src/runtime/netpoll_epoll.go",
 							68),
 						newCall(
 							"findrunnable",
-							Args{Values: []Arg{{Value: 0xc208012000}}},
+							Args{Values: []Arg{{Value: 0xc208012000, IsPtr: true}}},
 							"/goroot/src/runtime/proc.c",
 							1472),
 						newCall("schedule", Args{}, "/goroot/src/runtime/proc.c", 1575),
 						newCall(
 							"runtime.park_m",
-							Args{Values: []Arg{{Value: 0xc2080017a0}}},
+							Args{Values: []Arg{{Value: 0xc2080017a0, IsPtr: true}}},
 							"/goroot/src/runtime/proc.c",
 							1654),
 						newCall(
 							"runtime.mcall",
-							Args{Values: []Arg{{Value: 0x432684}}},
+							Args{Values: []Arg{{Value: 0x432684, IsPtr: true}}},
 							"/goroot/src/runtime/asm_amd64.s",
 							186),
 					},
@@ -964,12 +964,12 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 							0),
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0x433b20}}},
+							Args{Values: []Arg{{Value: 0x433b20, IsPtr: true}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 						newCall(
 							"reflect.Value.assignTo",
-							Args{Values: []Arg{{Value: 0x570860}, {Value: 0xc20803f3e0}, {Value: 0x15}}},
+							Args{Values: []Arg{{Value: 0x570860, IsPtr: true}, {Value: 0xc20803f3e0, IsPtr: true}, {Value: 0x15}}},
 							"/goroot/src/reflect/value.go",
 							2125),
 						newCall(
@@ -1034,12 +1034,12 @@ func TestParseDumpIndented(t *testing.T) {
 							209),
 						newCall(
 							"foo/bar.TestArchiveFail",
-							Args{Values: []Arg{{Value: 0x3382000, Name: "#1"}}},
+							Args{Values: []Arg{{Value: 0x3382000, Name: "#1", IsPtr: true}}},
 							"/home/maruel/go/src/foo/bar_test.go",
 							155),
 						newCall(
 							"testing.tRunner",
-							Args{Values: []Arg{{Value: 0x3382000, Name: "#1"}, {Value: 0x1615bf8}}},
+							Args{Values: []Arg{{Value: 0x3382000, Name: "#1", IsPtr: true}, {Value: 0x1615bf8, IsPtr: true}}},
 							"/home/maruel/golang/go/src/testing/testing.go",
 							865),
 					},
@@ -1341,7 +1341,7 @@ func testPanicStr(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 					Calls: []Call{
 						newCallLocal(
 							"main.panicstr",
-							Args{Values: []Arg{{Value: 0x123456}, {Value: 4}}},
+							Args{Values: []Arg{{Value: 0x123456, IsPtr: true}, {Value: 4}}},
 							pathJoin(ppDir, "main.go"),
 							50),
 						newCallLocal("main.glob..func17", Args{}, pathJoin(ppDir, "main.go"), 307),
@@ -1378,7 +1378,7 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 							// runtime stack generator. The path is escaped, but symbols are
 							// not.
 							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic",
-							Args{Values: []Arg{{Value: 0xc0000b2e48}}},
+							Args{Values: []Arg{{Value: 0xc0000b2e48, IsPtr: true}}},
 							// See TestCallUTF8 in stack_test.go for exercising the methods on
 							// Call in this situation.
 							pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
@@ -1667,6 +1667,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				for j := range b.Signature.Stack.Calls[i].Args.Values {
 					b.Signature.Stack.Calls[i].Args.Values[j].Value = 0
 					b.Signature.Stack.Calls[i].Args.Values[j].Name = ""
+					b.Signature.Stack.Calls[i].Args.Values[j].IsPtr = false
 				}
 			}
 			similarSignatures(t, &want, &b.Signature)
@@ -1727,7 +1728,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				newCallLocal("main.sysHang", Args{}, pathJoin(pwebDir, mainOS), 12),
 				newCallLocal(
 					"main.main.func2",
-					Args{Values: []Arg{{Value: 0xc000140720, Name: "#135"}}},
+					Args{Values: []Arg{{Value: 0xc000140720, Name: "#135", IsPtr: true}}},
 					pathJoin(pwebDir, "main.go"),
 					65),
 			}

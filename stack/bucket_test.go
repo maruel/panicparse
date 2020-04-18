@@ -41,7 +41,7 @@ func TestAggregateNotAggressive(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"main.func·001",
-							Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
+							Args{Values: []Arg{{Value: 0x11000000, IsPtr: true}, {Value: 2}}},
 							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							72),
 					},
@@ -57,7 +57,7 @@ func TestAggregateNotAggressive(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"main.func·001",
-							Args{Values: []Arg{{Value: 0x21000000, Name: "#1"}, {Value: 2}}},
+							Args{Values: []Arg{{Value: 0x21000000, Name: "#1", IsPtr: true}, {Value: 2}}},
 							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							72),
 					},
@@ -125,15 +125,15 @@ func TestAggregateAggressive(t *testing.T) {
 		"panic: runtime error: index out of range",
 		"",
 		"goroutine 6 [chan receive, 10 minutes]:",
-		"main.func·001(0x11000000, 2)",
+		"main.func·001(0x21000000, 2)",
 		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 		"goroutine 7 [chan receive, 50 minutes]:",
-		"main.func·001(0x21000000, 2)",
+		"main.func·001(0x31000000, 2)",
 		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 		"goroutine 8 [chan receive, 100 minutes]:",
-		"main.func·001(0x21000000, 2)",
+		"main.func·001(0x41000000, 2)",
 		"	/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
@@ -151,7 +151,7 @@ func TestAggregateAggressive(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"main.func·001",
-							Args{Values: []Arg{{Value: 0x11000000, Name: "*"}, {Value: 2}}},
+							Args{Values: []Arg{{Value: 0x21000000, Name: "*", IsPtr: true}, {Value: 2}}},
 							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							72),
 					},
