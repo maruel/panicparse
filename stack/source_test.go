@@ -22,13 +22,12 @@ func TestAugment(t *testing.T) {
 	data := []struct {
 		name  string
 		input string
-		// Starting with go1.11, the stack trace do not contain much information
-		// about the arguments and shows as elided.
-		workaroundGo111Elided bool
-		// Starting with go1.11, non-pointer call shows an elided argument, while
-		// there was no argument listed before.
-		workaroundGo111Extra bool
-		want                 Stack
+		// Starting with go1.11, inlining is enabled. The stack trace may (it
+		// depends on tool chain version) not contain much information about the
+		// arguments and shows as elided. Non-pointer call may show an elided
+		// argument, while there was no argument listed before.
+		mayBeInlined bool
+		want         Stack
 	}{
 		{
 			"Local function doesn't interfere",
@@ -42,7 +41,6 @@ func TestAugment(t *testing.T) {
 				_ = a(3)
 				panic("ooh")
 			}`,
-			false,
 			false,
 			Stack{
 				Calls: []Call{
@@ -64,7 +62,6 @@ func TestAugment(t *testing.T) {
 				panic(a())
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -85,7 +82,6 @@ func TestAugment(t *testing.T) {
 				panic(a[0]())
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -106,7 +102,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -127,7 +122,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -148,7 +142,6 @@ func TestAugment(t *testing.T) {
 				panic(a[0].(string))
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -169,7 +162,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -190,7 +182,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -211,7 +202,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -232,7 +222,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -254,7 +243,6 @@ func TestAugment(t *testing.T) {
 			func (s S) f() {
 				panic("ooh")
 			}`,
-			true,
 			true,
 			Stack{
 				Calls: []Call{
@@ -278,7 +266,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -299,7 +286,6 @@ func TestAugment(t *testing.T) {
 				panic(s)
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -320,7 +306,6 @@ func TestAugment(t *testing.T) {
 				panic(s)
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -341,7 +326,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -368,7 +352,6 @@ func TestAugment(t *testing.T) {
 				panic(err.Error())
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -390,7 +373,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -411,7 +393,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -434,7 +415,6 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			false,
 			Stack{
 				Calls: []Call{
 					newCall(
@@ -467,7 +447,9 @@ func TestAugment(t *testing.T) {
 			input := strings.Join(lines, "\n")
 
 			// Run the command.
-			_, content, clean := getCrash(t, input)
+			// Only disable inlining if necessary.
+			disableInline := hasInlining && line.mayBeInlined
+			_, content, clean := getCrash(t, input, disableInline)
 
 			// Analyze it.
 			extra := bytes.Buffer{}
@@ -482,21 +464,56 @@ func TestAugment(t *testing.T) {
 				t.Fatalf("Unexpected panic output:\n%#v", got)
 			}
 
-			// On go1.11 with non-pointer method, it shows elided argument where there
-			// used to be none before. It's only for test case "non-pointer method".
-			if line.workaroundGo111Extra && zapArguments() {
-				line.want.Calls[0].Args.Elided = true
-			}
-
-			s := c.Goroutines[0].Signature.Stack
-			zapPointers(t, line.name, line.workaroundGo111Elided, &line.want, &s)
-			zapPaths(&s)
+			got := c.Goroutines[0].Signature.Stack
+			zapPointers(t, &line.want, &got)
+			zapPaths(&got)
 			clean()
-			if diff := cmp.Diff(line.want, s); diff != "" {
+			if diff := cmp.Diff(line.want, got); diff != "" {
 				t.Logf("Different (-want +got):\n%s", diff)
 				t.Logf("Source code:\n%s", input)
 				t.Logf("Output:\n%s", content)
 				t.FailNow()
+			}
+
+			// If inlining was disabled, try a second time but zap things out.
+			if disableInline {
+				_, content, clean = getCrash(t, input, false)
+
+				// Analyze it.
+				extra.Reset()
+				if c, err = ParseDump(bytes.NewBuffer(content), &extra, false); err != nil {
+					clean()
+					t.Fatalf("failed to parse input for test %s: %v", line.name, err)
+				}
+				// On go1.4, there's one less space.
+				if got := extra.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
+					clean()
+					t.Fatalf("Unexpected panic output:\n%#v", got)
+				}
+
+				got = c.Goroutines[0].Signature.Stack
+				// On go1.11 with non-pointer method, it shows elided argument where
+				// there used to be none before. It's only for test case "non-pointer
+				// method".
+				zapPointers(t, &line.want, &got)
+				zapPaths(&got)
+				if line.mayBeInlined {
+					for i := range got.Calls {
+						if !line.want.Calls[i].Args.Elided {
+							got.Calls[i].Args.Elided = false
+						}
+						if got.Calls[i].Args.Values == nil {
+							line.want.Calls[i].Args.Values = nil
+						}
+					}
+				}
+				clean()
+				if diff := cmp.Diff(line.want, got); diff != "" {
+					t.Logf("Different (inlined) (-want +got):\n%s", diff)
+					t.Logf("Source code:\n%s", input)
+					t.Logf("Output:\n%s", content)
+					t.FailNow()
+				}
 			}
 		})
 	}
@@ -558,10 +575,8 @@ func overrideEnv(env []string, key, value string) []string {
 	return append(env, prefix+value)
 }
 
-func getCrash(t *testing.T, content string) (string, []byte, func()) {
+func getCrash(t *testing.T, content string, disableInline bool) (string, []byte, func()) {
 	helper(t)()
-	//p := getGOPATHs()
-	//name, err := ioutil.TempDir(filepath.Join(p[0], "src"), "panicparse")
 	name, err := ioutil.TempDir("", "panicparse")
 	if err != nil {
 		t.Fatalf("failed to create temporary directory: %v", err)
@@ -576,7 +591,11 @@ func getCrash(t *testing.T, content string) (string, []byte, func()) {
 		clean()
 		t.Fatalf("failed to write %q: %v", main, err)
 	}
-	cmd := exec.Command("go", "run", main)
+	args := []string{"run"}
+	if disableInline {
+		args = append(args, "-gcflags", "-l")
+	}
+	cmd := exec.Command("go", append(args, main)...)
 	// Use the Go 1.4 compatible format.
 	cmd.Env = overrideEnv(os.Environ(), "GOTRACEBACK", "1")
 	out, err := cmd.CombinedOutput()
@@ -588,37 +607,29 @@ func getCrash(t *testing.T, content string) (string, []byte, func()) {
 }
 
 // zapPointers zaps out pointers.
-func zapPointers(t *testing.T, name string, workaroundGo111Elided bool, want, s *Stack) {
+func zapPointers(t *testing.T, want, got *Stack) {
 	helper(t)()
-	for i := range s.Calls {
+	for i := range got.Calls {
 		if i >= len(want.Calls) {
 			// When using GOTRACEBACK=2, it'll include runtime.main() and
 			// runtime.goexit(). Ignore these since they could be changed in a future
 			// version.
-			s.Calls = s.Calls[:len(want.Calls)]
+			got.Calls = got.Calls[:len(want.Calls)]
 			break
 		}
-		if workaroundGo111Elided && zapArguments() {
-			// See https://github.com/maruel/panicparse/issues/42 for explanation.
-			if len(want.Calls[i].Args.Values) != 0 {
-				want.Calls[i].Args.Elided = true
-			}
-			want.Calls[i].Args.Values = nil
-			continue
-		}
-		for j := range s.Calls[i].Args.Values {
+		for j := range got.Calls[i].Args.Values {
 			if j >= len(want.Calls[i].Args.Values) {
 				break
 			}
 			if want.Calls[i].Args.Values[j].Value == pointer {
 				// Replace the pointer value.
-				if s.Calls[i].Args.Values[j].Value == 0 {
-					t.Fatalf("%s: Call %d, value %d, expected pointer, got 0", name, i, j)
+				if got.Calls[i].Args.Values[j].Value == 0 {
+					t.Fatalf("Call %d, value %d, expected pointer, got 0", i, j)
 				}
-				old := fmt.Sprintf("0x%x", s.Calls[i].Args.Values[j].Value)
-				s.Calls[i].Args.Values[j].Value = pointer
-				for k := range s.Calls[i].Args.Processed {
-					s.Calls[i].Args.Processed[k] = strings.Replace(s.Calls[i].Args.Processed[k], old, pointerStr, -1)
+				old := fmt.Sprintf("0x%x", got.Calls[i].Args.Values[j].Value)
+				got.Calls[i].Args.Values[j].Value = pointer
+				for k := range got.Calls[i].Args.Processed {
+					got.Calls[i].Args.Processed[k] = strings.Replace(got.Calls[i].Args.Processed[k], old, pointerStr, -1)
 				}
 			}
 		}

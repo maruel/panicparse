@@ -7,6 +7,4 @@
 package stack
 
 // See https://github.com/maruel/panicparse/issues/42 for explanation.
-func zapArguments() bool {
-	return true
-}
+const hasInlining = true
