@@ -26,7 +26,7 @@ const (
 // Aggregate merges similar goroutines into buckets.
 //
 // The buckets are ordered in library provided order of relevancy. You can
-// reorder at your chosing.
+// reorder at your choosing.
 func Aggregate(goroutines []*Goroutine, similar Similarity) []*Bucket {
 	type count struct {
 		ids   []int
