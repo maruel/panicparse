@@ -2,20 +2,15 @@
 # Use of this source code is governed under the Apache License, Version 2.0
 # that can be found in the LICENSE file.
 
-sudo: false
+os: linux
+dist: bionic
 language: go
-dist: xenial
 
-matrix:
+jobs:
   include:
   - go: 1.14.x
-  - go: 1.12.17
-    env: GO111MODULE=on
     cache:
       directories:
-        # go1.10+ 'go test' cache on linux (macOS and Windows are # different).
-        - $HOME/.cache/go-build
-        # go1.11+ with GO111MODULE=on
         - $GOPATH/pkg/mod
         # Cache tools sources. Manually verified that both misspell and ineffassign
         # only depend on the stdlib.
@@ -23,25 +18,34 @@ matrix:
         - $GOPATH/src/github\.com/gordonklaus
         # For shadow.
         - $GOPATH/src/golang\.org
+    before_script:
+    - echo $TRAVIS_GO_VERSION
+    - >
+      go get -u -v
+      github.com/client9/misspell/cmd/misspell
+      github.com/gordonklaus/ineffassign
+      golang.org/x/lint/golint
+      golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
+    script:
+    - echo 'Check Code is well formatted'; ! gofmt -s -d . | read
+    - go list ./... | grep -v /vendor/ | xargs -L1 golint -set_exit_status
+    - go vet ./...
+    - go vet -vettool=$GOPATH/bin/shadow
+    - ineffassign .
+    - bash -c 'set -e; echo "" > coverage.txt; for d in $(go list ./...); do go test -covermode=count -coverprofile=p.out $d; if [ -f p.out ]; then cat p.out >> coverage.txt; rm p.out; fi; done'
+    - go test -race ./...
+    - if find . -path ./.git -prune -o -type f -executable -print | grep -e . ; then echo 'Do not commit executables'; false; fi
+    after_success:
+    - bash <(curl -s https://codecov.io/bash)
+
+  - go: 1.12.17
+    before_script:
+    - echo $TRAVIS_GO_VERSION
+    script:
+    - go test ./...
+
   - go: 1.8.7
-
-before_script:
-  - echo $TRAVIS_GO_VERSION
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then go get -u -v github.com/client9/misspell/cmd/misspell github.com/gordonklaus/ineffassign golang.org/x/lint/golint golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow; fi
-
-script:
-  # Checks run on the latest version.
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then echo 'Check Code is well formatted'; ! gofmt -s -d . | read; fi
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then go list ./... | grep -v /vendor/ | xargs -L1 golint -set_exit_status; fi
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then go vet ./...; fi
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then ineffassign .; fi
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then go vet -vettool=$GOPATH/bin/shadow; fi
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then bash -c 'set -e; echo "" > coverage.txt; for d in $(go list ./...); do go test -covermode=count -coverprofile=p.out $d; if [ -f p.out ]; then cat p.out >> coverage.txt; rm p.out; fi; done'; fi
-  - if [[ $TRAVIS_GO_VERSION != 1.8.7 ]]; then go test -race ./...; fi
-
-  # Check run on older versions.
-  - if [[ $TRAVIS_GO_VERSION == 1.8.7 ]]; then go test ./...; fi
-  - if [[ $TRAVIS_GO_VERSION == 1.8.7 ]]; then if find . -path ./.git -prune -o -type f -executable -print | grep -e . ; then echo 'Do not commit executables'; false; fi; fi
-
-after_success:
-  - if [[ $TRAVIS_GO_VERSION == 1.12.17 ]]; then bash <(curl -s https://codecov.io/bash); fi
+    before_script:
+    - echo $TRAVIS_GO_VERSION
+    script:
+    - go test ./...
