@@ -47,7 +47,7 @@ func TestParseDump1(t *testing.T) {
 		"goroutine 1 [running]:",
 		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
 		" ??:0 +0x6d",
-		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
+		"gopkg.in/yaml%2ev2.handleErr(0x33b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
 		"	/goroot/src/reflect/value.go:2125 +0x368",
@@ -72,7 +72,7 @@ func TestParseDump1(t *testing.T) {
 							Args{}, "??", 0),
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0xc208033b20}}},
+							Args{Values: []Arg{{Value: 0x33b20}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 						newCall(
@@ -105,15 +105,15 @@ func TestParseDumpLongWait(t *testing.T) {
 		"panic: bleh",
 		"",
 		"goroutine 1 [chan send, 100 minutes]:",
-		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
+		"gopkg.in/yaml%2ev2.handleErr(0x33b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"",
 		"goroutine 2 [chan send, locked to thread]:",
-		"gopkg.in/yaml%2ev2.handleErr(0xc208033b21)",
+		"gopkg.in/yaml%2ev2.handleErr(0x8033b21)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"",
 		"goroutine 3 [chan send, 101 minutes, locked to thread]:",
-		"gopkg.in/yaml%2ev2.handleErr(0xc208033b22)",
+		"gopkg.in/yaml%2ev2.handleErr(0x8033b22)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"",
 	}
@@ -133,7 +133,7 @@ func TestParseDumpLongWait(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0xc208033b20}}},
+							Args{Values: []Arg{{Value: 0x33b20}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 					},
@@ -150,7 +150,7 @@ func TestParseDumpLongWait(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0xc208033b21, Name: "#1"}}},
+							Args{Values: []Arg{{Value: 0x8033b21, Name: "#1"}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 					},
@@ -167,7 +167,7 @@ func TestParseDumpLongWait(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0xc208033b22, Name: "#2"}}},
+							Args{Values: []Arg{{Value: 0x8033b22, Name: "#2"}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 					},
@@ -901,7 +901,7 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 		"goroutine 1 [running]:",
 		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
 		" ??:0 +0x6d",
-		"gopkg.in/yaml%2ev2.handleErr(0xc208033b20)",
+		"gopkg.in/yaml%2ev2.handleErr(0x33b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
 		"	/goroot/src/reflect/value.go:2125 +0x368",
@@ -927,7 +927,7 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 							0),
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0xc208033b20}}},
+							Args{Values: []Arg{{Value: 0x33b20}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 						newCall(
@@ -964,9 +964,9 @@ func TestParseDumpIndented(t *testing.T) {
 		"  goroutine 8 [running]:",
 		"  foo/bar.TestArchiveFail.func1.2()",
 		"        /home/maruel/go/foo/bar_test.go:209 +0x469",
-		"  foo/bar.TestArchiveFail(0xc000338200)",
+		"  foo/bar.TestArchiveFail(0x3382000)",
 		"        /home/maruel/go/src/foo/bar_test.go:155 +0xf1",
-		"  testing.tRunner(0xc000338200, 0x1615bf8)",
+		"  testing.tRunner(0x3382000, 0x1615bf8)",
 		"        /home/maruel/golang/go/src/testing/testing.go:865 +0xc0",
 		"  created by testing.(*T).Run",
 		"        /home/maruel/golang/go/src/testing/testing.go:916 +0x35a",
@@ -997,12 +997,12 @@ func TestParseDumpIndented(t *testing.T) {
 							209),
 						newCall(
 							"foo/bar.TestArchiveFail",
-							Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}}},
+							Args{Values: []Arg{{Value: 0x3382000, Name: "#1"}}},
 							"/home/maruel/go/src/foo/bar_test.go",
 							155),
 						newCall(
 							"testing.tRunner",
-							Args{Values: []Arg{{Value: 0xc000338200, Name: "#1"}, {Value: 0x1615bf8}}},
+							Args{Values: []Arg{{Value: 0x3382000, Name: "#1"}, {Value: 0x1615bf8}}},
 							"/home/maruel/golang/go/src/testing/testing.go",
 							865),
 					},

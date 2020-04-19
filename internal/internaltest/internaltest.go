@@ -5,6 +5,7 @@
 package internaltest
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -47,15 +48,6 @@ func PanicwebOutput() []byte {
 func PanicOutputs() map[string][]byte {
 	panicOutputsOnce.Do(func() {
 		// Extracts the subcommands, then run each of them individually.
-		prace := build("panic", true)
-		if prace == "" {
-			panic("building panic -race failed")
-		}
-		defer func() {
-			if err := os.Remove(prace); err != nil {
-				panic(err)
-			}
-		}()
 		pplain := build("panic", false)
 		if pplain == "" {
 			// The odd of this failing is close to nil.
@@ -66,6 +58,17 @@ func PanicOutputs() map[string][]byte {
 				panic(err)
 			}
 		}()
+
+		prace := build("panic", true)
+		if prace == "" {
+			// Race detector is not supported on this platform.
+		} else {
+			defer func() {
+				if err := os.Remove(prace); err != nil {
+					panic(err)
+				}
+			}()
+		}
 
 		// Collect the subcommands.
 		cmds := strings.Split(strings.TrimSpace(string(execRun(pplain, "dump_commands"))), "\n")
@@ -79,6 +82,10 @@ func PanicOutputs() map[string][]byte {
 			cmd = strings.TrimSpace(cmd)
 			p := pplain
 			if cmd == "race" {
+				if prace == "" {
+					// Race detector is not supported.
+					continue
+				}
 				p = prace
 			}
 			if panicOutputs[cmd] = execRun(p, cmd); len(panicOutputs[cmd]) == 0 {
@@ -172,9 +179,22 @@ func build(tool string, race bool) string {
 	}
 	path := "github.com/maruel/panicparse/cmd/"
 	c := exec.Command("go", append(args, path+tool)...)
+	b := bytes.Buffer{}
 	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
+	if race {
+		c.Stderr = &b
+	} else {
+		c.Stderr = os.Stderr
+	}
 	if err := c.Run(); err != nil {
+		if race {
+			if strings.HasPrefix(b.String(), "go test: -race is only supported on ") {
+				// Race detector is not supported. Calling code with handle.
+				return ""
+			}
+			os.Stderr.Write(b.Bytes())
+			return ""
+		}
 		return ""
 	}
 	return p
