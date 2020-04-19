@@ -142,14 +142,14 @@ func getSrcBranchURL(c *stack.Call) (template.URL, template.URL) {
 		tag = url.QueryEscape(runtime.Version())
 		return template.URL(fmt.Sprintf("https://github.com/golang/go/blob/%s/src/%s#L%d", tag, escape(c.RelSrcPath), c.Line)), template.URL(tag)
 	}
-	// One-off support for github. This will cover a fair share of the URLs, but
-	// it'd be nice to support others too. Please submit a PR (including a unit
-	// test that I was too lazy to add yet).
 	if rel := c.RelSrcPath; rel != "" {
 		// Check for vendored code first.
 		if i := strings.Index(rel, "/vendor/"); i != -1 {
 			rel = rel[i+8:]
 		}
+		// Specialized support for github and golang.org. This will cover a fair
+		// share of the URLs, but it'd be nice to support others too. Please submit
+		// a PR (including a unit test that I was too lazy to add yet).
 		switch host, rest := splitHost(rel); host {
 		case "github.com":
 			if parts := strings.SplitN(rest, "/", 3); len(parts) == 3 {

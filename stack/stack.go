@@ -121,30 +121,33 @@ type Arg struct {
 	Name  string // Name is a pseudo name given to the argument
 }
 
-// IsPtr returns true if we guess it's a pointer. It's only a guess, it can be
-// easily be confused by a bitmask.
-func (a *Arg) IsPtr() bool {
+const (
 	// Assumes all values are above 4MiB and positive are pointers; assuming that
 	// above half the memory is kernel memory.
 	//
 	// This is not always true but this should be good enough to help
 	// implementing AnyPointer.
-	//
+	pointerFloor = 4 * 1024 * 1024
 	// Assume the stack was generated with the same bitness (32 vs 64) than the
 	// code processing it.
-	const maxInt = uint64((^uint(0)) >> 1)
-	return a.Value > 4*1024*1024 && a.Value < maxInt
+	pointerCeiling = uint64((^uint(0)) >> 1)
+)
+
+// IsPtr returns true if we guess it's a pointer. It's only a guess, it can be
+// easily be confused by a bitmask.
+func (a *Arg) IsPtr() bool {
+	return a.Value > pointerFloor && a.Value < pointerCeiling
 }
 
-var lookup = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+const zeroToNine = "0123456789"
 
 // String prints the argument as the name if present, otherwise as the value.
 func (a *Arg) String() string {
 	if a.Name != "" {
 		return a.Name
 	}
-	if a.Value < uint64(len(lookup)) {
-		return lookup[a.Value]
+	if a.Value < uint64(len(zeroToNine)) {
+		return zeroToNine[a.Value : a.Value+1]
 	}
 	return fmt.Sprintf("0x%x", a.Value)
 }

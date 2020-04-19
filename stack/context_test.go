@@ -47,7 +47,7 @@ func TestParseDump1(t *testing.T) {
 		"goroutine 1 [running]:",
 		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
 		" ??:0 +0x6d",
-		"gopkg.in/yaml%2ev2.handleErr(0x33b20)",
+		"gopkg.in/yaml%2ev2.handleErr(0x433b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
 		"	/goroot/src/reflect/value.go:2125 +0x368",
@@ -72,7 +72,7 @@ func TestParseDump1(t *testing.T) {
 							Args{}, "??", 0),
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0x33b20}}},
+							Args{Values: []Arg{{Value: 0x433b20}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 						newCall(
@@ -105,7 +105,7 @@ func TestParseDumpLongWait(t *testing.T) {
 		"panic: bleh",
 		"",
 		"goroutine 1 [chan send, 100 minutes]:",
-		"gopkg.in/yaml%2ev2.handleErr(0x33b20)",
+		"gopkg.in/yaml%2ev2.handleErr(0x433b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"",
 		"goroutine 2 [chan send, locked to thread]:",
@@ -133,7 +133,7 @@ func TestParseDumpLongWait(t *testing.T) {
 					Calls: []Call{
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0x33b20}}},
+							Args{Values: []Arg{{Value: 0x433b20}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 					},
@@ -901,7 +901,7 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 		"goroutine 1 [running]:",
 		"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
 		" ??:0 +0x6d",
-		"gopkg.in/yaml%2ev2.handleErr(0x33b20)",
+		"gopkg.in/yaml%2ev2.handleErr(0x433b20)",
 		"	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 		"reflect.Value.assignTo(0x570860, 0xc20803f3e0, 0x15)",
 		"	/goroot/src/reflect/value.go:2125 +0x368",
@@ -927,7 +927,7 @@ func TestParseDumpWithCarriageReturn(t *testing.T) {
 							0),
 						newCall(
 							"gopkg.in/yaml%2ev2.handleErr",
-							Args{Values: []Arg{{Value: 0x33b20}}},
+							Args{Values: []Arg{{Value: 0x433b20}}},
 							"/gopath/src/gopkg.in/yaml.v2/yaml.go",
 							153),
 						newCall(

@@ -186,7 +186,7 @@ func Main() error {
 		// Do not handle SIGQUIT when passed a file to process.
 		name := flag.Arg(0)
 		if in, err = os.Open(name); err != nil {
-			return fmt.Errorf("did you mean to specify a valid stack dump file name? %s", err)
+			return fmt.Errorf("did you mean to specify a valid stack dump file name? "+wrap, err)
 		}
 		defer in.Close()
 

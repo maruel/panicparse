@@ -367,9 +367,10 @@ func (s *scanningState) scan(line string) (string, error) {
 		}
 		// Switch to race detection mode.
 		if s.raceDetectionEnabled && trimmed == raceHeaderFooter {
+			// TODO(maruel): We should buffer it in case the next line is not a
+			// WARNING so we can output it back.
 			s.state = gotRaceHeader1
-			// Send the line to the user.
-			return line, nil
+			return "", nil
 		}
 		// Fallthrough.
 		s.state = normal
@@ -386,6 +387,10 @@ func (s *scanningState) scan(line string) (string, error) {
 		}
 		c := Call{}
 		if found, err := parseFunc(&c, trimmed); found {
+			// Increase performance by always allocating 4 calls minimally.
+			if cur.Stack.Calls == nil {
+				cur.Stack.Calls = make([]Call, 0, 4)
+			}
 			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotFunc
 			return "", err
@@ -464,9 +469,10 @@ func (s *scanningState) scan(line string) (string, error) {
 
 	case gotRaceHeader1:
 		if raceHeader == trimmed {
+			// TODO(maruel): We should buffer it in case the next line is not a
+			// WARNING so we can output it back.
 			s.state = gotRaceHeader
-			// Send the line to the user.
-			return line, nil
+			return "", nil
 		}
 		s.state = normal
 		return line, nil
@@ -497,7 +503,7 @@ func (s *scanningState) scan(line string) (string, error) {
 		c := Call{}
 		if found, err := parseFunc(&c, trimmed); found {
 			// TODO(maruel): Figure out.
-			//cur.Stack.Calls = append(cur.Stack.Calls, *call)
+			//cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotRaceOperationFunc
 			return "", err
 		}
@@ -669,6 +675,9 @@ func getFiles(goroutines []*Goroutine) []string {
 			files[c.SrcPath] = struct{}{}
 		}
 	}
+	if len(files) == 0 {
+		return nil
+	}
 	out := make([]string, 0, len(files))
 	for f := range files {
 		out = append(out, f)
@@ -727,7 +736,6 @@ func rootedIn(root string, parts []string) string {
 // This causes disk I/O as it checks for file presence.
 func (c *Context) findRoots() {
 	c.GOPATHs = map[string]string{}
-	//log.Printf("localgopaths: %v", c.localgopaths)
 	for _, f := range getFiles(c.Goroutines) {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
 		// possible, need to confirm and handle.

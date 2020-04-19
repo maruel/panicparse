@@ -561,8 +561,8 @@ func TestLoad(t *testing.T) {
 
 //
 
-const pointer = uint64(0xfffffffff)
-const pointerStr = "0xfffffffff"
+const pointer = uint64(0x2fffffff)
+const pointerStr = "0x2fffffff"
 
 func overrideEnv(env []string, key, value string) []string {
 	prefix := key + "="

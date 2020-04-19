@@ -227,7 +227,7 @@ func TestSymbol(t *testing.T) {
 			"",
 		},
 		{
-			newFunc("foo/bar"),
+			newFunc("main.baz"),
 			"",
 		},
 	}
