@@ -134,9 +134,9 @@ func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 const (
 	lockedToThread = "locked to thread"
 	elided         = "...additional frames elided..."
-	// gotRaceHeader1
+	// gotRaceHeader1, normal
 	raceHeaderFooter = "=================="
-	// gotRaceHeader
+	// gotRaceHeader2
 	raceHeader = "WARNING: DATA RACE"
 )
 
@@ -255,17 +255,17 @@ const (
 	// Constant: raceHeaderFooter
 	// Signature: "=================="
 	// from: normal
-	// to: normal, gotRaceHeader
+	// to: normal, gotRaceHeader2
 	gotRaceHeader1
 	// Constant: raceHeader
 	// Signature: "WARNING: DATA RACE"
 	// from: gotRaceHeader1
 	// to: normal, gotRaceOperationHeader
-	gotRaceHeader
-	// Regexp: reRaceOperationHeader
+	gotRaceHeader2
+	// Regexp: reRaceOperationHeader, reRacePreviousOperationHeader
 	// Signature: "Read at 0x00c0000e4030 by goroutine 7:"
 	// A race operation was found.
-	// from: gotRaceHeader
+	// from: gotRaceHeader2
 	// to: normal, gotRaceOperationFunc
 	gotRaceOperationHeader
 	// Regexp: reFunc
@@ -278,13 +278,18 @@ const (
 	// Signature: "\t/foo/bar/baz.go:116 +0x35"
 	// File header that caused the race.
 	// from: gotRaceOperationFunc
-	// to: normal, betweenRaces
+	// to: normal, betweenRaceOperations, gotRaceOperationFunc
 	gotRaceOperationFile
+	// Signature: ""
+	// Empty line between race operations or just after.
+	// from: gotRaceOperationFile
+	// to: normal, gotRaceOperationHeader, gotRaceGoroutineHeader
+	betweenRaceOperations
 
 	// Regexp: reRaceGoroutine
 	// Signature: "Goroutine 7 (running) created at:"
 	// Goroutine header.
-	// from: betweenRaces
+	// from: betweenRaceOperations, betweenRaceGoroutines
 	// to: normal, gotRaceOperationHeader
 	gotRaceGoroutineHeader
 	// Regexp: reFunc
@@ -297,19 +302,22 @@ const (
 	// Signature: "\t/foo/bar/baz.go:116 +0x35"
 	// File header that caused the race.
 	// from: gotRaceGoroutineFunc
-	// to: normal, betweenRaces
+	// to: normal, betweenRaceGoroutines
 	gotRaceGoroutineFile
 	// Signature: ""
-	// Empty line between goroutines.
-	// from: gotRaceOperationFile
-	// to: normal, gotRaceOperationHeader
-	betweenRaces
+	// Empty line between race stack traces.
+	// from: gotRaceGoroutineFile
+	// to: normal, gotRaceGoroutineHeader
+	betweenRaceGoroutines
 )
 
+// raceOp is one of the detected data race operation as detected by the race
+// detector.
 type raceOp struct {
 	write bool
 	addr  uint64
 	id    int
+	stack Stack
 }
 
 // scanningState is the state of the scan to detect and process a stack trace
@@ -516,17 +524,18 @@ func (s *scanningState) scan(line string) (string, error) {
 		}
 		return "", fmt.Errorf("expected empty line after unavailable stack, got: %q", strings.TrimSpace(trimmed))
 
+		// Race operation section.
 	case gotRaceHeader1:
 		if raceHeader == trimmed {
 			// TODO(maruel): We should buffer it in case the next line is not a
 			// WARNING so we can output it back.
-			s.state = gotRaceHeader
+			s.state = gotRaceHeader2
 			return "", nil
 		}
 		s.state = normal
 		return line, nil
 
-	case gotRaceHeader:
+	case gotRaceHeader2:
 		if match := reRaceOperationHeader.FindStringSubmatch(trimmed); match != nil {
 			w := match[1] == "Write"
 			addr, err := strconv.ParseUint(match[2], 0, 64)
@@ -537,11 +546,11 @@ func (s *scanningState) scan(line string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
 			}
-			// Increase performance by always allocating 4 race operations minimally.
-			if s.races == nil {
-				s.races = make([]raceOp, 0, 4)
+			if s.races != nil {
+				panic("internal failure; expected s.races to be nil")
 			}
-			s.races = append(s.races, raceOp{w, addr, id})
+			// Increase performance by always allocating 4 race operations minimally.
+			s.races = append(make([]raceOp, 0, 4), raceOp{write: w, addr: addr, id: id})
 			s.state = gotRaceOperationHeader
 			return "", nil
 		}
@@ -550,14 +559,74 @@ func (s *scanningState) scan(line string) (string, error) {
 
 	case gotRaceOperationHeader:
 		c := Call{}
-		if found, err := parseFunc(&c, trimmed); found {
-			// TODO(maruel): Figure out.
-			//cur.Stack.Calls = append(cur.Stack.Calls, c)
+		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
+			s.races[len(s.races)-1].stack.Calls = append(s.races[len(s.races)-1].stack.Calls, c)
 			s.state = gotRaceOperationFunc
 			return "", err
 		}
 		return "", fmt.Errorf("expected a function after a race operation, got: %q", trimmed)
 
+	case gotRaceOperationFunc:
+		cr := &s.races[len(s.races)-1].stack
+		if found, err := parseFile(&cr.Calls[len(cr.Calls)-1], trimmed); err != nil {
+			return "", err
+		} else if !found {
+			return "", fmt.Errorf("expected a file after a race function, got: %q", trimmed)
+		}
+		s.state = gotRaceOperationFile
+		return "", nil
+
+	case gotRaceOperationFile:
+		if trimmed == "" {
+			s.state = betweenRaceOperations
+			return "", nil
+		}
+		c := Call{}
+		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
+			s.races[len(s.races)-1].stack.Calls = append(s.races[len(s.races)-1].stack.Calls, c)
+			s.state = gotRaceOperationFunc
+			return "", err
+		}
+		return "", fmt.Errorf("expected an empty line after a race file, got: %q", trimmed)
+
+	case betweenRaceOperations:
+		// Look for other previous race data operations.
+		if match := reRacePreviousOperationHeader.FindStringSubmatch(trimmed); match != nil {
+			w := match[1] == "write"
+			addr, err := strconv.ParseUint(match[2], 0, 64)
+			if err != nil {
+				return "", fmt.Errorf("failed to parse address on line: %q", strings.TrimSpace(trimmed))
+			}
+			id, err := strconv.Atoi(match[3])
+			if err != nil {
+				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
+			}
+			s.races = append(s.races, raceOp{write: w, addr: addr, id: id})
+			s.state = gotRaceOperationHeader
+			return "", nil
+		}
+		// Look for a switch to actual stack traces.
+		if match := reRaceGoroutine.FindStringSubmatch(trimmed); match != nil {
+			id, err := strconv.Atoi(match[1])
+			if err != nil {
+				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
+			}
+			g := &Goroutine{
+				Signature: Signature{State: match[2]},
+				ID:        id,
+				First:     len(s.goroutines) == 0,
+			}
+			if s.goroutines != nil {
+				panic(fmt.Sprintf("internal failure; expected s.goroutines to be nil; was %#v", s.goroutines))
+			}
+			// Increase performance by always allocating 4 goroutines minimally.
+			s.goroutines = append(make([]*Goroutine, 0, 4), g)
+			s.state = gotRaceGoroutineHeader
+			return "", nil
+		}
+		return "", fmt.Errorf("expected an operator or goroutine, got: %q", trimmed)
+
+		// Race stack traces
 	case gotRaceGoroutineHeader:
 		c := Call{}
 		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
@@ -571,19 +640,6 @@ func (s *scanningState) scan(line string) (string, error) {
 		}
 		return "", fmt.Errorf("expected a function after a race operation, got: %q", trimmed)
 
-	case gotRaceOperationFunc:
-		// cur.Stack.Calls is guaranteed to have at least one item.
-		// TODO(maruel): Bug, should be cur.Stack.Calls[len(cur.Stack.Calls)-1] but
-		// s.goroutine isn't initialized properly.
-		c := Call{}
-		if found, err := parseFile(&c, trimmed); err != nil {
-			return "", err
-		} else if !found {
-			return "", fmt.Errorf("expected a file after a race function, got: %q", trimmed)
-		}
-		s.state = gotRaceOperationFile
-		return "", nil
-
 	case gotRaceGoroutineFunc:
 		// cur.Stack.Calls is guaranteed to have at least one item.
 		if found, err := parseFile(&cur.Stack.Calls[len(cur.Stack.Calls)-1], trimmed); err != nil {
@@ -594,16 +650,9 @@ func (s *scanningState) scan(line string) (string, error) {
 		s.state = gotRaceGoroutineFile
 		return "", nil
 
-	case gotRaceOperationFile:
-		if trimmed == "" {
-			s.state = betweenRaces
-			return "", nil
-		}
-		return "", fmt.Errorf("expected an empty line after a race file, got: %q", trimmed)
-
 	case gotRaceGoroutineFile:
 		if trimmed == "" {
-			s.state = betweenRaces
+			s.state = betweenRaceGoroutines
 			return "", nil
 		}
 		if trimmed == raceHeaderFooter {
@@ -619,26 +668,7 @@ func (s *scanningState) scan(line string) (string, error) {
 		}
 		return "", fmt.Errorf("expected a function or the end after a race file, got: %q", trimmed)
 
-	case betweenRaces:
-		// Either Previous or Goroutine.
-		if match := reRacePreviousOperationHeader.FindStringSubmatch(trimmed); match != nil {
-			w := match[1] == "write"
-			addr, err := strconv.ParseUint(match[2], 0, 64)
-			if err != nil {
-				return "", fmt.Errorf("failed to parse address on line: %q", strings.TrimSpace(trimmed))
-			}
-			id, err := strconv.Atoi(match[3])
-			if err != nil {
-				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
-			}
-			// Increase performance by always allocating 4 race operations minimally.
-			if s.races == nil {
-				s.races = make([]raceOp, 0, 4)
-			}
-			s.races = append(s.races, raceOp{w, addr, id})
-			s.state = gotRaceOperationHeader
-			return "", nil
-		}
+	case betweenRaceGoroutines:
 		if match := reRaceGoroutine.FindStringSubmatch(trimmed); match != nil {
 			id, err := strconv.Atoi(match[1])
 			if err != nil {
@@ -648,10 +678,6 @@ func (s *scanningState) scan(line string) (string, error) {
 				Signature: Signature{State: match[2]},
 				ID:        id,
 				First:     len(s.goroutines) == 0,
-			}
-			// Increase performance by always allocating 4 goroutines minimally.
-			if s.goroutines == nil {
-				s.goroutines = make([]*Goroutine, 0, 4)
 			}
 			s.goroutines = append(s.goroutines, g)
 			s.state = gotRaceGoroutineHeader

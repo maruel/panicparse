@@ -17,19 +17,20 @@ func _() {
 	_ = x[gotFileCreated-6]
 	_ = x[gotUnavail-7]
 	_ = x[gotRaceHeader1-8]
-	_ = x[gotRaceHeader-9]
+	_ = x[gotRaceHeader2-9]
 	_ = x[gotRaceOperationHeader-10]
 	_ = x[gotRaceOperationFunc-11]
 	_ = x[gotRaceOperationFile-12]
-	_ = x[gotRaceGoroutineHeader-13]
-	_ = x[gotRaceGoroutineFunc-14]
-	_ = x[gotRaceGoroutineFile-15]
-	_ = x[betweenRaces-16]
+	_ = x[betweenRaceOperations-13]
+	_ = x[gotRaceGoroutineHeader-14]
+	_ = x[gotRaceGoroutineFunc-15]
+	_ = x[gotRaceGoroutineFile-16]
+	_ = x[betweenRaceGoroutines-17]
 }
 
-const _state_name = "normalbetweenRoutinegotRoutineHeadergotFuncgotCreatedgotFileFuncgotFileCreatedgotUnavailgotRaceHeader1gotRaceHeadergotRaceOperationHeadergotRaceOperationFuncgotRaceOperationFilegotRaceGoroutineHeadergotRaceGoroutineFuncgotRaceGoroutineFilebetweenRaces"
+const _state_name = "normalbetweenRoutinegotRoutineHeadergotFuncgotCreatedgotFileFuncgotFileCreatedgotUnavailgotRaceHeader1gotRaceHeader2gotRaceOperationHeadergotRaceOperationFuncgotRaceOperationFilebetweenRaceOperationsgotRaceGoroutineHeadergotRaceGoroutineFuncgotRaceGoroutineFilebetweenRaceGoroutines"
 
-var _state_index = [...]uint8{0, 6, 20, 36, 43, 53, 64, 78, 88, 102, 115, 137, 157, 177, 199, 219, 239, 251}
+var _state_index = [...]uint16{0, 6, 20, 36, 43, 53, 64, 78, 88, 102, 116, 138, 158, 178, 199, 221, 241, 261, 282}
 
 func (i state) String() string {
 	if i < 0 || i >= state(len(_state_index)-1) {

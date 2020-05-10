@@ -1115,8 +1115,42 @@ func TestRaceManual(t *testing.T) {
 	}
 	compareGoroutines(t, want, s.goroutines)
 	wantOps := []raceOp{
-		{write: false, addr: 0xc0001b2030, id: 8},
-		{write: true, addr: 0xc0001b2030, id: 7},
+		{
+			write: false, addr: 0xc0001b2030, id: 8,
+			stack: Stack{
+				Calls: []Call{
+					newCall(
+						"main.panicDoRace2",
+						Args{},
+						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+						150,
+					),
+					newCall(
+						"main.panicRaceEnabled.func2",
+						Args{},
+						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+						135),
+				},
+			},
+		},
+		{
+			write: true, addr: 0xc0001b2030, id: 7,
+			stack: Stack{
+				Calls: []Call{
+					newCall(
+						"main.panicDoRace1",
+						Args{},
+						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+						145,
+					),
+					newCall(
+						"main.panicRaceEnabled.func1",
+						Args{},
+						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+						132),
+				},
+			},
+		},
 	}
 	if diff := cmp.Diff(wantOps, s.races, cmp.AllowUnexported(raceOp{})); diff != "" {
 		t.Fatalf("races (-want +got):\n%s", diff)
