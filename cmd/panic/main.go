@@ -127,14 +127,28 @@ func rerunWithFastCrash() {
 func panicRaceEnabled() {
 	rerunWithFastCrash()
 	i := 0
-	for j := 0; j < 2; j++ {
-		go func() {
-			for {
-				i++
-			}
-		}()
-	}
+	// Do two separate calls so that the 'created at' stacks are different.
+	go func() {
+		panicDoRace1(&i)
+	}()
+	go func() {
+		panicDoRace2(&i)
+	}()
 	time.Sleep(time.Minute)
+}
+
+// panicDoRace1 and panicDoRace2 are extracted from panicRaceEnabled() to make
+// the stack trace less trivial, but in general folks will do the error with
+// this code inlined.
+func panicDoRace1(i *int) {
+	for {
+		(*i)++
+	}
+}
+func panicDoRace2(i *int) {
+	for {
+		(*i)++
+	}
 }
 
 func panicRace() {
