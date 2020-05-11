@@ -1074,10 +1074,16 @@ func TestRaceManual(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
-							"main.panicRaceEnabled",
+							"main.panicDoRace2",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							54),
+							150,
+						),
+						newCall(
+							"main.panicRaceEnabled.func2",
+							Args{},
+							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+							135),
 					},
 				},
 			},
@@ -1090,10 +1096,15 @@ func TestRaceManual(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
-							"main.panicRaceEnabled",
+							"main.panicDoRace1",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							54),
+							145),
+						newCall(
+							"main.panicRaceEnabled.func1",
+							Args{},
+							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+							132),
 					},
 				},
 			},
@@ -1114,40 +1125,48 @@ func TestRaceManual(t *testing.T) {
 		}
 	}
 	compareGoroutines(t, want, s.goroutines)
-	wantOps := []raceOp{
-		{
+	wantOps := map[int]*raceOp{
+		8: {
 			write: false, addr: 0xc0001b2030, id: 8,
-			stack: Stack{
+			create: Stack{
 				Calls: []Call{
 					newCall(
-						"main.panicDoRace2",
+						"main.panicRaceEnabled",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						150,
-					),
+						134),
 					newCall(
-						"main.panicRaceEnabled.func2",
+						"main.panicRace",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						135),
+						156),
+					newCall(
+						"main.main",
+						Args{},
+						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+						54),
 				},
 			},
 		},
-		{
+		7: {
 			write: true, addr: 0xc0001b2030, id: 7,
-			stack: Stack{
+			create: Stack{
 				Calls: []Call{
 					newCall(
-						"main.panicDoRace1",
+						"main.panicRaceEnabled",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						145,
-					),
+						131),
 					newCall(
-						"main.panicRaceEnabled.func1",
+						"main.panicRace",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						132),
+						156),
+					newCall(
+						"main.main",
+						Args{},
+						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+						54),
 				},
 			},
 		},
