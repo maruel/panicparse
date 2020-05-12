@@ -129,25 +129,25 @@ func panicRaceEnabled() {
 	i := 0
 	// Do two separate calls so that the 'created at' stacks are different.
 	go func() {
-		panicDoRace1(&i)
+		panicDoRaceWrite(&i)
 	}()
 	go func() {
-		panicDoRace2(&i)
+		panicDoRaceRead(&i)
 	}()
 	time.Sleep(time.Minute)
 }
 
-// panicDoRace1 and panicDoRace2 are extracted from panicRaceEnabled() to make
-// the stack trace less trivial, but in general folks will do the error with
-// this code inlined.
-func panicDoRace1(i *int) {
-	for {
-		(*i)++
+// panicDoRaceWrite and panicDoRaceRead are extracted from panicRaceEnabled()
+// to make the stack trace less trivial, but in general folks will do the error
+// with this code inlined.
+func panicDoRaceWrite(x *int) {
+	for i := 0; ; i++ {
+		*x = i
 	}
 }
-func panicDoRace2(i *int) {
-	for {
-		(*i)++
+func panicDoRaceRead(x *int) {
+	for i := 0; ; {
+		i += *x
 	}
 }
 

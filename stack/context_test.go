@@ -1014,19 +1014,21 @@ func TestParseDumpIndented(t *testing.T) {
 	compareGoroutines(t, want, c.Goroutines)
 }
 
-// Generated with "panic race" and $GOPATH replaced with "/go":
+// Generated with:
+//   go install -race github.com/maruel/panicparse/cmd/panic
+//   panic race |& sed "s#$HOME##g"
 const panicRaceOutput = `
 ==================
 WARNING: DATA RACE
 Read at 0x00c0001b2030 by goroutine 8:
-  main.panicDoRace2()
+  main.panicDoRaceRead()
       /go/src/github.com/maruel/panicparse/cmd/panic/main.go:150 +0x3a
   main.panicRaceEnabled.func2()
       /go/src/github.com/maruel/panicparse/cmd/panic/main.go:135 +0x38
 
 Previous write at 0x00c0001b2030 by goroutine 7:
-  main.panicDoRace1()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:145 +0x50
+  main.panicDoRaceWrite()
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:145 +0x41
   main.panicRaceEnabled.func1()
       /go/src/github.com/maruel/panicparse/cmd/panic/main.go:132 +0x38
 
@@ -1074,7 +1076,7 @@ func TestRaceManual(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
-							"main.panicDoRace2",
+							"main.panicDoRaceRead",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
 							150,
@@ -1096,7 +1098,7 @@ func TestRaceManual(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
-							"main.panicDoRace1",
+							"main.panicDoRaceWrite",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
 							145),
