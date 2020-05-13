@@ -125,22 +125,9 @@ func rerunWithFastCrash() {
 	}
 }
 
-func panicRaceEnabled() {
-	rerunWithFastCrash()
-	i := 0
-	// Do two separate calls so that the 'created at' stacks are different.
-	go func() {
-		panicDoRaceWrite(&i)
-	}()
-	go func() {
-		panicDoRaceRead(&i)
-	}()
-	time.Sleep(time.Minute)
-}
-
-// panicDoRaceWrite and panicDoRaceRead are extracted from panicRaceEnabled()
-// to make the stack trace less trivial, but in general folks will do the error
-// with this code inlined.
+// panicDoRaceWrite and panicDoRaceRead are extracted from panicRace() to make
+// the stack trace less trivial, but in general folks will do the error with
+// this code inlined.
 func panicDoRaceWrite(x *int) {
 	for i := 0; ; i++ {
 		*x = i
@@ -157,7 +144,17 @@ func panicRace() {
 		panicRaceDisabled("race")
 		return
 	}
-	panicRaceEnabled()
+	rerunWithFastCrash()
+
+	i := 0
+	// Do two separate calls so that the 'created at' stacks are different.
+	go func() {
+		panicDoRaceWrite(&i)
+	}()
+	go func() {
+		panicDoRaceRead(&i)
+	}()
+	time.Sleep(time.Minute)
 }
 
 func panicRaceUnaligned() {

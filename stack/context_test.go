@@ -1020,33 +1020,29 @@ func TestParseDumpIndented(t *testing.T) {
 const panicRaceOutput = `
 ==================
 WARNING: DATA RACE
-Read at 0x00c0001b2030 by goroutine 8:
+Read at 0x00c000014100 by goroutine 8:
   main.panicDoRaceRead()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:150 +0x3a
-  main.panicRaceEnabled.func2()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:135 +0x38
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:138 +0x3a
+  main.panicRace.func2()
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:155 +0x38
 
-Previous write at 0x00c0001b2030 by goroutine 7:
+Previous write at 0x00c000014100 by goroutine 7:
   main.panicDoRaceWrite()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:145 +0x41
-  main.panicRaceEnabled.func1()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:132 +0x38
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:133 +0x41
+  main.panicRace.func1()
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:152 +0x38
 
 Goroutine 8 (running) created at:
-  main.panicRaceEnabled()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:134 +0xa1
   main.panicRace()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:156 +0x2f
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:154 +0xa1
   main.main()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:54 +0x6c8
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:55 +0x6c8
 
 Goroutine 7 (running) created at:
-  main.panicRaceEnabled()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:131 +0x7f
   main.panicRace()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:156 +0x2f
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:151 +0x7f
   main.main()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:54 +0x6c8
+      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:55 +0x6c8
 ==================
 `
 
@@ -1079,13 +1075,13 @@ func TestRaceManual(t *testing.T) {
 							"main.panicDoRaceRead",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							150,
+							138,
 						),
 						newCall(
-							"main.panicRaceEnabled.func2",
+							"main.panicRace.func2",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							135),
+							155),
 					},
 				},
 			},
@@ -1101,12 +1097,12 @@ func TestRaceManual(t *testing.T) {
 							"main.panicDoRaceWrite",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							145),
+							133),
 						newCall(
-							"main.panicRaceEnabled.func1",
+							"main.panicRace.func1",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							132),
+							152),
 					},
 				},
 			},
@@ -1129,46 +1125,36 @@ func TestRaceManual(t *testing.T) {
 	compareGoroutines(t, want, s.goroutines)
 	wantOps := map[int]*raceOp{
 		8: {
-			write: false, addr: 0xc0001b2030, id: 8,
+			write: false, addr: 0xc000014100, id: 8,
 			create: Stack{
 				Calls: []Call{
-					newCall(
-						"main.panicRaceEnabled",
-						Args{},
-						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						134),
 					newCall(
 						"main.panicRace",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						156),
+						154),
 					newCall(
 						"main.main",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						54),
+						55),
 				},
 			},
 		},
 		7: {
-			write: true, addr: 0xc0001b2030, id: 7,
+			write: true, addr: 0xc000014100, id: 7,
 			create: Stack{
 				Calls: []Call{
-					newCall(
-						"main.panicRaceEnabled",
-						Args{},
-						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						131),
 					newCall(
 						"main.panicRace",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						156),
+						151),
 					newCall(
 						"main.main",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						54),
+						55),
 				},
 			},
 		},
