@@ -34,6 +34,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/maruel/panicparse/cmd/panic/internal"
 	correct "github.com/maruel/panicparse/cmd/panic/internal/incorrect"
@@ -102,11 +103,11 @@ func recurse(i int) {
 	panic(42)
 }
 
-func panicRaceDisabled() {
-	help := "'panic race' can only be used when built with the race detector.\n" +
+func panicRaceDisabled(name string) {
+	help := "'panic %s' can only be used when built with the race detector.\n" +
 		"To build, use:\n" +
 		"  go install -race github.com/maruel/panicparse/cmd/panic\n"
-	io.WriteString(stdErr, help)
+	fmt.Fprintf(stdErr, help, name)
 }
 
 func rerunWithFastCrash() {
@@ -152,11 +153,33 @@ func panicDoRaceRead(x *int) {
 }
 
 func panicRace() {
-	if raceEnabled {
-		panicRaceEnabled()
-	} else {
-		panicRaceDisabled()
+	if !raceEnabled {
+		panicRaceDisabled("race")
+		return
 	}
+	panicRaceEnabled()
+}
+
+func panicRaceUnaligned() {
+	if !raceEnabled {
+		panicRaceDisabled("race_unaligned")
+		return
+	}
+	rerunWithFastCrash()
+
+	a := [8]byte{}
+	b := (*int64)(unsafe.Pointer(&a[0]))
+	go func() {
+		for i := 0; ; i++ {
+			a[4] = byte(i)
+		}
+	}()
+	go func() {
+		for {
+			*b++
+		}
+	}()
+	time.Sleep(time.Minute)
 }
 
 //
@@ -297,6 +320,13 @@ var types = map[string]struct {
 		"cause a crash by race detector",
 		panicRace,
 	},
+
+	/* TODO(maruel): This is not detected!
+	"race_unaligned": {
+		"cause a crash by race detector with unaligned access",
+		panicRaceUnaligned,
+	},
+	*/
 
 	"stack_cut_off": {
 		"recursive calls with too many call lines in traceback, causing higher up calls to missing",

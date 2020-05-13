@@ -28,7 +28,7 @@ func TestProcess(t *testing.T) {
 	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:53 ImainL()A\n"
 	compareString(t, want, out.String())
 }
 
@@ -44,7 +44,7 @@ func TestProcessFullPath(t *testing.T) {
 	}
 	// "/" is used even on Windows.
 	p := strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)
-	want := fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:52 ImainL()A\n", p)
+	want := fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:53 ImainL()A\n", p)
 	compareString(t, want, out.String())
 }
 
@@ -54,7 +54,7 @@ func TestProcessNoColor(t *testing.T) {
 	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:53 ImainL()A\n"
 	compareString(t, want, out.String())
 }
 
@@ -76,7 +76,7 @@ func TestProcessFilter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:53 ImainL()A\n"
 	compareString(t, want, out.String())
 }
 
