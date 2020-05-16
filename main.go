@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/maruel/panicparse/internal"
+	"github.com/maruel/panicparse/v2/internal"
 )
 
 func main() {

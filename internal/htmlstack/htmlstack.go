@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/maruel/panicparse/stack"
+	"github.com/maruel/panicparse/v2/stack"
 )
 
 // Write writes buckets as HTML to the writer.

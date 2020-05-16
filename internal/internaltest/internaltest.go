@@ -188,6 +188,9 @@ func build(tool string, race bool) string {
 		args = append(args, "-race")
 	}
 	path := "github.com/maruel/panicparse/cmd/"
+	if IsUsingModules() {
+		path = "github.com/maruel/panicparse/v2/cmd/"
+	}
 	c := exec.Command("go", append(args, path+tool)...)
 	b := bytes.Buffer{}
 	c.Stdout = os.Stdout

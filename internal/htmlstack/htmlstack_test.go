@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/maruel/panicparse/internal/internaltest"
-	"github.com/maruel/panicparse/stack"
+	"github.com/maruel/panicparse/v2/internal/internaltest"
+	"github.com/maruel/panicparse/v2/stack"
 )
 
 func TestWrite2Buckets(t *testing.T) {

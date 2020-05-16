@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/maruel/panicparse/internal/internaltest"
+	"github.com/maruel/panicparse/v2/internal/internaltest"
 )
 
 func TestParseDumpNothing(t *testing.T) {
@@ -1294,7 +1294,7 @@ func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
-	ver := ""
+	ver := "/v2"
 	if !internaltest.IsUsingModules() {
 		ver = ""
 	}
@@ -1363,7 +1363,7 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
-	ver := ""
+	ver := "/v2"
 	if !internaltest.IsUsingModules() {
 		ver = ""
 	}
@@ -1467,7 +1467,7 @@ func TestIsGomodule(t *testing.T) {
 	if want := strings.Join(parts[:len(parts)-1], "/"); want != root {
 		t.Errorf("want: %q, got: %q", want, root)
 	}
-	if want := "github.com/maruel/panicparse"; want != importPath {
+	if want := "github.com/maruel/panicparse/v2"; want != importPath {
 		t.Errorf("want: %q, got: %q", want, importPath)
 	}
 	got := reModule.FindStringSubmatch("foo\r\nmodule bar\r\nbaz")
@@ -1565,7 +1565,7 @@ func pstCount(s []panicwebSignatureType, t panicwebSignatureType) int {
 func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicwebSignatureType {
 	ver := ""
 	if !isInGOPATH {
-		ver = ""
+		ver = "/v2"
 	}
 
 	// The first bucket (the one calling panic()) is deterministic.

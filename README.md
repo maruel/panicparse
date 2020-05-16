@@ -17,6 +17,8 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
+   * **New in v2.0.0!**: Completely refactored stack package for higher
+     performance.
    * **New in v1.4.0!**:
      [webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/stack/webstack#SnapshotHandler)
      is a http handler that serves a very tight and swell snapshot of your

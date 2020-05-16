@@ -28,8 +28,8 @@ import (
 	"regexp"
 	"syscall"
 
-	"github.com/maruel/panicparse/internal/htmlstack"
-	"github.com/maruel/panicparse/stack"
+	"github.com/maruel/panicparse/v2/internal/htmlstack"
+	"github.com/maruel/panicparse/v2/stack"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"github.com/mgutz/ansi"

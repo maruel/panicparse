@@ -15,8 +15,8 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/maruel/panicparse/internal/htmlstack"
-	"github.com/maruel/panicparse/stack"
+	"github.com/maruel/panicparse/v2/internal/htmlstack"
+	"github.com/maruel/panicparse/v2/stack"
 )
 
 // SnapshotHandler implements http.HandlerFunc to returns a panicparse HTML

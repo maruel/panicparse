@@ -35,9 +35,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/maruel/panicparse/cmd/panic/internal"
-	correct "github.com/maruel/panicparse/cmd/panic/internal/incorrect"
-	"github.com/maruel/panicparse/cmd/panic/internal/ùtf8"
+	"github.com/maruel/panicparse/v2/cmd/panic/internal"
+	correct "github.com/maruel/panicparse/v2/cmd/panic/internal/incorrect"
+	"github.com/maruel/panicparse/v2/cmd/panic/internal/ùtf8"
 )
 
 func main() {
