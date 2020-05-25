@@ -36,15 +36,3 @@ jobs:
     - >
       echo 'Erroring if a license header is missing:';
       ! addlicense -check . | grep -v '^vendor/' | grep -v stack/state_string.go | grep -v internal/htmlstack/data.go | read
-
-  - go: 1.12.17
-    before_script:
-    - echo $TRAVIS_GO_VERSION
-    script:
-    - go test ./...
-
-  - go: 1.8.7
-    before_script:
-    - echo $TRAVIS_GO_VERSION
-    script:
-    - go test ./...

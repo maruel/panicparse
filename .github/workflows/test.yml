@@ -20,13 +20,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        gover: ['1.14.3']
     runs-on: "${{matrix.os}}"
-    name: "go${{matrix.gover}} on ${{matrix.os}}"
+    name: "go on ${{matrix.os}}"
     steps:
     - uses: actions/setup-go@v2
+      # A version must be specified. Ask for the latest.
       with:
-        go-version: "^${{matrix.gover}}"
+        go-version: "^1.14.0"
     - name: 'Cache: ~/go/pkg/mod'
       uses: actions/cache@v1
       with:
@@ -197,3 +197,31 @@ jobs:
             --header "Content-Type: application/json" \
             --data "${PAYLOAD}" "${URL}" > /dev/null
         fi
+
+    # Run on older Go versions while inside GOPATH, which tests different parts
+    # of the code. go modules will be used on 1.13 and later but not before.
+  test_short:
+    env:
+      GOPATH: ${{github.workspace}}
+      GO111MODULE: auto
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        gover: ['1.8.7', '1.12.17', '1.14.3']
+    runs-on: "${{matrix.os}}"
+    name: "go${{matrix.gover}} on ${{matrix.os}} (quick)"
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: "${{matrix.gover}}"
+    - uses: actions/checkout@v2
+      with:
+        path: src/github.com/maruel/panicparse
+    - name: 'Check: go get -d -t'
+      working-directory: src/github.com/maruel/panicparse
+      run: go get -d -t ./...
+    - name: 'Check: go test'
+      working-directory: src/github.com/maruel/panicparse
+      run: go test ./...
