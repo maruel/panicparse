@@ -1629,17 +1629,15 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 		}
 		if b.State == "chan receive" {
 			localgopath := getGOPATHs()[0]
-			// If not using Go modules, the path is different as the vendored version
-			// is used instead.
-			pColorable := "pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go"
-			pkgPrefix := ""
+			// If not using Go modules, the path is different as the version in
+			// GOPATH is used instead.
+			v := "@v0.1.6"
+			prefix := "pkg/mod"
 			if !internaltest.IsUsingModules() {
-				t.Logf("Using vendored")
-				pColorable = "src/github.com/maruel/panicparse/vendor/github.com/mattn/go-colorable/noncolorable.go"
-				pkgPrefix = "github.com/maruel/panicparse/vendor/"
-			} else {
-				t.Logf("Using go module")
+				v = ""
+				prefix = "src"
 			}
+			pColorable := prefix + "/github.com/mattn/go-colorable" + v + "/noncolorable.go"
 			want := Signature{
 				State:     "chan receive",
 				CreatedBy: newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 73),
@@ -1651,7 +1649,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 							pathJoin(pwebDir, "main.go"),
 							92),
 						newCallLocal(
-							pkgPrefix+"github.com/mattn/go-colorable.(*NonColorable).Write",
+							"github.com/mattn/go-colorable.(*NonColorable).Write",
 							Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
 							pathJoin(localgopath, pColorable),
 							30),
@@ -1700,17 +1698,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				mainOS = "main_windows.go"
 			}
 			usingModules := internaltest.IsUsingModules()
-			if !usingModules {
-				fn = "github.com/maruel/panicparse/vendor/" + fn
-			}
 			if b.Stack.Calls[1].Func.Raw != fn {
 				t.Fatalf("expected %q, got %q", fn, b.Stack.Calls[1].Func.Raw)
 			}
 			prefix := "golang.org/x/sys@v0.0.0-"
 			if !usingModules {
-				// Assert that there's no version by including the trailing / and that
-				// it's using the vendored version.
-				prefix = "github.com/maruel/panicparse/vendor/golang.org/x/sys/"
+				// Assert that there's no version by including the trailing /.
+				prefix = "golang.org/x/sys/"
 			}
 			if !strings.HasPrefix(b.Stack.Calls[1].RelSrcPath, prefix) {
 				t.Fatalf("expected %q, got %q", prefix, b.Stack.Calls[1].RelSrcPath)

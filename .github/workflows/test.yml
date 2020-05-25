@@ -46,10 +46,12 @@ jobs:
         honnef.co/go/tools/cmd/staticcheck
     - name: 'go get necessary tools (ubuntu)'
       if: always() && matrix.os == 'ubuntu-latest'
+      # TODO(maruel): Use upstream google/addlicense once upstream is fixed to
+      # ignore generated files.
       run: >
         go get -u
         github.com/client9/misspell/cmd/misspell
-        github.com/google/addlicense
+        github.com/maruel/addlicense
 
       # Checkout and print debugging information.
     - uses: actions/checkout@v2
@@ -100,9 +102,8 @@ jobs:
       if: always() && matrix.os == 'windows-latest'
       shell: cmd
       run: go vet -vettool=%USERPROFILE%/go/bin/shadow.exe ./...
-    - name: 'Check: golint (disabled)'
-      # TODO(maruel): Enable once vendor/ is removed.
-      if: false && always()
+    - name: 'Check: golint'
+      if: always()
       run: golint -set_exit_status ./...
     - name: 'Check: inefficient variable assignment'
       if: always()
@@ -139,13 +140,11 @@ jobs:
           echo "" >> _comments.txt
           false
         fi
-    - name: 'Check: addlicense; all sources have a license header (ubuntu) (disabled)'
-      # TODO(maruel): Enable once vendor/ is removed.
-      if: false && always() && matrix.os == 'ubuntu-latest'
+    - name: 'Check: addlicense; all sources have a license header (ubuntu)'
+      if: always() && matrix.os == 'ubuntu-latest'
       run: addlicense -check .
-    - name: "Check: misspelling; code doesn't contain misspelling (ubuntu) (disabled)"
-      # TODO(maruel): Enable once vendor/ is removed.
-      if: false && always() && matrix.os == 'ubuntu-latest'
+    - name: "Check: misspelling; code doesn't contain misspelling (ubuntu)"
+      if: always() && matrix.os == 'ubuntu-latest'
       run: |
         ERR=$(misspell .)
         if ! test -z "$ERR"; then
@@ -212,7 +211,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        gover: ['1.8.7', '1.12.17', '1.14.3']
+        gover: ['1.9.7', '1.12.17', '1.14.3']
     runs-on: "${{matrix.os}}"
     name: "go${{matrix.gover}} on ${{matrix.os}} (quick)"
     steps:
