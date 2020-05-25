@@ -34,7 +34,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/maruel/panicparse/cmd/panic/internal"
 	correct "github.com/maruel/panicparse/cmd/panic/internal/incorrect"
@@ -157,6 +156,7 @@ func panicRace() {
 	time.Sleep(time.Minute)
 }
 
+/* TODO(maruel): This is not detected!
 func panicRaceUnaligned() {
 	if !raceEnabled {
 		panicRaceDisabled("race_unaligned")
@@ -178,6 +178,7 @@ func panicRaceUnaligned() {
 	}()
 	time.Sleep(time.Minute)
 }
+*/
 
 //
 

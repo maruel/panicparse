@@ -582,12 +582,12 @@ func getCrash(t *testing.T, content string, disableInline bool) (string, []byte,
 		t.Fatalf("failed to create temporary directory: %v", err)
 	}
 	clean := func() {
-		if err := os.RemoveAll(name); err != nil {
-			t.Fatalf("failed to remove temporary directory %q: %v", name, err)
+		if err2 := os.RemoveAll(name); err2 != nil {
+			t.Fatalf("failed to remove temporary directory %q: %v", name, err2)
 		}
 	}
 	main := filepath.Join(name, "main.go")
-	if err := ioutil.WriteFile(main, []byte(content), 0500); err != nil {
+	if err = ioutil.WriteFile(main, []byte(content), 0500); err != nil {
 		clean()
 		t.Fatalf("failed to write %q: %v", main, err)
 	}

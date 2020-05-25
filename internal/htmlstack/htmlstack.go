@@ -53,8 +53,6 @@ func Write(w io.Writer, buckets []*stack.Bucket, needsEnv, live bool) error {
 		"Now":        time.Now().Truncate(time.Second),
 		"Version":    runtime.Version(),
 	}
-	if isDebug() {
-	}
 	return t.Execute(w, data)
 }
 
@@ -201,7 +199,7 @@ func splitHost(s string) (string, string) {
 }
 
 // "v0.0.0-20200223170610-d5e6a3e2c0ae"
-var reVersion = regexp.MustCompile("v\\d+\\.\\d+\\.\\d+\\-\\d+\\-([a-f0-9]+)")
+var reVersion = regexp.MustCompile(`v\d+\.\d+\.\d+\-\d+\-([a-f0-9]+)`)
 
 func splitTag(s string) (string, string, template.URL) {
 	// Default to branch master for non-versionned dependencies. It's not

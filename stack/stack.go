@@ -661,7 +661,6 @@ func nameArguments(goroutines []*Goroutine) {
 	type object struct {
 		args      []*Arg
 		inPrimary bool
-		id        int
 	}
 	objects := map[uint64]object{}
 	// Enumerate all the arguments.

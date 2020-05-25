@@ -130,7 +130,6 @@ func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl) {
 
 	// Walk the AST to find the lineToByteOffset that fits the line number.
 	var lastFunc *ast.FuncDecl
-	var found ast.Node
 	// Inspect() goes depth first. This means for example that a function like:
 	// func a() {
 	//   b := func() {}
@@ -145,9 +144,6 @@ func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl) {
 		}
 		if n == nil {
 			return true
-		}
-		if found != nil {
-			// We are walking up.
 		}
 		if int(n.Pos()) >= p.lineToByteOffset[l] {
 			// We are expecting a ast.CallExpr node. It can be harder to figure out

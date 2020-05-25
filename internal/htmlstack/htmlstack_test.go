@@ -296,7 +296,7 @@ func loadGoroutines() ([]byte, error) {
 		return nil, err
 	}
 	// Strip out leading whitespace.
-	re := regexp.MustCompile("(\\n[ \\t]*)+")
+	re := regexp.MustCompile("(\n[ \t]*)+")
 	htmlRaw = re.ReplaceAll(htmlRaw, []byte("\n"))
 	return htmlRaw, nil
 }

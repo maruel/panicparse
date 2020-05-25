@@ -524,13 +524,6 @@ func compareGoroutines(t *testing.T, want, got []*Goroutine) {
 	}
 }
 
-func compareSignatures(t *testing.T, want, got *Signature) {
-	helper(t)()
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Fatalf("Signature mismatch (-want +got):\n%s", diff)
-	}
-}
-
 func getSignature() *Signature {
 	return &Signature{
 		State: "chan receive",

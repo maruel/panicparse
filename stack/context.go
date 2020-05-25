@@ -144,7 +144,7 @@ const (
 var (
 	// gotRoutineHeader
 	reRoutineHeader = regexp.MustCompile("^([ \t]*)goroutine (\\d+) \\[([^\\]]+)\\]\\:$")
-	reMinutes       = regexp.MustCompile("^(\\d+) minutes$")
+	reMinutes       = regexp.MustCompile(`^(\d+) minutes$`)
 
 	// gotUnavail
 	reUnavail = regexp.MustCompile("^(?:\t| +)goroutine running on other thread; stack unavailable")
@@ -174,7 +174,7 @@ var (
 	reCreated = regexp.MustCompile("^created by (.+)$")
 
 	// gotFunc, gotRaceOperationFunc, gotRaceGoroutineFunc
-	reFunc = regexp.MustCompile("^(.+)\\((.*)\\)$")
+	reFunc = regexp.MustCompile(`^(.+)\((.*)\)$`)
 
 	// Race:
 	// See https://github.com/llvm/llvm-project/blob/master/compiler-rt/lib/tsan/rtl/tsan_report.cpp
@@ -185,16 +185,16 @@ var (
 	// TODO(maruel): "Global var %s of size %zu at %p declared at %s:%zu\n"
 
 	// gotRaceOperationHeader
-	reRaceOperationHeader = regexp.MustCompile("^(Read|Write) at (0x[0-9a-f]+) by goroutine (\\d+):$")
+	reRaceOperationHeader = regexp.MustCompile(`^(Read|Write) at (0x[0-9a-f]+) by goroutine (\d+):$`)
 
 	// gotRaceOperationHeader
-	reRacePreviousOperationHeader = regexp.MustCompile("^Previous (read|write) at (0x[0-9a-f]+) by goroutine (\\d+):$")
+	reRacePreviousOperationHeader = regexp.MustCompile(`^Previous (read|write) at (0x[0-9a-f]+) by goroutine (\d+):$`)
 
 	// gotRaceGoroutineHeader
-	reRaceGoroutine = regexp.MustCompile("^Goroutine (\\d+) \\((running|finished)\\) created at:$")
+	reRaceGoroutine = regexp.MustCompile(`^Goroutine (\d+) \((running|finished)\) created at:$`)
 
 	// TODO(maruel): Use it.
-	reRacePreviousOperationMainHeader = regexp.MustCompile("^Previous (read|write) at (0x[0-9a-f]+) by main goroutine:$")
+	//reRacePreviousOperationMainHeader = regexp.MustCompile("^Previous (read|write) at (0x[0-9a-f]+) by main goroutine:$")
 )
 
 // state is the state of the scan to detect and process a stack trace.
@@ -806,8 +806,11 @@ func rootedIn(root string, parts []string) string {
 // findRoots sets member GOROOT and GOPATHs.
 //
 // This causes disk I/O as it checks for file presence.
-func (c *Context) findRoots() {
+//
+// Returns the number of missing files.
+func (c *Context) findRoots() int {
 	c.GOPATHs = map[string]string{}
+	missing := 0
 	for _, f := range getFiles(c.Goroutines) {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
 		// possible, need to confirm and handle.
@@ -844,8 +847,10 @@ func (c *Context) findRoots() {
 		if !found {
 			// If the source is not found, just too bad.
 			//log.Printf("Failed to find locally: %s", f)
+			missing++
 		}
 	}
+	return missing
 }
 
 // getGOPATHs returns parsed GOPATH or its default, using "/" as path separator.

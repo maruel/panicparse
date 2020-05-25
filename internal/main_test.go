@@ -28,7 +28,7 @@ func TestProcess(t *testing.T) {
 	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:53 ImainL()A\n"
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
 	compareString(t, want, out.String())
 }
 
@@ -44,7 +44,7 @@ func TestProcessFullPath(t *testing.T) {
 	}
 	// "/" is used even on Windows.
 	p := strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)
-	want := fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:53 ImainL()A\n", p)
+	want := fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:52 ImainL()A\n", p)
 	compareString(t, want, out.String())
 }
 
@@ -54,7 +54,7 @@ func TestProcessNoColor(t *testing.T) {
 	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:53 ImainL()A\n"
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
 	compareString(t, want, out.String())
 }
 
@@ -76,7 +76,7 @@ func TestProcessFilter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:53 ImainL()A\n"
+	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
 	compareString(t, want, out.String())
 }
 
@@ -94,18 +94,6 @@ func compareString(t *testing.T, want, got string) {
 	helper(t)()
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("Mismatch (-want +got):\n%s", diff)
-	}
-}
-
-func compareLines(t *testing.T, want, got []string) {
-	helper(t)()
-	for i := 0; i < len(got) && i < len(want); i++ {
-		if want[i] != got[i] {
-			t.Fatalf("Different lines #%d:\n- %q\n- %q", i, want[i], got[i])
-		}
-	}
-	if len(want) != len(got) {
-		t.Fatalf("different length %d != %d", len(want), len(got))
 	}
 }
 

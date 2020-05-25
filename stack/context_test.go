@@ -1237,9 +1237,6 @@ func TestPanic(t *testing.T) {
 				f(t, c, &b, ppDir)
 				return
 			}
-			if c.GOROOT != runtime.GOROOT() {
-				//t.Logf("GOROOT is %q", c.GOROOT)
-			}
 			e := want[cmd]
 			if e == 0 {
 				e = 1
@@ -1651,7 +1648,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			if usingModules {
 				// Assert that it's using @v0-0-0.<date>-<commit> format.
 				ver := strings.SplitN(b.Stack.Calls[1].RelSrcPath[len(prefix):], "/", 2)[0]
-				re := regexp.MustCompile("^\\d{14}-[a-f0-9]{12}$")
+				re := regexp.MustCompile(`^\d{14}-[a-f0-9]{12}$`)
 				if !re.MatchString(ver) {
 					t.Fatalf("unexpected version string %q", ver)
 				}
