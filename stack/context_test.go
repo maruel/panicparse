@@ -92,7 +92,7 @@ func TestParseDump1(t *testing.T) {
 		},
 	}
 	for i := range want {
-		want[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+		want[i].updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
 	}
 	compareGoroutines(t, want, c.Goroutines)
 }
@@ -177,7 +177,7 @@ func TestParseDumpLongWait(t *testing.T) {
 		},
 	}
 	for i := range want {
-		want[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+		want[i].updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
 	}
 	compareGoroutines(t, want, c.Goroutines)
 }
@@ -284,7 +284,7 @@ func TestParseDumpLineErr(t *testing.T) {
 		},
 	}
 	for i := range want {
-		want[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+		want[i].updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
 	}
 	compareGoroutines(t, want, c.Goroutines)
 }
@@ -354,7 +354,7 @@ func TestParseDumpValueErr(t *testing.T) {
 		},
 	}
 	for i := range want {
-		want[i].updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+		want[i].updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
 	}
 	compareGoroutines(t, want, c.Goroutines)
 }
@@ -1439,6 +1439,26 @@ func TestPanicweb(t *testing.T) {
 	}
 	if v := pstCount(types, pstStdlib); v < 3 {
 		t.Fatalf("found %d stdlib signatures", v)
+	}
+}
+
+func TestIsGomodule(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Our internal functions work with '/' as path separator.
+	parts := splitPath(strings.Replace(pwd, "\\", "/", -1))
+	root, importPath := isGoModule(parts)
+	if want := strings.Join(parts[:len(parts)-1], "/"); want != root {
+		t.Errorf("want: %q, got: %q", want, root)
+	}
+	if want := "github.com/maruel/panicparse"; want != importPath {
+		t.Errorf("want: %q, got: %q", want, importPath)
+	}
+	got := reModule.FindStringSubmatch("foo\r\nmodule bar\r\nbaz")
+	if diff := cmp.Diff([]string{"module bar\r", "bar"}, got); diff != "" {
+		t.Fatalf("-want, +got:\n%s", diff)
 	}
 }
 

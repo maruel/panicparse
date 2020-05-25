@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -49,6 +50,16 @@ type Context struct {
 	// Nil is guesspaths was false.
 	GOPATHs map[string]string
 
+	// localGomoduleRoot is the root directory containing go.mod. It is
+	// considered to be the primary project containing the main executable. It is
+	// initialized by findRoots().
+	//
+	// It only works with stack traces created in the local file system.
+	localGomoduleRoot string
+	// gomodImportPath is set to the relative import path that localGomoduleRoot
+	// represents.
+	gomodImportPath string
+
 	// localgoroot is GOROOT with "/" as path separator. No trailing "/".
 	localgoroot string
 	// localgopaths is GOPATH with "/" as path separator. No trailing "/".
@@ -83,7 +94,7 @@ func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 		for _, r := range c.Goroutines {
 			// Note that this is important to call it even if
 			// c.GOROOT == c.localgoroot.
-			r.updateLocations(c.GOROOT, c.localgoroot, c.GOPATHs)
+			r.updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
 		}
 	}
 	return c, err
@@ -804,7 +815,28 @@ func rootedIn(root string, parts []string) string {
 	return ""
 }
 
-// findRoots sets member GOROOT and GOPATHs.
+// reModule find the module line in a go.mod file. It works even on CRLF file.
+var reModule = regexp.MustCompile(`(?m)^module\s+([^\n\r]+)\r?$`)
+
+// isGoModule returns the string to the directory containing a go.mod/go.sum
+// files pair, and the go import path it represents, if found.
+func isGoModule(parts []string) (string, string) {
+	for i := len(parts); i > 0; i-- {
+		prefix := pathJoin(parts[:i]...)
+		if isFile(pathJoin(prefix, "go.sum")) {
+			b, err := ioutil.ReadFile(pathJoin(prefix, "go.mod"))
+			if err != nil {
+				continue
+			}
+			if match := reModule.FindSubmatch(b); match != nil {
+				return prefix, string(match[1])
+			}
+		}
+	}
+	return "", ""
+}
+
+// findRoots sets member GOROOT, GOPATHs and localGomoduleRoot.
 //
 // This causes disk I/O as it checks for file presence.
 //
@@ -816,12 +848,18 @@ func (c *Context) findRoots() int {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
 		// possible, need to confirm and handle.
 		//log.Printf("  Analyzing %s", f)
+
+		// First checks skip file I/O.
 		if c.GOROOT != "" && strings.HasPrefix(f, c.GOROOT+"/src/") {
+			// stdlib.
 			continue
 		}
 		if hasSrcPrefix(f, c.GOPATHs) {
+			// $GOPATH/src or go.mod dependency in $GOPATH/pkg/mod.
 			continue
 		}
+
+		// At this point, disk will be looked up.
 		parts := splitPath(f)
 		if c.GOROOT == "" {
 			if r := rootedIn(c.localgoroot+"/src", parts); r != "" {
@@ -843,6 +881,16 @@ func (c *Context) findRoots() int {
 				c.GOPATHs[r[:len(r)-8]] = l
 				found = true
 				break
+			}
+		}
+		// If the source is not found, it's probably a go module.
+		if !found {
+			if c.localGomoduleRoot == "" && len(parts) > 1 {
+				// Search upward looking for a go.mod/go.sum pair.
+				c.localGomoduleRoot, c.gomodImportPath = isGoModule(parts[:len(parts)-1])
+			}
+			if c.localGomoduleRoot != "" && strings.HasPrefix(f, c.localGomoduleRoot+"/") {
+				continue
 			}
 		}
 		if !found {

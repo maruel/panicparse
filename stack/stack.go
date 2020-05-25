@@ -347,14 +347,14 @@ const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 
 // updateLocations initializes LocalSrcPath, RelSrcPath and IsStdlib.
 //
-// goroot, localgoroot and gopaths are expected to be in "/" format even on
-// Windows. They must not have a trailing "/".
-func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
+// goroot, localgoroot, localgomod, gomodImportPath and gopaths are expected to
+// be in "/" format even on Windows. They must not have a trailing "/".
+func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) {
 	if c.SrcPath == "" {
 		return
 	}
+	// Check GOROOT first.
 	if goroot != "" {
-		// Always check GOROOT first, then GOPATH.
 		if prefix := goroot + "/src/"; strings.HasPrefix(c.SrcPath, prefix) {
 			// Replace remote GOROOT with local GOROOT.
 			c.RelSrcPath = c.SrcPath[len(prefix):]
@@ -363,6 +363,16 @@ func (c *Call) updateLocations(goroot, localgoroot string, gopaths map[string]st
 			goto done
 		}
 	}
+	// Go module path detection only works with stack traces created on the local
+	// file system.
+	if localgomod != "" {
+		if prefix := localgomod + "/"; strings.HasPrefix(c.SrcPath, prefix) {
+			c.RelSrcPath = gomodImportPath + "/" + c.SrcPath[len(prefix):]
+			c.LocalSrcPath = c.SrcPath
+			goto done
+		}
+	}
+	// Finally, check GOPATH.
 	// TODO(maruel): Sort for deterministic behavior?
 	for prefix, dest := range gopaths {
 		if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
@@ -496,9 +506,9 @@ func (s *Stack) less(r *Stack) bool {
 	return false
 }
 
-func (s *Stack) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
+func (s *Stack) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) {
 	for i := range s.Calls {
-		s.Calls[i].updateLocations(goroot, localgoroot, gopaths)
+		s.Calls[i].updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
 	}
 }
 
@@ -637,9 +647,9 @@ func (s *Signature) CreatedByString(fullPath bool) string {
 	return created
 }
 
-func (s *Signature) updateLocations(goroot, localgoroot string, gopaths map[string]string) {
-	s.CreatedBy.updateLocations(goroot, localgoroot, gopaths)
-	s.Stack.updateLocations(goroot, localgoroot, gopaths)
+func (s *Signature) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) {
+	s.CreatedBy.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
+	s.Stack.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
 }
 
 // Goroutine represents the state of one goroutine, including the stack trace.
