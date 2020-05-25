@@ -1,0 +1,199 @@
+# Copyright 2020 Marc-Antoine Ruel. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+# References:
+# https://developer.github.com/webhooks/event-payloads/
+# https://github.com/actions/cache
+# https://github.com/actions/checkout
+# https://github.com/actions/setup-go
+# https://help.github.com/en/actions/configuring-and-managing-workflows/authenticating-with-the-github_token#using-the-github_token-in-a-workflow
+# https://help.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions/
+# https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions
+
+on: [push, pull_request]
+name: Run tests
+jobs:
+  test_all:
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        gover: ['1.14.3']
+    runs-on: "${{matrix.os}}"
+    name: "go${{matrix.gover}} on ${{matrix.os}}"
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: "^${{matrix.gover}}"
+    - name: 'Cache: ~/go/pkg/mod'
+      uses: actions/cache@v1
+      with:
+        path: "~/go/pkg/mod"
+        # We want a key that helps with keeping the tools.
+        key: "${{runner.os}}-gopkg-${{hashFiles('~/go/pkg/**/go.sum')}}"
+        restore-keys: "${{runner.os}}-gopkg-"
+
+      # Fetch the tools before checking out, so they don't modify go.mod/go.sum.
+    - name: 'go get necessary tools'
+      run: >
+        go get -u
+        github.com/gordonklaus/ineffassign
+        golang.org/x/lint/golint
+        golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
+        honnef.co/go/tools/cmd/staticcheck
+    - name: 'go get necessary tools (ubuntu)'
+      if: always() && matrix.os == 'ubuntu-latest'
+      run: >
+        go get -u
+        github.com/client9/misspell/cmd/misspell
+        github.com/google/addlicense
+
+      # Checkout and print debugging information.
+    - uses: actions/checkout@v2
+    - name: "Debug (posix)"
+      if: always() && matrix.os != 'windows-latest'
+      run: |
+        echo GOPATH = $GOPATH
+        echo GOROOT = $GOROOT
+        echo HOME = $HOME
+        echo GITHUB_WORKSPACE = $GITHUB_WORKSPACE
+        echo PATH = $PATH
+        echo ""
+        echo pwd = $(pwd)
+        echo $ ls -la
+        ls -la
+        echo ""
+        echo $ ls -la $HOME
+        ls -la $HOME
+        echo ""
+        echo $ ls -la $HOME/go
+        ls -la $HOME/go
+        echo ""
+        echo $ ls -la $HOME/go/bin
+        ls -la $HOME/go/bin
+    - name: "Debug (windows)"
+      if: always() && matrix.os == 'windows-latest'
+      shell: cmd
+      run: |
+        echo GOPATH = %GOPATH%
+        echo GOROOT = %GOROOT%
+        echo USERPROFILE = %USERPROFILE%
+        echo GITHUB_WORKSPACE = %GITHUB_WORKSPACE%
+        echo PATH = %PATH%
+        echo cd = %CD%
+        dir /a
+        dir /a %USERPROFILE%
+        dir /a %USERPROFILE%\go
+        dir /a %USERPROFILE%\go\bin
+
+      # Now run proper checks.
+    - name: 'Check: go vet'
+      if: always()
+      run: go vet ./...
+    - name: 'Check: go vet shadow; shadowed variables (posix)'
+      if: always() && matrix.os != 'windows-latest'
+      run: go vet -vettool=$(which shadow) ./...
+    - name: 'Check: go vet shadow; shadowed variables (windows)'
+      if: always() && matrix.os == 'windows-latest'
+      shell: cmd
+      run: go vet -vettool=%USERPROFILE%/go/bin/shadow.exe ./...
+    - name: 'Check: golint (disabled)'
+      # TODO(maruel): Enable once vendor/ is removed.
+      if: false && always()
+      run: golint -set_exit_status ./...
+    - name: 'Check: inefficient variable assignment'
+      if: always()
+      run: ineffassign .
+    - name: 'Check: staticcheck'
+      if: always()
+      run: staticcheck ./...
+
+      # The following checks are not dependent on the OS or go build tags. Only
+      # run them on ubuntu-latest since it's the fastest one.
+    - name: 'Check: no executable was committed (ubuntu)'
+      if: always() && matrix.os == 'ubuntu-latest'
+      run: |
+        if find . -path ./.git -prune -o -type f -executable -print | grep -e . ; then
+          echo 'Do not commit executables'
+          false
+        fi
+    - name: 'Check: gofmt; code is well formatted (ubuntu)'
+      if: always() && matrix.os == 'ubuntu-latest'
+      run: |
+        FILES=$(gofmt -s -l .)
+        if ! test -z "$FILES"; then
+          echo 'Please run `gofmt -s -w` on the following files:' >> _gofmt.txt
+          echo "" >> _gofmt.txt
+          for FILE in ${FILES}; do
+            echo "- ${FILE}" >> _gofmt.txt
+          done
+          cat _gofmt.txt
+          echo "## ⚠ gofmt Failed" >> _comments.txt
+          echo "" >> _comments.txt
+          cat _gofmt.txt >> _comments.txt
+          echo "" >> _comments.txt
+          false
+        fi
+    - name: 'Check: addlicense; all sources have a license header (ubuntu) (disabled)'
+      # TODO(maruel): Enable once vendor/ is removed.
+      if: false && always() && matrix.os == 'ubuntu-latest'
+      run: addlicense -check .
+    - name: "Check: misspelling; code doesn't contain misspelling (ubuntu) (disabled)"
+      # TODO(maruel): Enable once vendor/ is removed.
+      if: false && always() && matrix.os == 'ubuntu-latest'
+      run: |
+        ERR=$(misspell .)
+        if ! test -z "$ERR"; then
+          echo "$ERR"
+          echo "## ⚠ misspell Failed" >> _comments.txt
+          echo "" >> _comments.txt
+          echo "$ERR" >> _comments.txt
+          echo "" >> _comments.txt
+          false
+        fi
+
+      # Run tests last since it's potentially the slowest step.
+    - name: 'Check: go test -cover (posix)'
+      if: always() && matrix.os != 'windows-latest'
+      run: go test -covermode=count -coverprofile=coverage.txt ./...
+    - name: 'Check: go test -cover (windows)'
+      if: always() && matrix.os == 'windows-latest'
+      # Powershell messes things up.
+      shell: cmd
+      run: go test -covermode=count -coverprofile=coverage.txt ./...
+      # Don't send code coverage if anything failed to reduce spam.
+    - uses: codecov/codecov-action@v1
+    - name: 'Cleanup'
+      run: rm coverage.txt
+      # Don't run go test -race if anything failed, to speed up the results.
+    - name: 'Check: go test -race'
+      run: go test -race ./...
+
+    - name: "Check: go generate + go mod tidy doesn't modify files (posix)"
+      # TODO(maruel): Find a way to enable this check on Windows.
+      if: matrix.os != 'windows-latest'
+      run: |
+        go generate ./...
+        go mod tidy
+        TOUCHED=$(git status --porcelain --ignored)
+        if ! test -z "$TOUCHED"; then
+          echo "go generate modified these files, please update:"
+          echo "$TOUCHED"
+          git diff
+          false
+        fi
+
+    - name: 'Send comments (posix)'
+      if: failure() && matrix.os != 'windows-latest' && github.event_name == 'pull_request'
+      run: |
+        if [ -f _comments.txt ]; then
+          URL=$(cat ${GITHUB_EVENT_PATH} | jq -r .pull_request.comments_url)
+          echo "Sending $(cat _comments.txt|wc -l) lines of comments to ${URL}"
+          PAYLOAD=$(echo '{}' | jq --arg body "$(cat _comments.txt)" '.body = $body')
+          curl -sS --request POST \
+            --header "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
+            --header "Content-Type: application/json" \
+            --data "${PAYLOAD}" "${URL}" > /dev/null
+        fi

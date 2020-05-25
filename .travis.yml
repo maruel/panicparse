@@ -15,7 +15,6 @@ jobs:
       # Cache tools sources.
       - $GOPATH/src/github\.com/client9
       - $GOPATH/src/github\.com/google/addlicense
-      - $GOPATH/src/github\.com/gordonklaus
       - $GOPATH/src/golang\.org
     before_script:
     - echo $TRAVIS_GO_VERSION
@@ -23,42 +22,20 @@ jobs:
       go get -u -v
       github.com/client9/misspell/cmd/misspell
       github.com/google/addlicense
-      github.com/gordonklaus/ineffassign
       golang.org/x/lint/golint
-      golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
     script:
-    - >
-      echo 'Check Code is well formatted';
-      ! gofmt -s -d . | read
     - >
       echo 'Erroring on misspelling';
       ! misspell $(find . -type f | grep -v 'vendor/') | grep a
     - >
-      echo 'Erroring on inefficient variable assignment:';
-      ineffassign .
-    - >
       echo 'Erroring on golint:';
       go list ./... | grep -v /vendor/ | xargs -L1 golint -set_exit_status
     - >
-      echo 'Erroring on go vet:';
-      go vet ./...
-    - >
-      echo 'Erroring on shadowed variables:';
-      ! go vet -vettool=$(which shadow) ./... |& grep -v '"err"' | grep -e '^[^#]'
-    - >
-      echo 'Running tests with code coverage:';
-      go test -covermode=count -coverprofile=coverage.txt ./...
-    - >
-      echo 'Running tests with race detector:';
-      go test -race ./...
-    - >
-      echo 'Erroring if an executable was committed:';
-      if find . -path ./.git -prune -o -type f -executable -print | grep -e . ; then echo 'Do not commit executables'; false; fi
+      echo 'Running tests (within GOPATH):';
+      go test ./...
     - >
       echo 'Erroring if a license header is missing:';
       ! addlicense -check . | grep -v '^vendor/' | grep -v stack/state_string.go | grep -v internal/htmlstack/data.go | read
-    after_success:
-    - bash <(curl -s https://codecov.io/bash)
 
   - go: 1.12.17
     before_script:
