@@ -1014,42 +1014,10 @@ func TestParseDumpIndented(t *testing.T) {
 	compareGoroutines(t, want, c.Goroutines)
 }
 
-// Generated with:
-//   go install -race github.com/maruel/panicparse/cmd/panic
-//   panic race |& sed "s#$HOME##g"
-const panicRaceOutput = `
-==================
-WARNING: DATA RACE
-Read at 0x00c000014100 by goroutine 8:
-  main.panicDoRaceRead()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:138 +0x3a
-  main.panicRace.func2()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:155 +0x38
-
-Previous write at 0x00c000014100 by goroutine 7:
-  main.panicDoRaceWrite()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:133 +0x41
-  main.panicRace.func1()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:152 +0x38
-
-Goroutine 8 (running) created at:
-  main.panicRace()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:154 +0xa1
-  main.main()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:55 +0x6c8
-
-Goroutine 7 (running) created at:
-  main.panicRace()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:151 +0x7f
-  main.main()
-      /go/src/github.com/maruel/panicparse/cmd/panic/main.go:55 +0x6c8
-==================
-`
-
 func TestParseDumpRace(t *testing.T) {
 	t.Parallel()
 	extra := &bytes.Buffer{}
-	c, err := ParseDump(bytes.NewBufferString(panicRaceOutput), extra, false)
+	c, err := ParseDump(bytes.NewReader(internaltest.StaticPanicRaceOutput()), extra, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1057,7 +1025,7 @@ func TestParseDumpRace(t *testing.T) {
 	if c != nil {
 		t.Fatal("expected c to be nil")
 	}
-	compareString(t, panicRaceOutput, extra.String())
+	compareString(t, string(internaltest.StaticPanicRaceOutput()), extra.String())
 }
 
 // This test should be deleted once Context state.raceDetectionEnabled is
@@ -1075,13 +1043,13 @@ func TestRaceManual(t *testing.T) {
 							"main.panicDoRaceRead",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							138,
+							137,
 						),
 						newCall(
 							"main.panicRace.func2",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							155),
+							154),
 					},
 				},
 			},
@@ -1097,19 +1065,19 @@ func TestRaceManual(t *testing.T) {
 							"main.panicDoRaceWrite",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							133),
+							132),
 						newCall(
 							"main.panicRace.func1",
 							Args{},
 							"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-							152),
+							151),
 					},
 				},
 			},
 			ID: 7,
 		},
 	}
-	scanner := bufio.NewScanner(bytes.NewBufferString(panicRaceOutput))
+	scanner := bufio.NewScanner(bytes.NewReader(internaltest.StaticPanicRaceOutput()))
 	scanner.Split(scanLines)
 	s := scanningState{raceDetectionEnabled: true}
 	for scanner.Scan() {
@@ -1124,23 +1092,6 @@ func TestRaceManual(t *testing.T) {
 	}
 	compareGoroutines(t, want, s.goroutines)
 	wantOps := map[int]*raceOp{
-		8: {
-			write: false, addr: 0xc000014100, id: 8,
-			create: Stack{
-				Calls: []Call{
-					newCall(
-						"main.panicRace",
-						Args{},
-						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						154),
-					newCall(
-						"main.main",
-						Args{},
-						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						55),
-				},
-			},
-		},
 		7: {
 			write: true, addr: 0xc000014100, id: 7,
 			create: Stack{
@@ -1149,12 +1100,29 @@ func TestRaceManual(t *testing.T) {
 						"main.panicRace",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						151),
+						150),
 					newCall(
 						"main.main",
 						Args{},
 						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
-						55),
+						54),
+				},
+			},
+		},
+		8: {
+			write: false, addr: 0xc000014100, id: 8,
+			create: Stack{
+				Calls: []Call{
+					newCall(
+						"main.panicRace",
+						Args{},
+						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+						153),
+					newCall(
+						"main.main",
+						Args{},
+						"/go/src/github.com/maruel/panicparse/cmd/panic/main.go",
+						54),
 				},
 			},
 		},
