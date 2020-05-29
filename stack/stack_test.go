@@ -12,7 +12,6 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -387,6 +386,40 @@ func TestSignature_Less(t *testing.T) {
 
 //
 
+var (
+	goroot     string
+	gopaths    map[string]string
+	gomod      string
+	goimport   string
+	isInGOPATH bool
+)
+
+func init() {
+	goroot = runtime.GOROOT()
+	gopaths = map[string]string{}
+	for _, p := range getGOPATHs() {
+		gopaths[p] = p
+	}
+
+	// Assumes pwd == this directory.
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	// Our internal functions work with '/' as path separator.
+	pwd = strings.Replace(pwd, "\\", "/", -1)
+	gomod, goimport = isGoModule(splitPath(pwd))
+
+	// When inside GOPATH, no version is added. When outside, the version path is
+	// added from the reading of module statement in go.mod.
+	for _, p := range getGOPATHs() {
+		if strings.HasPrefix(pwd, p) {
+			isInGOPATH = true
+			break
+		}
+	}
+}
+
 func newFunc(s string) Func {
 	return Func{Raw: s}
 }
@@ -395,30 +428,7 @@ func newCall(f string, a Args, s string, l int) Call {
 	return Call{Func: newFunc(f), Args: a, SrcPath: s, Line: l}
 }
 
-var (
-	local    sync.Once
-	goroot   string
-	gopaths  map[string]string
-	gomod    string
-	goimport string
-)
-
 func newCallLocal(f string, a Args, s string, l int) Call {
-	local.Do(func() {
-		goroot = runtime.GOROOT()
-		gopaths = map[string]string{}
-		for _, p := range getGOPATHs() {
-			gopaths[p] = p
-		}
-		// Assumes pwd == this directory.
-		pwd, err := os.Getwd()
-		if err != nil {
-			panic(err)
-		}
-		// Our internal functions work with '/' as path separator.
-		pwd = strings.Replace(pwd, "\\", "/", -1)
-		gomod, goimport = isGoModule(splitPath(pwd))
-	})
 	c := newCall(f, a, s, l)
 	c.updateLocations(goroot, goroot, gomod, goimport, gopaths)
 	if c.LocalSrcPath == "" || c.RelSrcPath == "" {

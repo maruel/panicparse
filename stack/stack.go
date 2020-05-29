@@ -363,16 +363,7 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 			goto done
 		}
 	}
-	// Go module path detection only works with stack traces created on the local
-	// file system.
-	if localgomod != "" {
-		if prefix := localgomod + "/"; strings.HasPrefix(c.SrcPath, prefix) {
-			c.RelSrcPath = gomodImportPath + "/" + c.SrcPath[len(prefix):]
-			c.LocalSrcPath = c.SrcPath
-			goto done
-		}
-	}
-	// Finally, check GOPATH.
+	// Check GOPATH.
 	// TODO(maruel): Sort for deterministic behavior?
 	for prefix, dest := range gopaths {
 		if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
@@ -384,6 +375,15 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 		if p := prefix + "/pkg/mod/"; strings.HasPrefix(c.SrcPath, p) {
 			c.RelSrcPath = c.SrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "pkg/mod", c.RelSrcPath)
+			goto done
+		}
+	}
+	// Go module path detection only works with stack traces created on the local
+	// file system.
+	if localgomod != "" {
+		if prefix := localgomod + "/"; strings.HasPrefix(c.SrcPath, prefix) {
+			c.RelSrcPath = gomodImportPath + "/" + c.SrcPath[len(prefix):]
+			c.LocalSrcPath = c.SrcPath
 			goto done
 		}
 	}

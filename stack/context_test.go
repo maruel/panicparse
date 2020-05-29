@@ -1256,6 +1256,10 @@ func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
+	ver := ""
+	if !internaltest.IsUsingModules() {
+		ver = ""
+	}
 	want := []*Goroutine{
 		{
 			Signature: Signature{
@@ -1268,7 +1272,7 @@ func testPanicMismatched(t *testing.T, c *Context, b *bytes.Buffer, ppDir string
 							//
 							// Here the package name is "correct". There is no way to deduce
 							// this from the stack trace.
-							"github.com/maruel/panicparse/cmd/panic/internal/incorrect.Panic",
+							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/incorrect.Panic",
 							Args{},
 							pathJoin(ppDir, "internal", "incorrect", "correct.go"),
 							7),
@@ -1321,6 +1325,10 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
 		t.Fatalf("output: %q", b.String())
 	}
+	ver := ""
+	if !internaltest.IsUsingModules() {
+		ver = ""
+	}
 	want := []*Goroutine{
 		{
 			Signature: Signature{
@@ -1331,7 +1339,7 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 							// This is important to note here the inconsistency in the Go
 							// runtime stack generator. The path is escaped, but symbols are
 							// not.
-							"github.com/maruel/panicparse/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic",
+							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic",
 							Args{Values: []Arg{{Value: 0xc0000b2e48}}},
 							// See TestCallUTF8 in stack_test.go for exercising the methods on
 							// Call in this situation.
@@ -1485,7 +1493,17 @@ func pstCount(s []panicwebSignatureType, t panicwebSignatureType) int {
 	return i
 }
 
+// identifyPanicwebSignature tries to assign one of the predefined signature to
+// the bucket provided.
+//
+// One challenge is that the path will be different depending if this test is
+// run within GOPATH or outside.
 func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicwebSignatureType {
+	ver := ""
+	if !isInGOPATH {
+		ver = ""
+	}
+
 	// The first bucket (the one calling panic()) is deterministic.
 	if b.First {
 		if len(b.IDs) != 1 {
@@ -1511,7 +1529,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.Stack.Calls[0].ImportPath() != "github.com/maruel/panicparse/cmd/panicweb/internal" {
+		if b.Stack.Calls[0].ImportPath() != "github.com/maruel/panicparse"+ver+"/cmd/panicweb/internal" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
