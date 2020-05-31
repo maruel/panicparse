@@ -62,8 +62,11 @@ func TestBucketHeader(t *testing.T) {
 	b := &stack.Bucket{
 		Signature: stack.Signature{
 			State: "chan receive",
-			CreatedBy: newCallLocal(
-				"main.mainImpl", stack.Args{}, "/home/user/go/src/github.com/foo/bar/baz.go", 74),
+			CreatedBy: stack.Stack{
+				Calls: []stack.Call{
+					newCallLocal("main.mainImpl", stack.Args{}, "/home/user/go/src/github.com/foo/bar/baz.go", 74),
+				},
+			},
 			SleepMax: 6,
 			SleepMin: 2,
 		},

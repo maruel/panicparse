@@ -60,10 +60,10 @@ func (pf pathFormat) formatCall(c *stack.Call) string {
 }
 
 func (pf pathFormat) createdByString(s *stack.Signature) string {
-	if s.CreatedBy.Func.DirName == "" {
+	if len(s.CreatedBy.Calls) == 0 {
 		return ""
 	}
-	return s.CreatedBy.Func.DirName + "." + s.CreatedBy.Func.Name + " @ " + pf.formatCall(&s.CreatedBy)
+	return s.CreatedBy.Calls[0].Func.DirName + "." + s.CreatedBy.Calls[0].Func.Name + " @ " + pf.formatCall(&s.CreatedBy.Calls[0])
 }
 
 // calcLengths returns the maximum length of the source lines and package names.

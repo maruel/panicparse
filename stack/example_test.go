@@ -61,8 +61,8 @@ func Example() {
 			extra += " [locked]"
 		}
 
-		if bucket.CreatedBy.Func.DirName != "" {
-			extra += fmt.Sprintf(" [Created by %s.%s @ %s:%d]", bucket.CreatedBy.Func.DirName, bucket.CreatedBy.Func.Name, bucket.CreatedBy.SrcName, bucket.CreatedBy.Line)
+		if len(bucket.CreatedBy.Calls) != 0 {
+			extra += fmt.Sprintf(" [Created by %s.%s @ %s:%d]", bucket.CreatedBy.Calls[0].Func.DirName, bucket.CreatedBy.Calls[0].Func.Name, bucket.CreatedBy.Calls[0].SrcName, bucket.CreatedBy.Calls[0].Line)
 		}
 		fmt.Printf("%d: %s%s\n", len(bucket.IDs), bucket.State, extra)
 

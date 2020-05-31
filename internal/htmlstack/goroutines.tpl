@@ -214,7 +214,7 @@ document.addEventListener("DOMContentLoaded", ready);
     </h1>
     {{if $e.Locked}} <span class="locked">[locked]</span>
     {{- end -}}
-    {{- if $e.CreatedBy.Func.Complete}} <span class="created">Created by: {{template "RenderCall" $e.CreatedBy}}</span>
+    {{- if $e.CreatedBy.Calls}} <span class="created">Created by: {{template "RenderCall" index $e.CreatedBy.Calls 0}}</span>
     {{- end -}}
     {{template "RenderCalls" $e.Signature.Stack}}
   {{- end -}}

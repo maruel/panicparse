@@ -241,6 +241,27 @@ func TestSymbol(t *testing.T) {
 	}
 }
 
+func TestRace(t *testing.T) {
+	t.Parallel()
+	data := internaltest.PanicOutputs()["race"]
+	c, err := stack.ParseDump(bytes.NewReader(data), ioutil.Discard, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != nil {
+		t.Fatal("unexpected context")
+	}
+	/*
+		if c.Goroutines != nil {
+			t.Fatal("unexpected context")
+		}
+		buckets := stack.Aggregate(c.Goroutines, stack.AnyPointer)
+		if err := Write(ioutil.Discard, buckets, false, false); err != nil {
+			t.Fatal(err)
+		}
+	*/
+}
+
 func BenchmarkWrite(b *testing.B) {
 	b.ReportAllocs()
 	c, err := stack.ParseDump(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, true)

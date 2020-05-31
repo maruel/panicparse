@@ -479,7 +479,7 @@ func (s *scanningState) scan(line string) (string, error) {
 		return "", nil
 
 	case gotCreated:
-		if found, err := parseFile(&cur.CreatedBy, trimmed); err != nil {
+		if found, err := parseFile(&cur.CreatedBy.Calls[0], trimmed); err != nil {
 			return "", err
 		} else if !found {
 			return "", fmt.Errorf("expected a file after a created line, got: %q", trimmed)
@@ -489,7 +489,9 @@ func (s *scanningState) scan(line string) (string, error) {
 
 	case gotFileFunc:
 		if match := reCreated.FindStringSubmatch(trimmed); match != nil {
-			if err := cur.CreatedBy.Func.Init(match[1]); err != nil {
+			cur.CreatedBy.Calls = make([]Call, 1)
+			if err := cur.CreatedBy.Calls[0].Func.Init(match[1]); err != nil {
+				cur.CreatedBy.Calls = nil
 				return "", err
 			}
 			s.state = gotCreated
@@ -534,7 +536,9 @@ func (s *scanningState) scan(line string) (string, error) {
 			return "", nil
 		}
 		if match := reCreated.FindStringSubmatch(trimmed); match != nil {
-			if err := cur.CreatedBy.Func.Init(match[1]); err != nil {
+			cur.CreatedBy.Calls = make([]Call, 1)
+			if err := cur.CreatedBy.Calls[0].Func.Init(match[1]); err != nil {
+				cur.CreatedBy.Calls = nil
 				return "", err
 			}
 			s.state = gotCreated

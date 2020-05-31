@@ -448,9 +448,11 @@ func zapSignatures(t *testing.T, a, b *Signature) {
 		t.Error("different call length")
 		return
 	}
-	if a.CreatedBy.Line != 0 && b.CreatedBy.Line != 0 {
-		a.CreatedBy.Line = 42
-		b.CreatedBy.Line = 42
+	if len(a.CreatedBy.Calls) != 0 && len(b.CreatedBy.Calls) != 0 {
+		if a.CreatedBy.Calls[0].Line != 0 && b.CreatedBy.Calls[0].Line != 0 {
+			a.CreatedBy.Calls[0].Line = 42
+			b.CreatedBy.Calls[0].Line = 42
+		}
 	}
 	zapStacks(t, &a.Stack, &b.Stack)
 }
@@ -497,6 +499,13 @@ func compareGoroutines(t *testing.T, want, got []*Goroutine) {
 	}
 }
 
+func compareStacks(t *testing.T, want, got *Stack) {
+	helper(t)()
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Fatalf("Stack mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func getSignature() *Signature {
 	return &Signature{
 		State: "chan receive",
@@ -539,13 +548,6 @@ func getSignature() *Signature {
 				},
 			},
 		},
-	}
-}
-
-func compareCalls(t *testing.T, want, got *Call) {
-	helper(t)()
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Fatalf("Call mismatch (-want +got):\n%s", diff)
 	}
 }
 

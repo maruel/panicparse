@@ -520,16 +520,29 @@ type Signature struct {
 	// Scan states:
 	//    - scan, scanrunnable, scanrunning, scansyscall, scanwaiting, scandead,
 	//      scanenqueue
+	//
+	// When running under the race detector, the values are 'running' or
+	// 'finished'.
 	State string
-	// Createdby is the goroutine which created this one, if applicable.
-	CreatedBy Call
+	// CreatedBy is the call stack that created this goroutine, if applicable.
+	//
+	// Normally, the stack is a single Call.
+	//
+	// When the race detector is enabled, a full stack snapshot is available.
+	CreatedBy Stack
 	// SleepMin is the wait time in minutes, if applicable.
+	//
+	// Not set when running under the race detector.
 	SleepMin int
 	// SleepMax is the wait time in minutes, if applicable.
+	//
+	// Not set when running under the race detector.
 	SleepMax int
 	// Stack is the call stack.
 	Stack Stack
 	// Locked is set if the goroutine was locked to an OS thread.
+	//
+	// Not set when running under the race detector.
 	Locked bool
 
 	// Disallow initialization with unnamed parameters.

@@ -96,11 +96,15 @@ func TestAggregateExactMatching(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "chan receive",
-				CreatedBy: newCall(
-					"main.mainImpl",
-					Args{},
-					"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					74),
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCall(
+							"main.mainImpl",
+							Args{},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							74),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						newCall(

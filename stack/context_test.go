@@ -346,7 +346,7 @@ func TestParseDumpCreatedErr(t *testing.T) {
 		{
 			Signature: Signature{
 				State:     "running",
-				CreatedBy: newCall("testing.RunTests", Args{}, "", 0),
+				CreatedBy: Stack{Calls: []Call{newCall("testing.RunTests", Args{}, "", 0)}},
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
@@ -473,11 +473,15 @@ func TestParseDumpElided(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "garbage collection",
-				CreatedBy: newCall(
-					"testing.RunTests",
-					Args{},
-					"/goroot/src/testing/testing.go",
-					555),
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCall(
+							"testing.RunTests",
+							Args{},
+							"/goroot/src/testing/testing.go",
+							555),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
@@ -532,11 +536,15 @@ func TestParseDumpSysCall(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "syscall",
-				CreatedBy: newCall(
-					"os/signal.init·1",
-					Args{},
-					"/goroot/src/os/signal/signal_unix.go",
-					27),
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCall(
+							"os/signal.init·1",
+							Args{},
+							"/goroot/src/os/signal/signal_unix.go",
+							27),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
@@ -596,11 +604,15 @@ func TestParseDumpUnavailCreated(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				CreatedBy: newCall(
-					"github.com/maruel/panicparse/stack.New",
-					Args{},
-					"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					131),
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCall(
+							"github.com/maruel/panicparse/stack.New",
+							Args{},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							131),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{newCall("", Args{}, "<unavailable>", 0)},
 				},
@@ -692,11 +704,15 @@ func TestParseDumpNoOffset(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "runnable",
-				CreatedBy: newCall(
-					"github.com/maruel/panicparse/stack.New",
-					Args{},
-					"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					113),
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCall(
+							"github.com/maruel/panicparse/stack.New",
+							Args{},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							113),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
@@ -790,11 +806,15 @@ func TestParseDumpCreated(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				CreatedBy: newCall(
-					"github.com/maruel/panicparse/stack.New",
-					Args{},
-					"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-					131),
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCall(
+							"github.com/maruel/panicparse/stack.New",
+							Args{},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							131),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
@@ -831,8 +851,12 @@ func TestParseDumpCreatedError(t *testing.T) {
 	want := []*Goroutine{
 		{
 			Signature: Signature{
-				State:     "running",
-				CreatedBy: newCall("github.com/maruel/panicparse/stack.New", Args{}, "", 0),
+				State: "running",
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCall("github.com/maruel/panicparse/stack.New", Args{}, "", 0),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
@@ -1020,11 +1044,15 @@ func TestParseDumpIndented(t *testing.T) {
 		{
 			Signature: Signature{
 				State: "running",
-				CreatedBy: newCall(
-					"testing.(*T).Run",
-					Args{},
-					"/home/maruel/golang/go/src/testing/testing.go",
-					916),
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCall(
+							"testing.(*T).Run",
+							Args{},
+							"/home/maruel/golang/go/src/testing/testing.go",
+							916),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						newCall(
@@ -1601,15 +1629,15 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.CreatedBy.SrcName != "server.go" {
+		if b.CreatedBy.Calls[0].SrcName != "server.go" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.CreatedBy.ImportPath() != "net/http" {
+		if b.CreatedBy.Calls[0].ImportPath() != "net/http" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.CreatedBy.Func.Name != "(*Server).Serve" {
+		if b.CreatedBy.Calls[0].Func.Name != "(*Server).Serve" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
@@ -1621,13 +1649,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 
 	// Find the client goroutine signatures. For the client, it is likely that
 	// they haven't all bucketed perfectly.
-	if b.CreatedBy.ImportPath() == "github.com/maruel/panicparse"+ver+"/cmd/panicweb/internal" && b.CreatedBy.Func.Name == "GetAsync" {
+	if b.CreatedBy.Calls[0].ImportPath() == "github.com/maruel/panicparse"+ver+"/cmd/panicweb/internal" && b.CreatedBy.Calls[0].Func.Name == "GetAsync" {
 		// TODO(maruel): More checks.
 		return pstClient
 	}
 
 	// Now find the two goroutine started by main.
-	if b.CreatedBy.ImportPath() == "github.com/maruel/panicparse"+ver+"/cmd/panicweb" && b.CreatedBy.Func.ImportPath == "main" && b.CreatedBy.Func.Name == "main" {
+	if b.CreatedBy.Calls[0].ImportPath() == "github.com/maruel/panicparse"+ver+"/cmd/panicweb" && b.CreatedBy.Calls[0].Func.ImportPath == "main" && b.CreatedBy.Calls[0].Func.Name == "main" {
 		if b.State == "IO wait" {
 			return pstServe
 		}
@@ -1643,8 +1671,12 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			}
 			pColorable := prefix + "/github.com/mattn/go-colorable" + v + "/noncolorable.go"
 			want := Signature{
-				State:     "chan receive",
-				CreatedBy: newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 73),
+				State: "chan receive",
+				CreatedBy: Stack{
+					Calls: []Call{
+						newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 73),
+					},
+				},
 				Stack: Stack{
 					Calls: []Call{
 						newCallLocal(
@@ -1675,10 +1707,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 		}
 		// That's the unix.Nanosleep() or windows.SleepEx() call.
 		if b.State == "syscall" {
-			created := newCallLocal(
-				"main.main", Args{}, pathJoin(pwebDir, "main.go"), 63)
-			zapCalls(t, &created, &b.CreatedBy)
-			compareCalls(t, &created, &b.CreatedBy)
+			created := Stack{
+				Calls: []Call{
+					newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 63),
+				},
+			}
+			zapStacks(t, &created, &b.CreatedBy)
+			compareStacks(t, &created, &b.CreatedBy)
 			if l := len(b.IDs); l != 1 {
 				t.Fatalf("expected 1 goroutine for the signature, got %d", l)
 			}
@@ -1746,17 +1781,19 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 	}
 
 	// The rest should all be created with internal threads.
-	if b.CreatedBy.IsStdlib {
+	if b.CreatedBy.Calls[0].IsStdlib {
 		return pstStdlib
 	}
 
 	// On older Go version, there's often an assembly stack in asm_amd64.s.
-	if b.CreatedBy.Func.Complete == "" {
+	if b.CreatedBy.Calls[0].Func.Complete == "" {
 		if len(b.Stack.Calls) == 1 && b.Stack.Calls[0].Func.Complete == "runtime.goexit" {
 			return pstStdlib
 		}
 	}
-	t.Fatalf("unexpected thread started by non-stdlib: %# v", b)
+	t.Logf("CreatedBy import: %s", b.CreatedBy.Calls[0].ImportPath())
+	t.Logf("CreatedBy:\n%#v", b.CreatedBy)
+	t.Fatalf("unexpected thread started by non-stdlib:\n%#v", b.Stack.Calls)
 	return pstUnknown
 }
 
