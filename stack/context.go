@@ -103,51 +103,51 @@ func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 // Private stuff.
 
 func parseDump(r io.Reader, out io.Writer) ([]*Goroutine, error) {
-	scanner := bufio.NewScanner(r)
-	scanner.Split(scanLines)
+	// Lines over 16k in length will not be accepted.
+	br := bufio.NewReaderSize(r, 16*1024)
 	s := scanningState{}
-	for scanner.Scan() {
-		line, err := s.scan(scanner.Text())
-		if line != "" {
-			_, _ = io.WriteString(out, line)
+	wasLong := false
+	for {
+		slice, err := br.ReadSlice('\n')
+		if err == bufio.ErrBufferFull || wasLong {
+			// Special case, the line is too long.
+			wasLong = err == bufio.ErrBufferFull
+			_, err = out.Write(slice)
+		} else {
+			p, err1 := s.scan(slice)
+			if err1 != nil && (err == nil || err == io.EOF) {
+				err = err1
+			}
+			if len(p) != 0 {
+				if _, err1 = out.Write(p); err1 != nil && (err == nil || err == io.EOF) {
+					err = err1
+				}
+			}
+			if err == io.EOF {
+				return s.goroutines, nil
+			}
 		}
+
 		if err != nil {
 			return s.goroutines, err
 		}
 	}
-	return s.goroutines, scanner.Err()
+
 }
 
-// scanLines is similar to bufio.ScanLines except that it:
-//     - doesn't drop '\n'
-//     - doesn't strip '\r'
-//     - returns when the data is bufio.MaxScanTokenSize bytes
-func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-	if i := bytes.IndexByte(data, '\n'); i >= 0 {
-		return i + 1, data[0 : i+1], nil
-	}
-	if atEOF {
-		return len(data), data, nil
-	}
-	if len(data) >= bufio.MaxScanTokenSize {
-		// Returns the line even if it is not at EOF nor has a '\n', otherwise the
-		// scanner will return bufio.ErrTooLong which is definitely not what we
-		// want.
-		return len(data), data, nil
-	}
-	return 0, nil, nil
-}
-
-const (
-	lockedToThread = "locked to thread"
-	elided         = "...additional frames elided..."
+var (
+	lockedToThread = []byte("locked to thread")
+	framesElided   = []byte("...additional frames elided...")
 	// gotRaceHeader1, normal
-	raceHeaderFooter = "=================="
+	raceHeaderFooter = []byte("==================")
 	// gotRaceHeader2
-	raceHeader = "WARNING: DATA RACE"
+	raceHeader = []byte("WARNING: DATA RACE")
+	crlf       = []byte("\r\n")
+	lf         = []byte("\n")
+	commaSpace = []byte(", ")
+	writeCap   = []byte("Write")
+	writeLow   = []byte("write")
+	threeDots  = []byte("...")
 )
 
 // These are effectively constants.
@@ -328,7 +328,7 @@ type scanningState struct {
 	goroutines []*Goroutine
 
 	state          state
-	prefix         string
+	prefix         []byte
 	goroutineIndex int
 }
 
@@ -338,7 +338,7 @@ type scanningState struct {
 // - missed stack barrier
 // - found next stack barrier at 0x123; expected
 // - runtime: unexpected return pc for FUNC_NAME called from 0x123
-func (s *scanningState) scan(line string) (string, error) {
+func (s *scanningState) scan(line []byte) ([]byte, error) {
 	/* This is very useful to debug issues in the state machine.
 	defer func() {
 		log.Printf("scan(%q) -> %s", line, s.state)
@@ -349,9 +349,9 @@ func (s *scanningState) scan(line string) (string, error) {
 		cur = s.goroutines[len(s.goroutines)-1]
 	}
 	trimmed := line
-	if strings.HasSuffix(line, "\r\n") {
+	if bytes.HasSuffix(line, crlf) {
 		trimmed = line[:len(line)-2]
-	} else if strings.HasSuffix(line, "\n") {
+	} else if bytes.HasSuffix(line, lf) {
 		trimmed = line[:len(line)-1]
 	} else {
 		// There's two cases:
@@ -363,13 +363,13 @@ func (s *scanningState) scan(line string) (string, error) {
 		// Let it flow. It's possible the last line was trimmed and we still want to parse it.
 	}
 
-	if trimmed != "" && s.prefix != "" {
+	if len(trimmed) != 0 && len(s.prefix) != 0 {
 		// This can only be the case if s.state != normal or the line is empty.
-		if !strings.HasPrefix(trimmed, s.prefix) {
+		if !bytes.HasPrefix(trimmed, s.prefix) {
 			prefix := s.prefix
 			s.state = normal
-			s.prefix = ""
-			return "", fmt.Errorf("inconsistent indentation: %q, expected %q", trimmed, prefix)
+			s.prefix = nil
+			return nil, fmt.Errorf("inconsistent indentation: %q, expected %q", trimmed, prefix)
 		}
 		trimmed = trimmed[len(s.prefix):]
 	}
@@ -382,26 +382,26 @@ func (s *scanningState) scan(line string) (string, error) {
 
 	case betweenRoutine:
 		// Look for a goroutine header.
-		if match := reRoutineHeader.FindStringSubmatch(trimmed); match != nil {
-			if id, err := strconv.Atoi(match[2]); err == nil {
+		if match := reRoutineHeader.FindSubmatch(trimmed); match != nil {
+			if id, ok := atou(match[2]); ok {
 				// See runtime/traceback.go.
 				// "<state>, \d+ minutes, locked to thread"
-				items := strings.Split(match[3], ", ")
+				items := bytes.Split(match[3], commaSpace)
 				sleep := 0
 				locked := false
 				for i := 1; i < len(items); i++ {
-					if items[i] == lockedToThread {
+					if bytes.Equal(items[i], lockedToThread) {
 						locked = true
 						continue
 					}
 					// Look for duration, if any.
-					if match2 := reMinutes.FindStringSubmatch(items[i]); match2 != nil {
-						sleep, _ = strconv.Atoi(match2[1])
+					if match2 := reMinutes.FindSubmatch(items[i]); match2 != nil {
+						sleep, _ = atou(match2[1])
 					}
 				}
 				g := &Goroutine{
 					Signature: Signature{
-						State:    items[0],
+						State:    string(items[0]),
 						SleepMin: sleep,
 						SleepMax: sleep,
 						Locked:   locked,
@@ -415,29 +415,29 @@ func (s *scanningState) scan(line string) (string, error) {
 				}
 				s.goroutines = append(s.goroutines, g)
 				s.state = gotRoutineHeader
-				s.prefix = match[1]
-				return "", nil
+				s.prefix = append([]byte{}, match[1]...)
+				return nil, nil
 			}
 		}
 		// Switch to race detection mode.
-		if trimmed == raceHeaderFooter {
+		if bytes.Equal(trimmed, raceHeaderFooter) {
 			// TODO(maruel): We should buffer it in case the next line is not a
 			// WARNING so we can output it back.
 			s.state = gotRaceHeader1
-			return "", nil
+			return nil, nil
 		}
 		// Fallthrough.
 		s.state = normal
-		s.prefix = ""
+		s.prefix = nil
 		return line, nil
 
 	case gotRoutineHeader:
-		if reUnavail.MatchString(trimmed) {
+		if reUnavail.Match(trimmed) {
 			// Generate a fake stack entry.
 			cur.Stack.Calls = []Call{{SrcPath: "<unavailable>"}}
 			// Next line is expected to be an empty line.
 			s.state = gotUnavail
-			return "", nil
+			return nil, nil
 		}
 		c := Call{}
 		if found, err := parseFunc(&c, trimmed); found {
@@ -447,43 +447,43 @@ func (s *scanningState) scan(line string) (string, error) {
 			}
 			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotFunc
-			return "", err
+			return nil, err
 		}
-		return "", fmt.Errorf("expected a function after a goroutine header, got: %q", strings.TrimSpace(trimmed))
+		return nil, fmt.Errorf("expected a function after a goroutine header, got: %q", bytes.TrimSpace(trimmed))
 
 	case gotFunc:
 		// cur.Stack.Calls is guaranteed to have at least one item.
 		if found, err := parseFile(&cur.Stack.Calls[len(cur.Stack.Calls)-1], trimmed); err != nil {
-			return "", err
+			return nil, err
 		} else if !found {
-			return "", fmt.Errorf("expected a file after a function, got: %q", strings.TrimSpace(trimmed))
+			return nil, fmt.Errorf("expected a file after a function, got: %q", bytes.TrimSpace(trimmed))
 		}
 		s.state = gotFileFunc
-		return "", nil
+		return nil, nil
 
 	case gotCreated:
 		if found, err := parseFile(&cur.CreatedBy.Calls[0], trimmed); err != nil {
-			return "", err
+			return nil, err
 		} else if !found {
-			return "", fmt.Errorf("expected a file after a created line, got: %q", trimmed)
+			return nil, fmt.Errorf("expected a file after a created line, got: %q", trimmed)
 		}
 		s.state = gotFileCreated
-		return "", nil
+		return nil, nil
 
 	case gotFileFunc:
-		if match := reCreated.FindStringSubmatch(trimmed); match != nil {
+		if match := reCreated.FindSubmatch(trimmed); match != nil {
 			cur.CreatedBy.Calls = make([]Call, 1)
-			if err := cur.CreatedBy.Calls[0].Func.Init(match[1]); err != nil {
+			if err := cur.CreatedBy.Calls[0].Func.Init(string(match[1])); err != nil {
 				cur.CreatedBy.Calls = nil
-				return "", err
+				return nil, err
 			}
 			s.state = gotCreated
-			return "", nil
+			return nil, nil
 		}
-		if elided == trimmed {
+		if bytes.Equal(trimmed, framesElided) {
 			cur.Stack.Elided = true
 			// TODO(maruel): New state.
-			return "", nil
+			return nil, nil
 		}
 		c := Call{}
 		if found, err := parseFunc(&c, trimmed); found {
@@ -493,64 +493,64 @@ func (s *scanningState) scan(line string) (string, error) {
 			}
 			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotFunc
-			return "", err
+			return nil, err
 		}
-		if trimmed == "" {
+		if len(trimmed) == 0 {
 			s.state = betweenRoutine
-			return "", nil
+			return nil, nil
 		}
 		// Back to normal state.
 		s.state = normal
-		s.prefix = ""
+		s.prefix = nil
 		return line, nil
 
 	case gotFileCreated:
-		if trimmed == "" {
+		if len(trimmed) == 0 {
 			s.state = betweenRoutine
-			return "", nil
+			return nil, nil
 		}
 		s.state = normal
-		s.prefix = ""
+		s.prefix = nil
 		return line, nil
 
 	case gotUnavail:
-		if trimmed == "" {
+		if len(trimmed) == 0 {
 			s.state = betweenRoutine
-			return "", nil
+			return nil, nil
 		}
-		if match := reCreated.FindStringSubmatch(trimmed); match != nil {
+		if match := reCreated.FindSubmatch(trimmed); match != nil {
 			cur.CreatedBy.Calls = make([]Call, 1)
-			if err := cur.CreatedBy.Calls[0].Func.Init(match[1]); err != nil {
+			if err := cur.CreatedBy.Calls[0].Func.Init(string(match[1])); err != nil {
 				cur.CreatedBy.Calls = nil
-				return "", err
+				return nil, err
 			}
 			s.state = gotCreated
-			return "", nil
+			return nil, nil
 		}
-		return "", fmt.Errorf("expected empty line after unavailable stack, got: %q", strings.TrimSpace(trimmed))
+		return nil, fmt.Errorf("expected empty line after unavailable stack, got: %q", bytes.TrimSpace(trimmed))
 
 		// Race detector.
 
 	case gotRaceHeader1:
-		if raceHeader == trimmed {
+		if bytes.Equal(trimmed, raceHeader) {
 			// TODO(maruel): We should buffer it in case the next line is not a
 			// WARNING so we can output it back.
 			s.state = gotRaceHeader2
-			return "", nil
+			return nil, nil
 		}
 		s.state = normal
 		return line, nil
 
 	case gotRaceHeader2:
-		if match := reRaceOperationHeader.FindStringSubmatch(trimmed); match != nil {
-			w := match[1] == "Write"
-			addr, err := strconv.ParseUint(match[2], 0, 64)
+		if match := reRaceOperationHeader.FindSubmatch(trimmed); match != nil {
+			w := bytes.Equal(match[1], writeCap)
+			addr, err := strconv.ParseUint(string(match[2]), 0, 64)
 			if err != nil {
-				return "", fmt.Errorf("failed to parse address on line: %q", strings.TrimSpace(trimmed))
+				return nil, fmt.Errorf("failed to parse address on line: %q", bytes.TrimSpace(trimmed))
 			}
-			id, err := strconv.Atoi(match[3])
-			if err != nil {
-				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
+			id, ok := atou(match[3])
+			if !ok {
+				return nil, fmt.Errorf("failed to parse goroutine id on line: %q", bytes.TrimSpace(trimmed))
 			}
 			if s.goroutines != nil {
 				panic("internal failure; expected s.goroutines to be nil")
@@ -558,147 +558,147 @@ func (s *scanningState) scan(line string) (string, error) {
 			s.goroutines = append(make([]*Goroutine, 0, 4), &Goroutine{ID: id, First: true, RaceWrite: w, RaceAddr: addr})
 			s.goroutineIndex = len(s.goroutines) - 1
 			s.state = gotRaceOperationHeader
-			return "", nil
+			return nil, nil
 		}
 		s.state = normal
 		return line, nil
 
 	case gotRaceOperationHeader:
 		c := Call{}
-		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
+		if found, err := parseFunc(&c, trimLeftSpace(trimmed)); found {
 			// Increase performance by always allocating 4 calls minimally.
 			if cur.Stack.Calls == nil {
 				cur.Stack.Calls = make([]Call, 0, 4)
 			}
 			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotRaceOperationFunc
-			return "", err
+			return nil, err
 		}
-		return "", fmt.Errorf("expected a function after a race operation, got: %q", trimmed)
+		return nil, fmt.Errorf("expected a function after a race operation, got: %q", trimmed)
 
 	case gotRaceOperationFunc:
 		if found, err := parseFile(&cur.Stack.Calls[len(cur.Stack.Calls)-1], trimmed); err != nil {
-			return "", err
+			return nil, err
 		} else if !found {
-			return "", fmt.Errorf("expected a file after a race function, got: %q", trimmed)
+			return nil, fmt.Errorf("expected a file after a race function, got: %q", trimmed)
 		}
 		s.state = gotRaceOperationFile
-		return "", nil
+		return nil, nil
 
 	case gotRaceOperationFile:
-		if trimmed == "" {
+		if len(trimmed) == 0 {
 			s.state = betweenRaceOperations
-			return "", nil
+			return nil, nil
 		}
 		c := Call{}
-		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
+		if found, err := parseFunc(&c, trimLeftSpace(trimmed)); found {
 			cur.Stack.Calls = append(cur.Stack.Calls, c)
 			s.state = gotRaceOperationFunc
-			return "", err
+			return nil, err
 		}
-		return "", fmt.Errorf("expected an empty line after a race file, got: %q", trimmed)
+		return nil, fmt.Errorf("expected an empty line after a race file, got: %q", trimmed)
 
 	case betweenRaceOperations:
 		// Look for other previous race data operations.
-		if match := reRacePreviousOperationHeader.FindStringSubmatch(trimmed); match != nil {
-			w := match[1] == "write"
-			addr, err := strconv.ParseUint(match[2], 0, 64)
+		if match := reRacePreviousOperationHeader.FindSubmatch(trimmed); match != nil {
+			w := bytes.Equal(match[1], writeLow)
+			addr, err := strconv.ParseUint(string(match[2]), 0, 64)
 			if err != nil {
-				return "", fmt.Errorf("failed to parse address on line: %q", strings.TrimSpace(trimmed))
+				return nil, fmt.Errorf("failed to parse address on line: %q", bytes.TrimSpace(trimmed))
 			}
-			id, err := strconv.Atoi(match[3])
-			if err != nil {
-				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
+			id, ok := atou(match[3])
+			if !ok {
+				return nil, fmt.Errorf("failed to parse goroutine id on line: %q", bytes.TrimSpace(trimmed))
 			}
 			s.goroutines = append(s.goroutines, &Goroutine{ID: id, RaceWrite: w, RaceAddr: addr})
 			s.goroutineIndex = len(s.goroutines) - 1
 			s.state = gotRaceOperationHeader
-			return "", nil
+			return nil, nil
 		}
 		fallthrough
 
 	case betweenRaceGoroutines:
-		if match := reRaceGoroutine.FindStringSubmatch(trimmed); match != nil {
-			id, err := strconv.Atoi(match[1])
-			if err != nil {
-				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
+		if match := reRaceGoroutine.FindSubmatch(trimmed); match != nil {
+			id, ok := atou(match[1])
+			if !ok {
+				return nil, fmt.Errorf("failed to parse goroutine id on line: %q", bytes.TrimSpace(trimmed))
 			}
 			found := false
 			for i, g := range s.goroutines {
 				if g.ID == id {
-					g.State = match[2]
+					g.State = string(match[2])
 					s.goroutineIndex = i
 					found = true
 					break
 				}
 			}
 			if !found {
-				return "", fmt.Errorf("unexpected goroutine ID on line: %q", strings.TrimSpace(trimmed))
+				return nil, fmt.Errorf("unexpected goroutine ID on line: %q", bytes.TrimSpace(trimmed))
 			}
 			s.state = gotRaceGoroutineHeader
-			return "", nil
+			return nil, nil
 		}
-		return "", fmt.Errorf("expected an operator or goroutine, got: %q", trimmed)
+		return nil, fmt.Errorf("expected an operator or goroutine, got: %q", trimmed)
 
 		// Race stack traces
 
 	case gotRaceGoroutineFunc:
 		c := s.goroutines[s.goroutineIndex].CreatedBy.Calls
 		if found, err := parseFile(&c[len(c)-1], trimmed); err != nil {
-			return "", err
+			return nil, err
 		} else if !found {
-			return "", fmt.Errorf("expected a file after a race function, got: %q", trimmed)
+			return nil, fmt.Errorf("expected a file after a race function, got: %q", trimmed)
 		}
 		// TODO(maruel): Set s.goroutines[].CreatedBy.
 		s.state = gotRaceGoroutineFile
-		return "", nil
+		return nil, nil
 
 	case gotRaceGoroutineFile:
-		if trimmed == "" {
+		if len(trimmed) == 0 {
 			s.state = betweenRaceGoroutines
-			return "", nil
+			return nil, nil
 		}
-		if trimmed == raceHeaderFooter {
+		if bytes.Equal(trimmed, raceHeaderFooter) {
 			// Done.
 			s.state = normal
-			return "", nil
+			return nil, nil
 		}
 		fallthrough
 
 	case gotRaceGoroutineHeader:
 		c := Call{}
-		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
+		if found, err := parseFunc(&c, trimLeftSpace(trimmed)); found {
 			s.goroutines[s.goroutineIndex].CreatedBy.Calls = append(s.goroutines[s.goroutineIndex].CreatedBy.Calls, c)
 			s.state = gotRaceGoroutineFunc
-			return "", err
+			return nil, err
 		}
-		return "", fmt.Errorf("expected a function after a race operation or a race file, got: %q", trimmed)
+		return nil, fmt.Errorf("expected a function after a race operation or a race file, got: %q", trimmed)
 
 	default:
-		return "", errors.New("internal error")
+		return nil, errors.New("internal error")
 	}
 }
 
 // parseFunc only return an error if also returning a Call.
 //
 // Uses reFunc.
-func parseFunc(c *Call, line string) (bool, error) {
-	if match := reFunc.FindStringSubmatch(line); match != nil {
-		if err := c.Func.Init(match[1]); err != nil {
+func parseFunc(c *Call, line []byte) (bool, error) {
+	if match := reFunc.FindSubmatch(line); match != nil {
+		if err := c.Func.Init(string(match[1])); err != nil {
 			return true, err
 		}
-		for _, a := range strings.Split(match[2], ", ") {
-			if a == "..." {
+		for _, a := range bytes.Split(match[2], commaSpace) {
+			if bytes.Equal(a, threeDots) {
 				c.Args.Elided = true
 				continue
 			}
-			if a == "" {
+			if len(a) == 0 {
 				// Remaining values were dropped.
 				break
 			}
-			v, err := strconv.ParseUint(a, 0, 64)
+			v, err := strconv.ParseUint(string(a), 0, 64)
 			if err != nil {
-				return true, fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
+				return true, fmt.Errorf("failed to parse int on line: %q", bytes.TrimSpace(line))
 			}
 			// Increase performance by always allocating 4 values minimally.
 			if c.Args.Values == nil {
@@ -716,15 +716,13 @@ func parseFunc(c *Call, line string) (bool, error) {
 // parseFile only return an error if also processing a Call.
 //
 // Uses reFile.
-func parseFile(c *Call, line string) (bool, error) {
-	if match := reFile.FindStringSubmatch(line); match != nil {
-		num, err := strconv.Atoi(match[2])
-		if err != nil {
-			return true, fmt.Errorf("failed to parse int on line: %q", strings.TrimSpace(line))
+func parseFile(c *Call, line []byte) (bool, error) {
+	if match := reFile.FindSubmatch(line); match != nil {
+		num, ok := atou(match[2])
+		if !ok {
+			return true, fmt.Errorf("failed to parse int on line: %q", bytes.TrimSpace(line))
 		}
-		// TODO(maruel): This returns a string slice inside line. We may want to
-		// trim memory further.
-		c.init(match[1], num)
+		c.init(string(match[1]), num)
 		return true, nil
 	}
 	return false, nil
@@ -921,4 +919,36 @@ func getGOPATHs() []string {
 		out = []string{strings.Replace(homeDir+"/go", "\\", "/", -1)}
 	}
 	return out
+}
+
+// atou is a fast Atoi() function.
+//
+// It is a very simplified version of strconv.Atoi() that it never go into the
+// slow path and it operates on []byte instead of string so it doesn't do
+// memory allocation. It will fail on edge cases like prefix of zeros and other
+// things that the panic stack trace generator never outputs.
+//
+// It doesn't handle negative values.
+func atou(s []byte) (int, bool) {
+	if l := len(s); strconv.IntSize == 32 && (0 < l && l < 10) || strconv.IntSize == 64 && (0 < l && l < 19) {
+		n := 0
+		for _, ch := range s {
+			if ch -= '0'; ch > 9 {
+				return 0, false
+			}
+			n = n*10 + int(ch)
+		}
+		return n, true
+	}
+	return 0, false
+}
+
+// trimLeftSpace is the faster equivalent of bytes.TrimLeft(s, "\t ").
+func trimLeftSpace(s []byte) []byte {
+	for i, ch := range s {
+		if ch != '\t' && ch != ' ' {
+			return s[i:]
+		}
+	}
+	return nil
 }
