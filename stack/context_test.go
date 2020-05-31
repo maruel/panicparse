@@ -33,6 +33,44 @@ func TestParseDumpNothing(t *testing.T) {
 	}
 }
 
+func TestParseDumpNothingEmpty(t *testing.T) {
+	t.Parallel()
+	extra := &bytes.Buffer{}
+	b := make([]byte, 110)
+	for i := range b {
+		b[i] = '\n'
+	}
+	c, err := ParseDump(bytes.NewReader(b), extra, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != nil {
+		t.Fatalf("unexpected %v", c)
+	}
+	if !bytes.Equal(extra.Bytes(), b) {
+		t.Fatal("unexpected extra")
+	}
+}
+
+func TestParseDumpNothingLong(t *testing.T) {
+	t.Parallel()
+	extra := &bytes.Buffer{}
+	b := make([]byte, bufio.MaxScanTokenSize+10)
+	for i := range b {
+		b[i] = 'i'
+	}
+	c, err := ParseDump(bytes.NewReader(b), extra, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c != nil {
+		t.Fatalf("unexpected %v", c)
+	}
+	if !bytes.Equal(extra.Bytes(), b) {
+		t.Fatal("unexpected extra")
+	}
+}
+
 func TestParseDump1(t *testing.T) {
 	t.Parallel()
 	// One call from main, one from stdlib, one from third party.
@@ -1465,6 +1503,32 @@ func BenchmarkParseDump_NoGuess(b *testing.B) {
 		if c == nil {
 			b.Fatal("missing context")
 		}
+	}
+}
+
+func BenchmarkParseDump_Passthru(b *testing.B) {
+	b.ReportAllocs()
+	buf := make([]byte, b.N)
+	for i := range buf {
+		buf[i] = 'i'
+		if i%16 == 0 {
+			buf[i] = '\n'
+		}
+	}
+	extra := bytes.Buffer{}
+	extra.Grow(len(buf))
+	r := bytes.NewReader(buf)
+	b.ResetTimer()
+	c, err := ParseDump(r, &extra, false)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if c != nil {
+		b.Fatalf("unexpected %v", c)
+	}
+	b.StopTimer()
+	if !bytes.Equal(extra.Bytes(), buf) {
+		b.Fatal("unexpected extra")
 	}
 }
 
