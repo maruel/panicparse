@@ -46,6 +46,7 @@ var defaultPalette = Palette{
 	EOLReset:           resetFG,
 	RoutineFirst:       ansi.ColorCode("magenta+b"),
 	CreatedBy:          ansi.LightBlack,
+	Race:               ansi.LightRed,
 	Package:            ansi.ColorCode("default+b"),
 	SrcFile:            resetFG,
 	FuncStdLib:         ansi.Green,
@@ -56,13 +57,13 @@ var defaultPalette = Palette{
 	Arguments:          resetFG,
 }
 
-func writeToConsole(out io.Writer, p *Palette, buckets []*stack.Bucket, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
+func writeBucketsToConsole(out io.Writer, p *Palette, buckets []*stack.Bucket, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
 	if needsEnv {
 		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#gotraceback\n\n")
 	}
-	srcLen, pkgLen := calcLengths(buckets, pf)
-	for _, bucket := range buckets {
-		header := p.BucketHeader(bucket, pf, len(buckets) > 1)
+	srcLen, pkgLen := calcBucketsLengths(buckets, pf)
+	for _, e := range buckets {
+		header := p.BucketHeader(e, pf, len(buckets) > 1)
 		if filter != nil && filter.MatchString(header) {
 			continue
 		}
@@ -70,7 +71,26 @@ func writeToConsole(out io.Writer, p *Palette, buckets []*stack.Bucket, pf pathF
 			continue
 		}
 		_, _ = io.WriteString(out, header)
-		_, _ = io.WriteString(out, p.StackLines(&bucket.Signature, srcLen, pkgLen, pf))
+		_, _ = io.WriteString(out, p.StackLines(&e.Signature, srcLen, pkgLen, pf))
+	}
+	return nil
+}
+
+func writeGoroutinesToConsole(out io.Writer, p *Palette, goroutines []*stack.Goroutine, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
+	if needsEnv {
+		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#gotraceback\n\n")
+	}
+	srcLen, pkgLen := calcGoroutinesLengths(goroutines, pf)
+	for _, e := range goroutines {
+		header := p.GoroutineHeader(e, pf, len(goroutines) > 1)
+		if filter != nil && filter.MatchString(header) {
+			continue
+		}
+		if match != nil && !match.MatchString(header) {
+			continue
+		}
+		_, _ = io.WriteString(out, header)
+		_, _ = io.WriteString(out, p.StackLines(&e.Signature, srcLen, pkgLen, pf))
 	}
 	return nil
 }
@@ -91,15 +111,31 @@ func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pat
 	if parse {
 		stack.Augment(c.Goroutines)
 	}
-	buckets := stack.Aggregate(c.Goroutines, s)
+	// Bucketing should only be done if no data race was detected.
+	if c.Goroutines[0].RaceAddr == 0 {
+		buckets := stack.Aggregate(c.Goroutines, s)
+		if html == "" {
+			return writeBucketsToConsole(out, p, buckets, pf, needsEnv, filter, match)
+		}
+		var f *os.File
+		if f, err = os.Create(html); err != nil {
+			return err
+		}
+		err = htmlstack.WriteBuckets(f, buckets, needsEnv, false)
+		if err2 := f.Close(); err == nil {
+			err = err2
+		}
+		return err
+	}
+	// It's a data race.
 	if html == "" {
-		return writeToConsole(out, p, buckets, pf, needsEnv, filter, match)
+		return writeGoroutinesToConsole(out, p, c.Goroutines, pf, needsEnv, filter, match)
 	}
 	f, err := os.Create(html)
 	if err != nil {
 		return err
 	}
-	err = htmlstack.Write(f, buckets, needsEnv, false)
+	err = htmlstack.WriteGoroutines(f, c.Goroutines, needsEnv, false)
 	if err2 := f.Close(); err == nil {
 		err = err2
 	}

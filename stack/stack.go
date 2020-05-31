@@ -644,6 +644,13 @@ type Goroutine struct {
 	// First is the goroutine first printed, normally the one that crashed.
 	First bool
 
+	// RaceWrite is true if a race condition was detected, and this goroutine was
+	// race on a write operation, otherwise it was a read.
+	RaceWrite bool
+	// RaceAddr is set to the address when a data race condition was detected.
+	// Otherwise it is 0.
+	RaceAddr uint64
+
 	// Disallow initialization with unnamed parameters.
 	_ struct{}
 }

@@ -18,9 +18,9 @@ import (
 	"github.com/maruel/panicparse/v2/stack"
 )
 
-func TestWrite2Buckets(t *testing.T) {
+func TestWriteBuckets2Buckets(t *testing.T) {
 	buf := bytes.Buffer{}
-	if err := Write(&buf, getBuckets(), false, false); err != nil {
+	if err := WriteBuckets(&buf, getBuckets(), false, false); err != nil {
 		t.Fatal(err)
 	}
 	// We expect this to be fairly static across Go versions. We want to know if
@@ -31,10 +31,10 @@ func TestWrite2Buckets(t *testing.T) {
 	}
 }
 
-func TestWrite1Bucket(t *testing.T) {
+func TestWriteBuckets1Bucket(t *testing.T) {
 	// Exercise a condition when there's only one bucket.
 	buf := bytes.Buffer{}
-	if err := Write(&buf, getBuckets()[:1], false, false); err != nil {
+	if err := WriteBuckets(&buf, getBuckets()[:1], false, false); err != nil {
 		t.Fatal(err)
 	}
 	// We expect this to be fairly static across Go versions. We want to know if
@@ -49,9 +49,9 @@ const needEnvStr = `To see all goroutines`
 
 const liveStr = `document.addEventListener("DOMContentLoaded", ready);`
 
-func TestWrite(t *testing.T) {
+func TestWriteBuckets(t *testing.T) {
 	buf := bytes.Buffer{}
-	if err := Write(&buf, getBuckets()[:1], false, false); err != nil {
+	if err := WriteBuckets(&buf, getBuckets()[:1], false, false); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), needEnvStr) {
@@ -62,9 +62,9 @@ func TestWrite(t *testing.T) {
 	}
 }
 
-func TestWriteNeedEnv(t *testing.T) {
+func TestWriteBucketsNeedEnv(t *testing.T) {
 	buf := bytes.Buffer{}
-	if err := Write(&buf, getBuckets()[:1], true, false); err != nil {
+	if err := WriteBuckets(&buf, getBuckets()[:1], true, false); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), needEnvStr) {
@@ -75,9 +75,9 @@ func TestWriteNeedEnv(t *testing.T) {
 	}
 }
 
-func TestWriteLive(t *testing.T) {
+func TestWriteBucketsLive(t *testing.T) {
 	buf := bytes.Buffer{}
-	if err := Write(&buf, getBuckets()[:1], false, true); err != nil {
+	if err := WriteBuckets(&buf, getBuckets()[:1], false, true); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), needEnvStr) {
@@ -241,28 +241,25 @@ func TestSymbol(t *testing.T) {
 	}
 }
 
-func TestRace(t *testing.T) {
+func TestWriteGoroutinesRace(t *testing.T) {
 	t.Parallel()
 	data := internaltest.PanicOutputs()["race"]
 	c, err := stack.ParseDump(bytes.NewReader(data), ioutil.Discard, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c != nil {
-		t.Fatal("unexpected context")
+	if c.Goroutines == nil {
+		t.Fatal("missing context")
 	}
-	/*
-		if c.Goroutines != nil {
-			t.Fatal("unexpected context")
-		}
-		buckets := stack.Aggregate(c.Goroutines, stack.AnyPointer)
-		if err := Write(ioutil.Discard, buckets, false, false); err != nil {
-			t.Fatal(err)
-		}
-	*/
+	if c.Goroutines[0].RaceAddr == 0 {
+		t.Fatal("expected a race")
+	}
+	if err := WriteGoroutines(ioutil.Discard, c.Goroutines, false, false); err != nil {
+		t.Fatal(err)
+	}
 }
 
-func BenchmarkWrite(b *testing.B) {
+func BenchmarkWriteBuckets(b *testing.B) {
 	b.ReportAllocs()
 	c, err := stack.ParseDump(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, true)
 	if err != nil {
@@ -274,7 +271,7 @@ func BenchmarkWrite(b *testing.B) {
 	buckets := stack.Aggregate(c.Goroutines, stack.AnyPointer)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := Write(ioutil.Discard, buckets, false, false); err != nil {
+		if err := WriteBuckets(ioutil.Discard, buckets, false, false); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -21,6 +21,7 @@ type Palette struct {
 	RoutineFirst string // The first routine printed.
 	Routine      string // Following routines.
 	CreatedBy    string
+	Race         string
 
 	// Call line.
 	Package            string
@@ -66,12 +67,31 @@ func (pf pathFormat) createdByString(s *stack.Signature) string {
 	return s.CreatedBy.Calls[0].Func.DirName + "." + s.CreatedBy.Calls[0].Func.Name + " @ " + pf.formatCall(&s.CreatedBy.Calls[0])
 }
 
-// calcLengths returns the maximum length of the source lines and package names.
-func calcLengths(buckets []*stack.Bucket, pf pathFormat) (int, int) {
+// calcBucketsLengths returns the maximum length of the source lines and
+// package names.
+func calcBucketsLengths(buckets []*stack.Bucket, pf pathFormat) (int, int) {
 	srcLen := 0
 	pkgLen := 0
-	for _, bucket := range buckets {
-		for _, line := range bucket.Signature.Stack.Calls {
+	for _, e := range buckets {
+		for _, line := range e.Signature.Stack.Calls {
+			if l := len(pf.formatCall(&line)); l > srcLen {
+				srcLen = l
+			}
+			if l := len(line.Func.DirName); l > pkgLen {
+				pkgLen = l
+			}
+		}
+	}
+	return srcLen, pkgLen
+}
+
+// calcGoroutinesLengths returns the maximum length of the source lines and
+// package names.
+func calcGoroutinesLengths(goroutines []*stack.Goroutine, pf pathFormat) (int, int) {
+	srcLen := 0
+	pkgLen := 0
+	for _, e := range goroutines {
+		for _, line := range e.Signature.Stack.Calls {
 			if l := len(pf.formatCall(&line)); l > srcLen {
 				srcLen = l
 			}
@@ -100,29 +120,55 @@ func (p *Palette) functionColor(line *stack.Call) string {
 }
 
 // routineColor returns the color for the header of the goroutines bucket.
-func (p *Palette) routineColor(bucket *stack.Bucket, multipleBuckets bool) string {
-	if bucket.First && multipleBuckets {
+func (p *Palette) routineColor(first, multipleBuckets bool) string {
+	if first && multipleBuckets {
 		return p.RoutineFirst
 	}
 	return p.Routine
 }
 
 // BucketHeader prints the header of a goroutine signature.
-func (p *Palette) BucketHeader(bucket *stack.Bucket, pf pathFormat, multipleBuckets bool) string {
+func (p *Palette) BucketHeader(b *stack.Bucket, pf pathFormat, multipleBuckets bool) string {
 	extra := ""
-	if s := bucket.SleepString(); s != "" {
+	if s := b.SleepString(); s != "" {
 		extra += " [" + s + "]"
 	}
-	if bucket.Locked {
+	if b.Locked {
 		extra += " [locked]"
 	}
-	if c := pf.createdByString(&bucket.Signature); c != "" {
+	if c := pf.createdByString(&b.Signature); c != "" {
 		extra += p.CreatedBy + " [Created by " + c + "]"
 	}
 	return fmt.Sprintf(
 		"%s%d: %s%s%s\n",
-		p.routineColor(bucket, multipleBuckets), len(bucket.IDs),
-		bucket.State, extra,
+		p.routineColor(b.First, multipleBuckets), len(b.IDs),
+		b.State, extra,
+		p.EOLReset)
+}
+
+// GoroutineHeader prints the header of a goroutine.
+func (p *Palette) GoroutineHeader(g *stack.Goroutine, pf pathFormat, multipleGoroutines bool) string {
+	extra := ""
+	if s := g.SleepString(); s != "" {
+		extra += " [" + s + "]"
+	}
+	if g.Locked {
+		extra += " [locked]"
+	}
+	if c := pf.createdByString(&g.Signature); c != "" {
+		extra += p.CreatedBy + " [Created by " + c + "]"
+	}
+	if g.RaceAddr != 0 {
+		r := "read"
+		if g.RaceWrite {
+			r = "write"
+		}
+		extra += fmt.Sprintf("%s%s Race %s @ %08x", p.EOLReset, p.Race, r, g.RaceAddr)
+	}
+	return fmt.Sprintf(
+		"%s%d: %s%s%s\n",
+		p.routineColor(g.First, multipleGoroutines), g.ID,
+		g.State, extra,
 		p.EOLReset)
 }
 

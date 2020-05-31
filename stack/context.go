@@ -105,8 +105,6 @@ func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 func parseDump(r io.Reader, out io.Writer) ([]*Goroutine, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Split(scanLines)
-	// Do not enable race detection parsing yet, since it cannot be returned in
-	// Context at the moment.
 	s := scanningState{}
 	for scanner.Scan() {
 		line, err := s.scan(scanner.Text())
@@ -323,30 +321,15 @@ const (
 	betweenRaceGoroutines
 )
 
-// raceOp is one of the detected data race operation as detected by the race
-// detector.
-type raceOp struct {
-	write  bool
-	addr   uint64
-	id     int
-	create Stack
-}
-
 // scanningState is the state of the scan to detect and process a stack trace
 // and stores the traces found.
 type scanningState struct {
-	// Determines if race detection is enabled. Currently false since scan()
-	// would swallow the race detector output, but the data is not part of
-	// Context yet.
-	raceDetectionEnabled bool
-
 	// goroutines contains all the goroutines found.
 	goroutines []*Goroutine
 
-	state       state
-	prefix      string
-	races       map[int]*raceOp
-	goroutineID int
+	state          state
+	prefix         string
+	goroutineIndex int
 }
 
 // scan scans one line, updates goroutines and move to the next state.
@@ -437,7 +420,7 @@ func (s *scanningState) scan(line string) (string, error) {
 			}
 		}
 		// Switch to race detection mode.
-		if s.raceDetectionEnabled && trimmed == raceHeaderFooter {
+		if trimmed == raceHeaderFooter {
 			// TODO(maruel): We should buffer it in case the next line is not a
 			// WARNING so we can output it back.
 			s.state = gotRaceHeader1
@@ -569,16 +552,11 @@ func (s *scanningState) scan(line string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
 			}
-			if s.races != nil {
-				panic("internal failure; expected s.races to be nil")
-			}
 			if s.goroutines != nil {
 				panic("internal failure; expected s.goroutines to be nil")
 			}
-			s.races = make(map[int]*raceOp, 4)
-			s.races[id] = &raceOp{write: w, addr: addr, id: id}
-			s.goroutines = append(make([]*Goroutine, 0, 4), &Goroutine{ID: id, First: true})
-			s.goroutineID = id
+			s.goroutines = append(make([]*Goroutine, 0, 4), &Goroutine{ID: id, First: true, RaceWrite: w, RaceAddr: addr})
+			s.goroutineIndex = len(s.goroutines) - 1
 			s.state = gotRaceOperationHeader
 			return "", nil
 		}
@@ -632,9 +610,8 @@ func (s *scanningState) scan(line string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
 			}
-			s.goroutineID = id
-			s.races[s.goroutineID] = &raceOp{write: w, addr: addr, id: id}
-			s.goroutines = append(s.goroutines, &Goroutine{ID: id})
+			s.goroutines = append(s.goroutines, &Goroutine{ID: id, RaceWrite: w, RaceAddr: addr})
+			s.goroutineIndex = len(s.goroutines) - 1
 			s.state = gotRaceOperationHeader
 			return "", nil
 		}
@@ -647,9 +624,10 @@ func (s *scanningState) scan(line string) (string, error) {
 				return "", fmt.Errorf("failed to parse goroutine id on line: %q", strings.TrimSpace(trimmed))
 			}
 			found := false
-			for _, g := range s.goroutines {
+			for i, g := range s.goroutines {
 				if g.ID == id {
 					g.State = match[2]
+					s.goroutineIndex = i
 					found = true
 					break
 				}
@@ -657,7 +635,6 @@ func (s *scanningState) scan(line string) (string, error) {
 			if !found {
 				return "", fmt.Errorf("unexpected goroutine ID on line: %q", strings.TrimSpace(trimmed))
 			}
-			s.goroutineID = id
 			s.state = gotRaceGoroutineHeader
 			return "", nil
 		}
@@ -666,7 +643,7 @@ func (s *scanningState) scan(line string) (string, error) {
 		// Race stack traces
 
 	case gotRaceGoroutineFunc:
-		c := s.races[s.goroutineID].create.Calls
+		c := s.goroutines[s.goroutineIndex].CreatedBy.Calls
 		if found, err := parseFile(&c[len(c)-1], trimmed); err != nil {
 			return "", err
 		} else if !found {
@@ -691,8 +668,7 @@ func (s *scanningState) scan(line string) (string, error) {
 	case gotRaceGoroutineHeader:
 		c := Call{}
 		if found, err := parseFunc(&c, strings.TrimLeft(trimmed, "\t ")); found {
-			// TODO(maruel): Set s.goroutines[].CreatedBy.
-			s.races[s.goroutineID].create.Calls = append(s.races[s.goroutineID].create.Calls, c)
+			s.goroutines[s.goroutineIndex].CreatedBy.Calls = append(s.goroutines[s.goroutineIndex].CreatedBy.Calls, c)
 			s.state = gotRaceGoroutineFunc
 			return "", err
 		}

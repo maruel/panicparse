@@ -28,7 +28,7 @@ var testPalette = &Palette{
 	Arguments:          "L",
 }
 
-func TestCalcLengths(t *testing.T) {
+func TestCalcBucketsLengths(t *testing.T) {
 	t.Parallel()
 	b := []*stack.Bucket{
 		{
@@ -43,14 +43,14 @@ func TestCalcLengths(t *testing.T) {
 			First: true,
 		},
 	}
-	srcLen, pkgLen := calcLengths(b, fullPath)
+	srcLen, pkgLen := calcBucketsLengths(b, fullPath)
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "/home/user/go/src/foo/baz.go:123", fullPath.formatCall(&b[0].Signature.Stack.Calls[0]))
 	compareInt(t, len("/home/user/go/src/foo/baz.go:123"), srcLen)
 	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.ImportPath)
 	compareInt(t, len("main"), pkgLen)
 
-	srcLen, pkgLen = calcLengths(b, basePath)
+	srcLen, pkgLen = calcBucketsLengths(b, basePath)
 	compareString(t, "baz.go:123", basePath.formatCall(&b[0].Signature.Stack.Calls[0]))
 	compareInt(t, len("baz.go:123"), srcLen)
 	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.ImportPath)
