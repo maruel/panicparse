@@ -202,7 +202,7 @@ func build(tool string, race bool) string {
 				// Race detector is not supported. Calling code with handle.
 				return ""
 			}
-			os.Stderr.Write(b.Bytes())
+			_, _ = os.Stderr.Write(b.Bytes())
 			return ""
 		}
 		return ""

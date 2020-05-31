@@ -111,7 +111,7 @@ func panicRaceDisabled(name string) {
 
 func rerunWithFastCrash() {
 	if os.Getenv("GORACE") != "log_path=stderr halt_on_error=1" {
-		os.Setenv("GORACE", "log_path=stderr halt_on_error=1")
+		_ = os.Setenv("GORACE", "log_path=stderr halt_on_error=1")
 		c := exec.Command(os.Args[0], os.Args[1:]...)
 		c.Stderr = os.Stderr
 		if err, ok := c.Run().(*exec.ExitError); ok {
@@ -413,7 +413,7 @@ Set GOTRACEBACK before running this tool to see how it affects the panic output.
 
 Select the way to panic:
 `
-	io.WriteString(stdErr, t)
+	_, _ = io.WriteString(stdErr, t)
 	names := make([]string, 0, len(types))
 	m := 0
 	for n := range types {

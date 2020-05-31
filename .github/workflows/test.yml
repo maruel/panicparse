@@ -40,6 +40,7 @@ jobs:
       run: >
         go get -u
         github.com/gordonklaus/ineffassign
+        github.com/securego/gosec/cmd/gosec
         golang.org/x/lint/golint
         golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
         honnef.co/go/tools/cmd/staticcheck
@@ -109,6 +110,8 @@ jobs:
     - name: 'Check: staticcheck'
       if: always()
       run: staticcheck ./...
+    - name: 'Check: gosec (only G104)'
+      run: gosec -include=G104 -fmt=golint -quiet ./...
 
       # The following checks are not dependent on the OS or go build tags. Only
       # run them on ubuntu-latest since it's the fastest one.
