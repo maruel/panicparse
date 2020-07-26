@@ -1728,7 +1728,9 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			localgopath := getGOPATHs()[0]
 			// If not using Go modules, the path is different as the version in
 			// GOPATH is used instead.
-			v := "@v0.1.6"
+			// Warning: This is brittle and will fail whenever go-colorable is
+			// updated.
+			v := "@v0.1.7"
 			prefix := "pkg/mod"
 			if !internaltest.IsUsingModules() {
 				v = ""
@@ -1767,6 +1769,8 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					b.Signature.Stack.Calls[i].Args.Values[j].IsPtr = false
 				}
 			}
+			// Warning: This is brittle and will fail whenever go-colorable is
+			// updated. See above.
 			similarSignatures(t, &want, &b.Signature)
 			return pstColorable
 		}
