@@ -132,7 +132,7 @@ func parseDump(r io.Reader, out io.Writer) ([]*Goroutine, error) {
 var (
 	lockedToThread = []byte("locked to thread")
 	framesElided   = []byte("...additional frames elided...")
-	// gotRaceHeader1, normal
+	// gotRaceHeader1, done
 	raceHeaderFooter = []byte("==================")
 	// gotRaceHeader2
 	raceHeader = []byte("WARNING: DATA RACE")
@@ -204,23 +204,26 @@ var (
 // state is the state of the scan to detect and process a stack trace.
 type state int
 
-// Initial state is normal. Other states are when a stack trace is detected.
+// Initial state is looking. Other states are when a stack trace is detected.
 const (
-	// Outside a stack trace.
+	// Haven't found a stack trace yet.
 	// to: gotRoutineHeader, raceHeader1
-	normal state = iota
+	looking state = iota
+
+	// Done processing a stack trace.
+	done
 
 	// Panic stack trace:
 
 	// Signature: ""
 	// An empty line between goroutines.
 	// from: gotFileCreated, gotFileFunc
-	// to: gotRoutineHeader, normal
+	// to: gotRoutineHeader, done
 	betweenRoutine
 	// Regexp: reRoutineHeader
 	// Signature: "goroutine 1 [running]:"
 	// Goroutine header was found.
-	// from: normal
+	// from: looking
 	// to: gotUnavail, gotFunc
 	gotRoutineHeader
 	// Regexp: reFunc
@@ -239,13 +242,13 @@ const (
 	// Signature: "\t/foo/bar/baz.go:116 +0x35"
 	// File header was found.
 	// from: gotFunc
-	// to: gotFunc, gotCreated, betweenRoutine, normal
+	// to: gotFunc, gotCreated, betweenRoutine, done
 	gotFileFunc
 	// Regexp: reFile
 	// Signature: "\t/foo/bar/baz.go:116 +0x35"
 	// File header was found.
 	// from: gotCreated
-	// to: betweenRoutine, normal
+	// to: betweenRoutine, done
 	gotFileCreated
 	// Regexp: reUnavail
 	// Signature: "goroutine running on other thread; stack unavailable"
@@ -258,60 +261,60 @@ const (
 
 	// Constant: raceHeaderFooter
 	// Signature: "=================="
-	// from: normal
-	// to: normal, gotRaceHeader2
+	// from: looking
+	// to: done, gotRaceHeader2
 	gotRaceHeader1
 	// Constant: raceHeader
 	// Signature: "WARNING: DATA RACE"
 	// from: gotRaceHeader1
-	// to: normal, gotRaceOperationHeader
+	// to: done, gotRaceOperationHeader
 	gotRaceHeader2
 	// Regexp: reRaceOperationHeader, reRacePreviousOperationHeader
 	// Signature: "Read at 0x00c0000e4030 by goroutine 7:"
 	// A race operation was found.
 	// from: gotRaceHeader2
-	// to: normal, gotRaceOperationFunc
+	// to: done, gotRaceOperationFunc
 	gotRaceOperationHeader
 	// Regexp: reFunc
 	// Signature: "  main.panicRace.func1()"
 	// Function that caused the race.
 	// from: gotRaceOperationHeader
-	// to: normal, gotRaceOperationFile
+	// to: done, gotRaceOperationFile
 	gotRaceOperationFunc
 	// Regexp: reFile
 	// Signature: "\t/foo/bar/baz.go:116 +0x35"
 	// File header that caused the race.
 	// from: gotRaceOperationFunc
-	// to: normal, betweenRaceOperations, gotRaceOperationFunc
+	// to: done, betweenRaceOperations, gotRaceOperationFunc
 	gotRaceOperationFile
 	// Signature: ""
 	// Empty line between race operations or just after.
 	// from: gotRaceOperationFile
-	// to: normal, gotRaceOperationHeader, gotRaceGoroutineHeader
+	// to: done, gotRaceOperationHeader, gotRaceGoroutineHeader
 	betweenRaceOperations
 
 	// Regexp: reRaceGoroutine
 	// Signature: "Goroutine 7 (running) created at:"
 	// Goroutine header.
 	// from: betweenRaceOperations, betweenRaceGoroutines
-	// to: normal, gotRaceOperationHeader
+	// to: done, gotRaceOperationHeader
 	gotRaceGoroutineHeader
 	// Regexp: reFunc
 	// Signature: "  main.panicRace.func1()"
 	// Function that caused the race.
 	// from: gotRaceGoroutineHeader
-	// to: normal, gotRaceGoroutineFile
+	// to: done, gotRaceGoroutineFile
 	gotRaceGoroutineFunc
 	// Regexp: reFile
 	// Signature: "\t/foo/bar/baz.go:116 +0x35"
 	// File header that caused the race.
 	// from: gotRaceGoroutineFunc
-	// to: normal, betweenRaceGoroutines
+	// to: done, betweenRaceGoroutines
 	gotRaceGoroutineFile
 	// Signature: ""
 	// Empty line between race stack traces.
 	// from: gotRaceGoroutineFile
-	// to: normal, gotRaceGoroutineHeader
+	// to: done, gotRaceGoroutineHeader
 	betweenRaceGoroutines
 )
 
@@ -350,20 +353,20 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 	} else if bytes.HasSuffix(line, lf) {
 		trimmed = line[:len(line)-1]
 	} else {
-		// There's two cases:
-		// - It's the end of the stream and it's not terminating with EOL character.
-		// - The line is longer than bufio.MaxScanTokenSize
-		if s.state == normal {
+		// It's the end of the stream and it's not terminating with EOL character.
+		if s.state == looking || s.state == done {
 			return false, nil
 		}
-		// Let it flow. It's possible the last line was trimmed and we still want to parse it.
+		// Let it flow. It's possible the last line was trimmed and we still want
+		// to parse it.
 	}
 
 	if len(trimmed) != 0 && len(s.prefix) != 0 {
-		// This can only be the case if s.state != normal or the line is empty.
+		// This can only be the case if s.state != looking | done or the line is
+		// empty.
 		if !bytes.HasPrefix(trimmed, s.prefix) {
 			prefix := s.prefix
-			s.state = normal
+			s.state = done
 			s.prefix = nil
 			return false, fmt.Errorf("inconsistent indentation: %q, expected %q", trimmed, prefix)
 		}
@@ -371,7 +374,10 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 	}
 
 	switch s.state {
-	case normal:
+	case done:
+		return false, nil
+
+	case looking:
 		// We could look for '^panic:' but this is more risky, there can be a lot
 		// of junk between this and the stack dump.
 		fallthrough
@@ -422,8 +428,9 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			s.state = gotRaceHeader1
 			return true, nil
 		}
-		// Fallthrough.
-		s.state = normal
+		if s.state != looking {
+			s.state = done
+		}
 		s.prefix = nil
 		return false, nil
 
@@ -495,8 +502,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			s.state = betweenRoutine
 			return true, nil
 		}
-		// Back to normal state.
-		s.state = normal
+		s.state = done
 		s.prefix = nil
 		return false, nil
 
@@ -505,7 +511,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			s.state = betweenRoutine
 			return true, nil
 		}
-		s.state = normal
+		s.state = done
 		s.prefix = nil
 		return false, nil
 
@@ -534,7 +540,8 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			s.state = gotRaceHeader2
 			return true, nil
 		}
-		s.state = normal
+		s.state = done
+		s.prefix = nil
 		return false, nil
 
 	case gotRaceHeader2:
@@ -556,7 +563,8 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			s.state = gotRaceOperationHeader
 			return true, nil
 		}
-		s.state = normal
+		s.state = done
+		s.prefix = nil
 		return false, nil
 
 	case gotRaceOperationHeader:
@@ -655,8 +663,8 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			return true, nil
 		}
 		if bytes.Equal(trimmed, raceHeaderFooter) {
-			// Done.
-			s.state = normal
+			s.state = done
+			s.prefix = nil
 			return true, nil
 		}
 		fallthrough
