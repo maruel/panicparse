@@ -427,7 +427,10 @@ func compareBool(t *testing.T, want, got bool) {
 
 func compareErr(t *testing.T, want, got error) {
 	helper(t)()
-	if got == nil || want.Error() != got.Error() {
+	if want == nil && got == nil {
+		return
+	}
+	if want == nil || got == nil || (want.Error() != got.Error()) {
 		t.Fatalf("%v != %v", want, got)
 	}
 }
