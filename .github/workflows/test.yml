@@ -173,16 +173,46 @@ jobs:
     - name: 'Check: go test -race'
       run: go test -race ./...
 
-    - name: "Check: go generate + go mod tidy doesn't modify files (posix)"
+    - name: "Check: tree is clean (posix)"
+      # TODO(maruel): Find a way to enable this check on Windows.
+      if: matrix.os != 'windows-latest'
+      run: |
+        # Nothing should have changed in the tree up to that point and no
+        # unsuspected file was created.
+        TOUCHED=$(git status --porcelain --ignored)
+        if ! test -z "$TOUCHED"; then
+          echo "Oops, something touched these files, please cleanup:"
+          echo "$TOUCHED"
+          git diff
+          false
+        fi
+
+    - name: "Check: go generate doesn't modify files (posix)"
       # TODO(maruel): Find a way to enable this check on Windows.
       if: matrix.os != 'windows-latest'
       run: |
         go generate ./...
-        go mod tidy
+        # TODO(maruel): Due to https://github.com/golang/go/issues/40276, ignore
+        # go.mod/go.sum modifications. Remove once a new Go toolchain fixes
+        # this.
+        git checkout HEAD -- go.mod go.sum
+        # Also test for untracked files.
         TOUCHED=$(git status --porcelain --ignored)
         if ! test -z "$TOUCHED"; then
-          echo "go generate modified these files, please update:"
+          echo "go generate created these files, please fix:"
           echo "$TOUCHED"
+          false
+        fi
+
+    - name: "Check: go mod tidy doesn't modify files (posix)"
+      # TODO(maruel): Find a way to enable this check on Windows.
+      if: matrix.os != 'windows-latest'
+      run: |
+        go mod tidy
+        # We need to skip go.mod and go.sum changes for 'v0.0.0-' modules.
+        TOUCHED="$(diff <(git diff --name-only -G "\ v0\.0\.0\-20") <(git diff --name-only))"
+        if ! test -z "$TOUCHED"; then
+          echo "go mod tidy was not clean, please update:"
           git diff
           false
         fi
