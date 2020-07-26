@@ -415,7 +415,7 @@ func TestParseDumpInconsistentIndent(t *testing.T) {
 		},
 	}
 	compareGoroutines(t, want, c.Goroutines)
-	compareString(t, "", extra.String())
+	compareString(t, " \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1\n", extra.String())
 }
 
 func TestParseDumpOrderErr(t *testing.T) {
@@ -440,7 +440,7 @@ func TestParseDumpOrderErr(t *testing.T) {
 		},
 	}
 	compareGoroutines(t, want, c.Goroutines)
-	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareString(t, "panic: reflect.Set: value of type\n\n	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6\n", extra.String())
 }
 
 func TestParseDumpElided(t *testing.T) {
@@ -673,7 +673,7 @@ func TestParseDumpUnavailError(t *testing.T) {
 		},
 	}
 	compareGoroutines(t, want, c.Goroutines)
-	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareString(t, "panic: reflect.Set: value of type\n\njunk", extra.String())
 }
 
 func TestParseDumpNoOffset(t *testing.T) {
@@ -742,7 +742,7 @@ func TestParseDumpHeaderError(t *testing.T) {
 		},
 	}
 	compareGoroutines(t, want, c.Goroutines)
-	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareString(t, "panic: reflect.Set: value of type\n\njunk", extra.String())
 }
 
 func TestParseDumpFileError(t *testing.T) {
@@ -773,7 +773,7 @@ func TestParseDumpFileError(t *testing.T) {
 		},
 	}
 	compareGoroutines(t, want, c.Goroutines)
-	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareString(t, "panic: reflect.Set: value of type\n\njunk", extra.String())
 }
 
 func TestParseDumpCreated(t *testing.T) {
@@ -864,7 +864,7 @@ func TestParseDumpCreatedError(t *testing.T) {
 		},
 	}
 	compareGoroutines(t, want, c.Goroutines)
-	compareString(t, "panic: reflect.Set: value of type\n\n", extra.String())
+	compareString(t, "panic: reflect.Set: value of type\n\njunk", extra.String())
 }
 
 func TestParseDumpCCode(t *testing.T) {
