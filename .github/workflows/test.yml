@@ -209,8 +209,7 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: |
         go mod tidy
-        # We need to skip go.mod and go.sum changes for 'v0.0.0-' modules.
-        TOUCHED="$(diff <(git diff --name-only -G "\ v0\.0\.0\-20") <(git diff --name-only))"
+        TOUCHED=$(git status --porcelain --ignored)
         if ! test -z "$TOUCHED"; then
           echo "go mod tidy was not clean, please update:"
           git diff
