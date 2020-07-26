@@ -90,7 +90,10 @@ func TestCallPkg(t *testing.T) {
 	compareString(t, "yaml.go", c.SrcName)
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	r := c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "gopkg.in/yaml.v2", c.ImportPath())
 	compareBool(t, false, c.IsStdlib)
 	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go", c.LocalSrcPath)
@@ -109,7 +112,10 @@ func TestCallPkgMethod(t *testing.T) {
 	compareString(t, "yaml.go", c.SrcName)
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	r := c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "gopkg.in/yaml.v2", c.ImportPath())
 	compareBool(t, false, c.IsStdlib)
 	compareString(t, "/gopath/src/gopkg.in/yaml.v2/yaml.go", c.LocalSrcPath)
@@ -128,7 +134,10 @@ func TestCallPkgRemote(t *testing.T) {
 	compareString(t, "yaml.go", c.SrcName)
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/remote": "/local"})
+	r := c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/remote": "/local"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "gopkg.in/yaml.v2", c.ImportPath())
 	compareBool(t, false, c.IsStdlib)
 	compareString(t, "/local/src/gopkg.in/yaml.v2/yaml.go", c.LocalSrcPath)
@@ -148,7 +157,10 @@ func TestCallStdlib(t *testing.T) {
 	compareString(t, "reflect", c.ImportPath())
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	r := c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "reflect", c.ImportPath())
 	compareBool(t, true, c.IsStdlib)
 	compareString(t, "/goroot/src/reflect/value.go", c.LocalSrcPath)
@@ -167,7 +179,10 @@ func TestCallStdlibRemote(t *testing.T) {
 	compareString(t, "value.go", c.SrcName)
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/remote", "/local", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	r := c.updateLocations("/remote", "/local", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "reflect", c.ImportPath())
 	compareBool(t, true, c.IsStdlib)
 	compareString(t, "/local/src/reflect/value.go", c.LocalSrcPath)
@@ -187,7 +202,10 @@ func TestCallMain(t *testing.T) {
 	compareString(t, "", c.ImportPath())
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	r := c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "github.com/maruel/panicparse/cmd/pp", c.ImportPath())
 	compareBool(t, false, c.IsStdlib)
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/pp/main.go", c.LocalSrcPath)
@@ -208,7 +226,10 @@ func TestCallMismatched(t *testing.T) {
 	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/incorrect", c.ImportPath())
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	r := c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/incorrect", c.ImportPath())
 	compareBool(t, false, c.IsStdlib)
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go", c.LocalSrcPath)
@@ -229,7 +250,10 @@ func TestCallUTF8(t *testing.T) {
 	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/ùtf8", c.ImportPath())
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	r := c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "github.com/maruel/panicparse/cmd/panic/internal/ùtf8", c.ImportPath())
 	compareBool(t, false, c.IsStdlib)
 	compareString(t, "/gopath/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go", c.LocalSrcPath)
@@ -248,7 +272,10 @@ func TestCallC(t *testing.T) {
 	compareString(t, "proc.c", c.SrcName)
 
 	// ParseDump(guesspaths=true).
-	c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	r := c.updateLocations("/goroot", "/goroot", "/gomod", "example.com/foo", map[string]string{"/gopath": "/gopath"})
+	if !r {
+		t.Error("Unexpected")
+	}
 	compareString(t, "runtime", c.ImportPath())
 	compareBool(t, true, c.IsStdlib)
 	compareString(t, "/goroot/src/runtime/proc.c", c.LocalSrcPath)
@@ -381,7 +408,10 @@ func newCall(f string, a Args, s string, l int) Call {
 
 func newCallLocal(f string, a Args, s string, l int) Call {
 	c := newCall(f, a, s, l)
-	c.updateLocations(goroot, goroot, gomod, goimport, gopaths)
+	r := c.updateLocations(goroot, goroot, gomod, goimport, gopaths)
+	if !r {
+		panic("Unexpected")
+	}
 	if c.LocalSrcPath == "" || c.RelSrcPath == "" {
 		panic(fmt.Sprintf("newCallLocal(%q, %q): invariant failed; gomod=%q, goimport=%q, GOPATHs=%v", f, s, gomod, goimport, gopaths))
 	}

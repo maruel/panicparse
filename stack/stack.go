@@ -308,9 +308,11 @@ const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 //
 // goroot, localgoroot, localgomod, gomodImportPath and gopaths are expected to
 // be in "/" format even on Windows. They must not have a trailing "/".
-func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) {
+//
+// Returns true if a match was found.
+func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) bool {
 	if c.SrcPath == "" {
-		return
+		return false
 	}
 	// Check GOROOT first.
 	if goroot != "" {
@@ -319,7 +321,7 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 			c.RelSrcPath = c.SrcPath[len(prefix):]
 			c.LocalSrcPath = pathJoin(localgoroot, "src", c.RelSrcPath)
 			c.IsStdlib = true
-			return
+			return true
 		}
 	}
 	// Check GOPATH.
@@ -328,13 +330,13 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 		if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
 			c.RelSrcPath = c.SrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "src", c.RelSrcPath)
-			return
+			return true
 		}
 		// For modules, the path has to be altered, as it contains the version.
 		if p := prefix + "/pkg/mod/"; strings.HasPrefix(c.SrcPath, p) {
 			c.RelSrcPath = c.SrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "pkg/mod", c.RelSrcPath)
-			return
+			return true
 		}
 	}
 	// Go module path detection only works with stack traces created on the local
@@ -343,9 +345,10 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 		if prefix := localgomod + "/"; strings.HasPrefix(c.SrcPath, prefix) {
 			c.RelSrcPath = gomodImportPath + "/" + c.SrcPath[len(prefix):]
 			c.LocalSrcPath = c.SrcPath
-			return
+			return true
 		}
 	}
+	return false
 }
 
 // equal returns true only if both calls are exactly equal.
@@ -490,10 +493,15 @@ func (s *Stack) less(r *Stack) bool {
 	return false
 }
 
-func (s *Stack) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) {
+// updateLocations calls updateLocations on each call frame and returns true if
+// they were all resolved.
+func (s *Stack) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) bool {
+	// If there were none, it was "resolved".
+	r := true
 	for i := range s.Calls {
-		s.Calls[i].updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
+		r = r && s.Calls[i].updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
 	}
+	return r
 }
 
 // Signature represents the signature of one or multiple goroutines.
@@ -629,9 +637,12 @@ func (s *Signature) SleepString() string {
 	return fmt.Sprintf("%d minutes", s.SleepMax)
 }
 
-func (s *Signature) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) {
-	s.CreatedBy.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
-	s.Stack.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
+// updateLocations calls updateLocations on both CreatedBy and Stack and
+// returns true if they were both resolved.
+func (s *Signature) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) bool {
+	r := s.CreatedBy.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
+	r = r && s.Stack.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
+	return r
 }
 
 // Goroutine represents the state of one goroutine, including the stack trace.

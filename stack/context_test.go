@@ -128,9 +128,6 @@ func TestParseDump1(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range want {
-		want[i].updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
-	}
 	compareGoroutines(t, want, c.Goroutines)
 }
 
@@ -214,6 +211,8 @@ func TestParseDumpLongWait(t *testing.T) {
 		},
 	}
 	for i := range want {
+		// This fails if not using Go modules or if using Go modules but checked
+		// out inside GOPATH/src. It's hard to detect accurately.
 		want[i].updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
 	}
 	compareGoroutines(t, want, c.Goroutines)
@@ -320,9 +319,6 @@ func TestParseDumpLineErr(t *testing.T) {
 			First: true,
 		},
 	}
-	for i := range want {
-		want[i].updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
-	}
 	compareGoroutines(t, want, c.Goroutines)
 }
 
@@ -389,9 +385,6 @@ func TestParseDumpValueErr(t *testing.T) {
 			ID:    1,
 			First: true,
 		},
-	}
-	for i := range want {
-		want[i].updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
 	}
 	compareGoroutines(t, want, c.Goroutines)
 }
