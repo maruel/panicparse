@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,60 +23,70 @@ import (
 
 func TestProcess(t *testing.T) {
 	t.Parallel()
-	out := &bytes.Buffer{}
-	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
-	compareString(t, want, out.String())
-}
-
-func TestProcessFullPath(t *testing.T) {
-	t.Parallel()
-	out := &bytes.Buffer{}
-	if err := process(getReader(t), out, testPalette, stack.AnyValue, fullPath, false, true, "", nil, nil); err != nil {
-		t.Fatal(err)
-	}
 	d, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	// "/" is used even on Windows.
-	p := strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)
-	want := fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:52 ImainL()A\n", p)
-	compareString(t, want, out.String())
-}
-
-func TestProcessNoColor(t *testing.T) {
-	t.Parallel()
-	out := &bytes.Buffer{}
-	if err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, nil); err != nil {
-		t.Fatal(err)
+	data := []struct {
+		name    string
+		palette *Palette
+		simil   stack.Similarity
+		path    pathFormat
+		filter  *regexp.Regexp
+		match   *regexp.Regexp
+		want    string
+	}{
+		{
+			name:    "BasePath",
+			palette: testPalette,
+			simil:   stack.AnyPointer,
+			path:    basePath,
+			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n",
+		},
+		{
+			name:    "FullPath",
+			palette: testPalette,
+			simil:   stack.AnyValue,
+			path:    fullPath,
+			// "/" is used even on Windows.
+			want: fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:52 ImainL()A\n", strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)),
+		},
+		{
+			name:    "NoColor",
+			palette: &Palette{},
+			simil:   stack.AnyValue,
+			path:    basePath,
+			want:    "GOTRACEBACK=all\npanic: simple\n\n1: running\n    main main.go:52 main()\n",
+		},
+		{
+			name:    "Match",
+			palette: testPalette,
+			simil:   stack.AnyValue,
+			path:    basePath,
+			match:   regexp.MustCompile(`notpresent`),
+			want:    "GOTRACEBACK=all\npanic: simple\n\n",
+		},
+		{
+			name:    "Filter",
+			palette: testPalette,
+			simil:   stack.AnyValue,
+			path:    basePath,
+			filter:  regexp.MustCompile(`notpresent`),
+			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n",
+		},
 	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
-	compareString(t, want, out.String())
-}
-
-func TestProcessMatch(t *testing.T) {
-	t.Parallel()
-	out := &bytes.Buffer{}
-	err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", nil, regexp.MustCompile(`notpresent`))
-	if err != nil {
-		t.Fatal(err)
+	for i, line := range data {
+		line := line
+		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
+			t.Parallel()
+			out := bytes.Buffer{}
+			r := bytes.NewReader(internaltest.PanicOutputs()["simple"])
+			if err := process(r, &out, line.palette, line.simil, line.path, false, true, "", line.filter, line.match); err != nil {
+				t.Fatal(err)
+			}
+			compareString(t, line.want, out.String())
+		})
 	}
-	want := "GOTRACEBACK=all\npanic: simple\n\n"
-	compareString(t, want, out.String())
-}
-
-func TestProcessFilter(t *testing.T) {
-	t.Parallel()
-	out := &bytes.Buffer{}
-	err := process(getReader(t), out, testPalette, stack.AnyPointer, basePath, false, true, "", regexp.MustCompile(`notpresent`), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:52 ImainL()A\n"
-	compareString(t, want, out.String())
 }
 
 func TestMainFn(t *testing.T) {
@@ -97,12 +106,6 @@ func compareString(t *testing.T, want, got string) {
 	}
 }
 
-func getReader(t *testing.T) io.Reader {
-	return bytes.NewReader(internaltest.PanicOutputs()["simple"])
-}
-
-// TestMain manages a temporary directory to build on first use ../cmd/panic
-// and clean up at the end.
 func TestMain(m *testing.M) {
 	flag.Parse()
 	if !testing.Verbose() {
