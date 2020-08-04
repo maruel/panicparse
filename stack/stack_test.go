@@ -166,6 +166,32 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/grlocal/src/runtime/proc.c",
 			RelSrcPath:   "runtime/proc.c",
 		},
+		{
+			name:         "Gomod",
+			f:            "example.com/foo/bar.Func",
+			s:            "/gomod/bar/baz.go",
+			DirSrc:       "bar/baz.go",
+			SrcName:      "baz.go",
+			ImportPath:   "example.com/foo/bar",
+			LocalSrcPath: "/gomod/bar/baz.go",
+			// TODO(maruel): Fix.
+			//RelSrcPath:   "bar/baz.go",
+			RelSrcPath: "example.com/foo/bar/baz.go",
+		},
+		{
+			name:    "GomodMain",
+			f:       "main.main",
+			s:       "/gomod/cmd/panic/main.go",
+			DirSrc:  "panic/main.go",
+			SrcName: "main.go",
+			// TODO(maruel): Fix.
+			//ImportPath:   "main",
+			ImportPath:   "example.com/foo/cmd/panic",
+			LocalSrcPath: "/gomod/cmd/panic/main.go",
+			// TODO(maruel): Fix.
+			//RelSrcPath:   "cmd/panic/main.go",
+			RelSrcPath: "example.com/foo/cmd/panic/main.go",
+		},
 	}
 	for i, line := range data {
 		line := line
