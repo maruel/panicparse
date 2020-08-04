@@ -499,7 +499,7 @@ func (s *Stack) updateLocations(goroot, localgoroot, localgomod, gomodImportPath
 	// If there were none, it was "resolved".
 	r := true
 	for i := range s.Calls {
-		r = r && s.Calls[i].updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
+		r = s.Calls[i].updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths) && r
 	}
 	return r
 }
@@ -641,7 +641,7 @@ func (s *Signature) SleepString() string {
 // returns true if they were both resolved.
 func (s *Signature) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) bool {
 	r := s.CreatedBy.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
-	r = r && s.Stack.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
+	r = s.Stack.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths) && r
 	return r
 }
 
