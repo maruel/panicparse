@@ -159,7 +159,12 @@ func GetGoMinorVersion() int {
 	v := ver[4:]
 	if i := strings.IndexByte(v, '.'); i != -1 {
 		v = v[:i]
+	} else if i := strings.Index(v, "beta"); i != -1 {
+		v = v[:i]
+	} else if i := strings.Index(v, "rc"); i != -1 {
+		v = v[:i]
 	}
+
 	m, err := strconv.Atoi(v)
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse %q: %v", ver, err))

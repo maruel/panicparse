@@ -240,7 +240,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        gover: ['1.9.7', '1.12.17', '1.14.3']
+        gover: ['1.9.7', '1.12.17', '1.14.6']
     runs-on: "${{matrix.os}}"
     name: "go${{matrix.gover}} on ${{matrix.os}} (quick)"
     steps:
