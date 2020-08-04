@@ -103,6 +103,16 @@ func TestCallPkg(t *testing.T) {
 			RelSrcPath:   "gopkg.in/yaml.v2/yaml.go",
 		},
 		{
+			name:         "PkgMod",
+			f:            "gopkg.in/yaml%2ev2.handleErr",
+			s:            "/gpremote/pkg/mod/gopkg.in/yaml.v2@v2.3.0/yaml.go",
+			DirSrc:       pathJoin("yaml.v2@v2.3.0", "yaml.go"),
+			SrcName:      "yaml.go",
+			ImportPath:   "gopkg.in/yaml.v2@v2.3.0",
+			LocalSrcPath: "/gplocal/pkg/mod/gopkg.in/yaml.v2@v2.3.0/yaml.go",
+			RelSrcPath:   "gopkg.in/yaml.v2@v2.3.0/yaml.go",
+		},
+		{
 			name:         "PkgMethod",
 			f:            "gopkg.in/yaml%2ev2.(*decoder).unmarshal",
 			s:            "/gpremote/src/gopkg.in/yaml.v2/yaml.go",
