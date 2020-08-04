@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -1067,9 +1068,143 @@ func TestGetGOPATHS(t *testing.T) {
 	}
 }
 
-// Test runtime code. For now just assert that they succeed (beside race).
-// Later they'll be used for the actual expectations instead of the hardcoded
-// ones above.
+// TestGomoduleComplex is an integration test that creates a non-trivial tree
+// of go modules using the "replace" statement.
+func TestGomoduleComplex(t *testing.T) {
+	if internaltest.GetGoMinorVersion() < 11 {
+		t.Skip("requires go module support")
+	}
+	t.Parallel()
+	root, err := ioutil.TempDir("", "stack")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err = os.RemoveAll(root); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	tree := map[string]string{
+		"pkg1/go.mod": "module example.com/pkg1\n" +
+			"require (\n" +
+			"\texample.com/pkg2 v0.0.1\n" +
+			")\n" +
+			"replace example.com/pkg2 => ../pkg2\n",
+		"pkg1/cmd/main.go": "package main\n" +
+			"import \"example.com/pkg1/internal\"\n" +
+			"func main() {\n" +
+			"\tinternal.Much()\n" +
+			"}\n",
+		"pkg1/internal/int.go": "package internal\n" +
+			"import \"example.com/pkg2\"\n" +
+			"func Much() {\n" +
+			"\tpkg2.Foo()\n" +
+			"}\n",
+
+		"pkg2/go.mod": "module example.com/pkg2\n",
+		"pkg2/foo.go": "package pkg2\n" +
+			"func Foo() { panic(42) }\n",
+	}
+	for path, content := range tree {
+		p := filepath.Join(root, strings.Replace(path, "/", string(filepath.Separator), -1))
+		b := filepath.Dir(p)
+		if err = os.MkdirAll(b, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err = ioutil.WriteFile(p, []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	exe := filepath.Join(root, "yo")
+	if runtime.GOOS == "windows" {
+		exe += ".exe"
+	}
+	if err = internaltest.Compile("./cmd", exe, filepath.Join(root, "pkg1"), true, false); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := exec.Command(exe).CombinedOutput()
+	if err == nil {
+		t.Error("expected failure")
+	}
+	prefix := bytes.Buffer{}
+	c, err := ParseDump(bytes.NewReader(out), &prefix, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c == nil {
+		t.Fatal("expected context")
+	}
+	compareString(t, "panic: 42\n\n", prefix.String())
+	root2 := root
+	switch runtime.GOOS {
+	case "windows":
+		// On Windows, we must make the path to be posix style.
+		root2 = strings.Replace(root, string(filepath.Separator), "/", -1)
+	case "darwin":
+		// On MacOS, the path is a symlink and it will be somehow evaluated when we
+		// get the traces back. This must not be run on Windows otherwise the path
+		// will be converted to 8.3 format.
+		if root2, err = filepath.EvalSymlinks(root); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// TODO(maruel): Use newCallLocal() and remove the manual hack once
+	// updateLocations() succeeds.
+	want := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{},
+						{},
+						{},
+						//newCallLocal("example.com/pkg2.Foo", Args{Elided: true}, pathJoin(root2, "pkg2", "foo.go"), 2),
+						//newCallLocal("example.com/pkg1/internal.Much", Args{}, pathJoin(root2, "pkg1", "internal", "int.go"), 2),
+						//newCallLocal("main.main", Args{}, pathJoin(root2, "pkg1", "cmd", "main.go"), 4),
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	call := newCall("example.com/pkg2.Foo", Args{Elided: true}, pathJoin(root2, "pkg2", "foo.go"), 2)
+	if call.updateLocations(goroot, goroot, gomod, goimport, gopaths) {
+		t.Error("Unexpected")
+	}
+	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
+		t.Error("Unexpected")
+	}
+	want[0].Signature.Stack.Calls[0] = call
+
+	call = newCall("example.com/pkg1/internal.Much", Args{}, pathJoin(root2, "pkg1", "internal", "int.go"), 2)
+	if call.updateLocations(goroot, goroot, gomod, goimport, gopaths) {
+		t.Error("Unexpected")
+	}
+	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
+		t.Error("Unexpected")
+	}
+	want[0].Signature.Stack.Calls[1] = call
+
+	call = newCall("main.main", Args{}, pathJoin(root2, "pkg1", "cmd", "main.go"), 4)
+	if call.updateLocations(goroot, goroot, gomod, goimport, gopaths) {
+		t.Error("Unexpected")
+	}
+	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
+		t.Error("Unexpected")
+	}
+	want[0].Signature.Stack.Calls[2] = call
+
+	similarGoroutines(t, want, c.Goroutines)
+}
+
+// TestPanic runs github.com/maruel/panicparse/v2/cmd/panic with every
+// supported panic modes.
 func TestPanic(t *testing.T) {
 	t.Parallel()
 	cmds := internaltest.PanicOutputs()
@@ -1084,6 +1219,8 @@ func TestPanic(t *testing.T) {
 	panicParseDir := getPanicParseDir(t)
 	ppDir := pathJoin(panicParseDir, "cmd", "panic")
 
+	// Test runtime code. For those not in "custom", just assert that they
+	// succeed.
 	custom := map[string]func(*testing.T, *Context, *bytes.Buffer, string){
 		"args_elided": testPanicArgsElided,
 		"mismatched":  testPanicMismatched,

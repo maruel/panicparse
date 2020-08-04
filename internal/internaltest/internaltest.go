@@ -5,7 +5,7 @@
 package internaltest
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -121,7 +121,7 @@ func StaticPanicRaceOutput() []byte {
 func IsUsingModules() bool {
 	// Calculate the default. We assume developer builds are recent (go1.14 and
 	// later).
-	ver := getGoMinorVersion()
+	ver := GetGoMinorVersion()
 	if ver > 0 && ver < 11 {
 		// go1.9.7+ and go1.10.3+ were fixed to tolerate semantic versioning import
 		// but they do not support the environment variable.
@@ -141,12 +141,12 @@ var (
 	panicOutputs     map[string][]byte
 )
 
-// getGoMinorVersion returns the Go1 minor version.
+// GetGoMinorVersion returns the Go1 minor version.
 //
-// Returns 0 for a developper build, panics if can't parse the version.
+// Returns 0 for a developer build, panics if can't parse the version.
 //
 // Ignores the revision (go1.<minor>.<revision>).
-func getGoMinorVersion() int {
+func GetGoMinorVersion() int {
 	ver := runtime.Version()
 	if strings.HasPrefix(ver, "devel ") {
 		return 0
@@ -180,37 +180,40 @@ func build(tool string, race bool) string {
 	if runtime.GOOS == "windows" {
 		p += ".exe"
 	}
-	// Disable inlining otherwise the inlining varies between local execution and
-	// remote execution. This can be observed as Elided being true without any
-	// argument.
-	args := []string{"build", "-gcflags", "-l", "-o", p}
-	if race {
-		args = append(args, "-race")
-	}
 	path := "github.com/maruel/panicparse/cmd/"
 	if IsUsingModules() {
 		path = "github.com/maruel/panicparse/v2/cmd/"
 	}
-	c := exec.Command("go", append(args, path+tool)...)
-	b := bytes.Buffer{}
-	c.Stdout = os.Stdout
-	if race {
-		c.Stderr = &b
-	} else {
-		c.Stderr = os.Stderr
-	}
-	if err := c.Run(); err != nil {
-		if race {
-			if strings.HasPrefix(b.String(), "go test: -race is only supported on ") {
-				// Race detector is not supported. Calling code with handle.
-				return ""
-			}
-			_, _ = os.Stderr.Write(b.Bytes())
-			return ""
-		}
+	if err := Compile(path+tool, p, "", true, race); err != nil {
+		_, _ = os.Stderr.WriteString(err.Error())
 		return ""
 	}
 	return p
+}
+
+var errNoRace = errors.New("platform does not support -race")
+
+// Compile compiles sources into an executable.
+func Compile(in, exe, cwd string, disableInlining, race bool) error {
+	// Disable inlining otherwise the inlining varies between local execution and
+	// remote execution. This can be observed as Elided being true without any
+	// argument.
+	args := []string{"build", "-o", exe}
+	if disableInlining {
+		args = append(args, "-gcflags", "-l")
+	}
+	if race {
+		args = append(args, "-race")
+	}
+	c := exec.Command("go", append(args, in)...)
+	c.Dir = cwd
+	if out, err := c.CombinedOutput(); err != nil {
+		if race && strings.HasPrefix(string(out), "go test: -race is only supported on ") {
+			return errNoRace
+		}
+		return fmt.Errorf("compile failure: "+wrap+"\n%s", err, out)
+	}
+	return nil
 }
 
 // execRun runs a command and returns the combined output.
