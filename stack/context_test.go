@@ -1158,7 +1158,13 @@ func TestGomoduleComplex(t *testing.T) {
 		}
 	}
 	// Local go module search is on the path with symlink evaluated on MacOS.
-	compareString(t, pathJoin(root2, "pkg1"), c.localGomoduleRoot)
+	wantGomods := map[string]string{
+		pathJoin(root2, "pkg1"): "example.com/pkg1",
+		pathJoin(root2, "pkg2"): "example.com/pkg2",
+	}
+	if diff := cmp.Diff(c.localGomods, wantGomods); diff != "" {
+		t.Fatalf("+want/-got: %s", diff)
+	}
 
 	// TODO(maruel): Use newCallLocal() and remove the manual hack once
 	// updateLocations() succeeds.
@@ -1182,17 +1188,19 @@ func TestGomoduleComplex(t *testing.T) {
 		},
 	}
 	call := newCall("example.com/pkg2.Foo", Args{Elided: true}, pathJoin(root2, "pkg2", "foo.go"), 2)
-	if call.updateLocations(goroot, goroot, gomod, goimport, gopaths) {
+	if call.updateLocations(goroot, goroot, gomods, gopaths) {
 		t.Error("Unexpected")
 	}
 	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
 		t.Error("Unexpected")
 	}
-	// TODO(maruel): Fix LocalSrcPath and RelSrcPath.
+	call.LocalSrcPath = call.SrcPath
+	// TODO(maruel): Fix.
+	call.RelSrcPath = "example.com/pkg2/foo.go"
 	want[0].Signature.Stack.Calls[0] = call
 
 	call = newCall("example.com/pkg1/internal.Much", Args{}, pathJoin(root2, "pkg1", "internal", "int.go"), 2)
-	if call.updateLocations(goroot, goroot, gomod, goimport, gopaths) {
+	if call.updateLocations(goroot, goroot, gomods, gopaths) {
 		t.Error("Unexpected")
 	}
 	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
@@ -1204,7 +1212,7 @@ func TestGomoduleComplex(t *testing.T) {
 	want[0].Signature.Stack.Calls[1] = call
 
 	call = newCall("main.main", Args{}, pathJoin(root2, "pkg1", "cmd", "main.go"), 4)
-	if call.updateLocations(goroot, goroot, gomod, goimport, gopaths) {
+	if call.updateLocations(goroot, goroot, gomods, gopaths) {
 		t.Error("Unexpected")
 	}
 	if call.LocalSrcPath != "" || call.RelSrcPath != "" {

@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -50,15 +51,20 @@ type Context struct {
 	// Nil is guesspaths was false.
 	GOPATHs map[string]string
 
-	// localGomoduleRoot is the root directory containing go.mod. It is
-	// considered to be the primary project containing the main executable. It is
-	// initialized by findRoots().
+	// localGomods are the root directories containing go.mod or that directly
+	// contained source code as detected in the traceback, with the value being
+	// the corresponding import path found in the go.mod file.
+	//
+	// Uses "/" as path separator. No trailing "/".
+	//
+	// Because of the "replace" statement in go.mod, there can be multiple root
+	// directories. A file run by "go run" is also considered a go module to (a
+	// certain extent).
+	//
+	// It is initialized by findRoots().
 	//
 	// It only works with stack traces created in the local file system.
-	localGomoduleRoot string
-	// gomodImportPath is set to the relative import path that localGomoduleRoot
-	// represents.
-	gomodImportPath string
+	localGomods map[string]string
 
 	// localgoroot is GOROOT with "/" as path separator. No trailing "/".
 	localgoroot string
@@ -94,7 +100,7 @@ func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 		for _, r := range c.Goroutines {
 			// Note that this is important to call it even if
 			// c.GOROOT == c.localgoroot.
-			r.updateLocations(c.GOROOT, c.localgoroot, c.localGomoduleRoot, c.gomodImportPath, c.GOPATHs)
+			r.updateLocations(c.GOROOT, c.localgoroot, c.localGomods, c.GOPATHs)
 		}
 	}
 	return c, err
@@ -732,7 +738,18 @@ func parseFile(c *Call, line []byte) (bool, error) {
 	return false, nil
 }
 
-// hasSrcPrefix returns true if any of s is the prefix of p.
+// hasPrefix returns true if any of s is the prefix of p.
+func hasPrefix(p string, s map[string]string) bool {
+	for prefix := range s {
+		if strings.HasPrefix(p, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// hasSrcPrefix returns true if any of s is the prefix of p with /src/ or
+// /pkg/mod/.
 func hasSrcPrefix(p string, s map[string]string) bool {
 	for prefix := range s {
 		if strings.HasPrefix(p, prefix+"/src/") || strings.HasPrefix(p, prefix+"/pkg/mod/") {
@@ -792,10 +809,10 @@ func isFile(p string) bool {
 	return err == nil && !i.IsDir()
 }
 
-// rootedIn returns a root if the file split in parts is rooted in root.
+// isRootedIn returns a root if the file split in parts exists under root.
 //
 // Uses "/" as path separator.
-func rootedIn(root string, parts []string) string {
+func isRootedIn(root string, parts []string) string {
 	//log.Printf("rootIn(%s, %v)", root, parts)
 	for i := 1; i < len(parts); i++ {
 		suffix := pathJoin(parts[i:]...)
@@ -827,13 +844,15 @@ func isGoModule(parts []string) (string, string) {
 	return "", ""
 }
 
-// findRoots sets member GOROOT, GOPATHs and localGomoduleRoot.
+// findRoots sets member GOROOT, GOPATHs and localGomods.
 //
 // This causes disk I/O as it checks for file presence.
 //
 // Returns the number of missing files.
 func (c *Context) findRoots() int {
+	// TODO(maruel): Reduce memory allocations in this function.
 	c.GOPATHs = map[string]string{}
+	c.localGomods = map[string]string{}
 	missing := 0
 	for _, f := range getFiles(c.Goroutines) {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
@@ -849,49 +868,58 @@ func (c *Context) findRoots() int {
 			// $GOPATH/src or go.mod dependency in $GOPATH/pkg/mod.
 			continue
 		}
-		if c.localGomoduleRoot != "" && strings.HasPrefix(f, c.localGomoduleRoot+"/") {
+		if hasPrefix(f, c.localGomods) {
 			continue
 		}
 
 		// At this point, disk will be looked up.
 		parts := splitPath(f)
+		// Initializes GOROOT.
+		const src = "/src"
 		if c.GOROOT == "" {
-			if r := rootedIn(c.localgoroot+"/src", parts); r != "" {
-				c.GOROOT = r[:len(r)-4]
+			if r := isRootedIn(c.localgoroot+src, parts); r != "" {
+				c.GOROOT = r[:len(r)-len(src)]
 				//log.Printf("Found GOROOT=%s", c.GOROOT)
 				continue
 			}
 		}
+		// Initializes GOPATHs.
 		found := false
 		for _, l := range c.localgopaths {
-			if r := rootedIn(l+"/src", parts); r != "" {
-				//log.Printf("Found GOPATH=%s", r[:len(r)-4])
-				c.GOPATHs[r[:len(r)-4]] = l
+			if r := isRootedIn(l+src, parts); r != "" {
+				//log.Printf("Found GOPATH=%s", r[:len(r)-len(src)])
+				c.GOPATHs[r[:len(r)-len(src)]] = l
 				found = true
 				break
 			}
-			if r := rootedIn(l+"/pkg/mod", parts); r != "" {
-				//log.Printf("Found GOPATH=%s", r[:len(r)-8])
-				c.GOPATHs[r[:len(r)-8]] = l
+			const pkgmod = "/pkg/mod"
+			if r := isRootedIn(l+pkgmod, parts); r != "" {
+				//log.Printf("Found GOPATH=%s", r[:len(r)-len(pkgmod)])
+				c.GOPATHs[r[:len(r)-len(pkgmod)]] = l
 				found = true
 				break
 			}
 		}
-		// If the source is not found, it's probably a go module.
-		if !found {
-			if c.localGomoduleRoot == "" && len(parts) > 1 {
-				// Search upward looking for a go.mod/go.sum pair.
-				c.localGomoduleRoot, c.gomodImportPath = isGoModule(parts[:len(parts)-1])
-			}
-			if c.localGomoduleRoot != "" && strings.HasPrefix(f, c.localGomoduleRoot+"/") {
+		if found {
+			continue
+		}
+		// Initializes localGomods.
+		if len(parts) > 1 {
+			// Search upward looking for a go.mod.
+			if root, path := isGoModule(parts[:len(parts)-1]); root != "" {
+				c.localGomods[root] = path
 				continue
 			}
 		}
-		if !found {
-			// If the source is not found, just too bad.
-			//log.Printf("Failed to find locally: %s", f)
-			missing++
+		// TODO(maruel): Requires a bit more fine tuning.
+		if false && isFile(f) {
+			// Assumes "go run" was used, thus is package main. Still consider it a
+			// "go module" but in the weakest sense.
+			c.localGomods[path.Dir(f)] = "main"
 		}
+		// If the source is not found, just too bad.
+		//log.Printf("Failed to find locally: %s", f)
+		missing++
 	}
 	return missing
 }

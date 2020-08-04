@@ -310,7 +310,7 @@ const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 // be in "/" format even on Windows. They must not have a trailing "/".
 //
 // Returns true if a match was found.
-func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) bool {
+func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths map[string]string) bool {
 	if c.SrcPath == "" {
 		return false
 	}
@@ -339,11 +339,13 @@ func (c *Call) updateLocations(goroot, localgoroot, localgomod, gomodImportPath 
 			return true
 		}
 	}
+	// Check Go modules.
 	// Go module path detection only works with stack traces created on the local
 	// file system.
-	if localgomod != "" {
-		if prefix := localgomod + "/"; strings.HasPrefix(c.SrcPath, prefix) {
-			c.RelSrcPath = gomodImportPath + "/" + c.SrcPath[len(prefix):]
+	for prefix, pkg := range localgomods {
+		if strings.HasPrefix(c.SrcPath, prefix+"/") {
+			// TODO(maruel): Handle pkg, especially if "main".
+			c.RelSrcPath = pkg + "/" + c.SrcPath[len(prefix)+1:]
 			c.LocalSrcPath = c.SrcPath
 			return true
 		}
@@ -495,11 +497,11 @@ func (s *Stack) less(r *Stack) bool {
 
 // updateLocations calls updateLocations on each call frame and returns true if
 // they were all resolved.
-func (s *Stack) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) bool {
+func (s *Stack) updateLocations(goroot, localgoroot string, localgomods, gopaths map[string]string) bool {
 	// If there were none, it was "resolved".
 	r := true
 	for i := range s.Calls {
-		r = s.Calls[i].updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths) && r
+		r = s.Calls[i].updateLocations(goroot, localgoroot, localgomods, gopaths) && r
 	}
 	return r
 }
@@ -639,9 +641,9 @@ func (s *Signature) SleepString() string {
 
 // updateLocations calls updateLocations on both CreatedBy and Stack and
 // returns true if they were both resolved.
-func (s *Signature) updateLocations(goroot, localgoroot, localgomod, gomodImportPath string, gopaths map[string]string) bool {
-	r := s.CreatedBy.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths)
-	r = s.Stack.updateLocations(goroot, localgoroot, localgomod, gomodImportPath, gopaths) && r
+func (s *Signature) updateLocations(goroot, localgoroot string, localgomods, gopaths map[string]string) bool {
+	r := s.CreatedBy.updateLocations(goroot, localgoroot, localgomods, gopaths)
+	r = s.Stack.updateLocations(goroot, localgoroot, localgomods, gopaths) && r
 	return r
 }
 

@@ -212,8 +212,8 @@ func TestCallPkg(t *testing.T) {
 			compareString(t, line.SrcName, c.SrcName)
 			// ParseDump(guesspaths=true).
 			gp := map[string]string{"/gpremote": "/gplocal"}
-			r := c.updateLocations("/grremote", "/grlocal", "/gomod", "example.com/foo", gp)
-			if !r {
+			gm := map[string]string{"/gomod": "example.com/foo"}
+			if !c.updateLocations("/grremote", "/grlocal", gm, gp) {
 				t.Error("Unexpected")
 			}
 			compareString(t, line.ImportPath, c.ImportPath())
@@ -301,8 +301,7 @@ func TestSignature_Less(t *testing.T) {
 var (
 	goroot     string
 	gopaths    map[string]string
-	gomod      string
-	goimport   string
+	gomods     map[string]string
 	isInGOPATH bool
 )
 
@@ -320,7 +319,10 @@ func init() {
 	}
 	// Our internal functions work with '/' as path separator.
 	pwd = strings.Replace(pwd, "\\", "/", -1)
-	gomod, goimport = isGoModule(splitPath(pwd))
+	gomods = map[string]string{}
+	if prefix, path := isGoModule(splitPath(pwd)); prefix != "" {
+		gomods[prefix] = path
+	}
 
 	// When inside GOPATH, no version is added. When outside, the version path is
 	// added from the reading of module statement in go.mod.
@@ -350,12 +352,12 @@ func newCall(f string, a Args, s string, l int) Call {
 
 func newCallLocal(f string, a Args, s string, l int) Call {
 	c := newCall(f, a, s, l)
-	r := c.updateLocations(goroot, goroot, gomod, goimport, gopaths)
+	r := c.updateLocations(goroot, goroot, gomods, gopaths)
 	if !r {
 		panic("Unexpected")
 	}
 	if c.LocalSrcPath == "" || c.RelSrcPath == "" {
-		panic(fmt.Sprintf("newCallLocal(%q, %q): invariant failed; gomod=%q, goimport=%q, GOPATHs=%v", f, s, gomod, goimport, gopaths))
+		panic(fmt.Sprintf("newCallLocal(%q, %q): invariant failed; gomods=%v, GOPATHs=%v", f, s, gomods, gopaths))
 	}
 	return c
 }
