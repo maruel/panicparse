@@ -431,7 +431,7 @@ func compareErr(t *testing.T, want, got error) {
 		return
 	}
 	if want == nil || got == nil || (want.Error() != got.Error()) {
-		t.Fatalf("%v != %v", want, got)
+		t.Errorf("want: %v, got: %v", want, got)
 	}
 }
 
