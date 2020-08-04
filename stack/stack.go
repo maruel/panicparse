@@ -350,6 +350,7 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 			return true
 		}
 	}
+	// Maybe the path is just absolute and exists?
 	return false
 }
 

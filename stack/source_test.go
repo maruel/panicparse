@@ -449,25 +449,24 @@ func TestAugment(t *testing.T) {
 			// Run the command.
 			// Only disable inlining if necessary.
 			disableInline := hasInlining && line.mayBeInlined
-			_, content, clean := getCrash(t, input, disableInline)
+			_, content, clean1 := getCrash(t, input, disableInline)
+			defer clean1()
 
 			// Analyze it.
 			extra := bytes.Buffer{}
-			c, err := ParseDump(bytes.NewBuffer(content), &extra, false)
+			c, err := ParseDump(bytes.NewBuffer(content), &extra, true)
 			if err != nil {
-				clean()
 				t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 			}
 			// On go1.4, there's one less space.
 			if got := extra.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
-				clean()
 				t.Fatalf("Unexpected panic output:\n%#v", got)
 			}
 
+			Augment(c.Goroutines)
 			got := c.Goroutines[0].Signature.Stack
 			zapPointers(t, &line.want, &got)
 			zapPaths(&got)
-			clean()
 			if diff := cmp.Diff(line.want, got); diff != "" {
 				t.Logf("Different (-want +got):\n%s", diff)
 				t.Logf("Source code:\n%s", input)
@@ -477,20 +476,20 @@ func TestAugment(t *testing.T) {
 
 			// If inlining was disabled, try a second time but zap things out.
 			if disableInline {
-				_, content, clean = getCrash(t, input, false)
+				_, content, clean2 := getCrash(t, input, false)
+				defer clean2()
 
 				// Analyze it.
 				extra.Reset()
-				if c, err = ParseDump(bytes.NewBuffer(content), &extra, false); err != nil {
-					clean()
+				if c, err = ParseDump(bytes.NewBuffer(content), &extra, true); err != nil {
 					t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 				}
 				// On go1.4, there's one less space.
 				if got := extra.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
-					clean()
 					t.Fatalf("Unexpected panic output:\n%#v", got)
 				}
 
+				Augment(c.Goroutines)
 				got = c.Goroutines[0].Signature.Stack
 				// On go1.11 with non-pointer method, it shows elided argument where
 				// there used to be none before. It's only for test case "non-pointer
@@ -507,7 +506,6 @@ func TestAugment(t *testing.T) {
 						}
 					}
 				}
-				clean()
 				if diff := cmp.Diff(line.want, got); diff != "" {
 					t.Logf("Different (inlined) (-want +got):\n%s", diff)
 					t.Logf("Source code:\n%s", input)

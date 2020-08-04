@@ -30,7 +30,7 @@ type cache struct {
 // It modifies goroutines in place. It requires calling ParseDump() with
 // guesspaths set to true to work properly.
 func Augment(goroutines []*Goroutine) {
-	c := &cache{}
+	c := cache{}
 	for _, g := range goroutines {
 		c.augmentGoroutine(g)
 	}
