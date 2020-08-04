@@ -849,6 +849,9 @@ func (c *Context) findRoots() int {
 			// $GOPATH/src or go.mod dependency in $GOPATH/pkg/mod.
 			continue
 		}
+		if c.localGomoduleRoot != "" && strings.HasPrefix(f, c.localGomoduleRoot+"/") {
+			continue
+		}
 
 		// At this point, disk will be looked up.
 		parts := splitPath(f)
