@@ -1138,10 +1138,16 @@ func TestGomoduleComplex(t *testing.T) {
 		t.Fatal("expected context")
 	}
 	compareString(t, "panic: 42\n\n", prefix.String())
+	compareString(t, "", c.GOROOT)
+	if len(c.GOPATHs) != 0 {
+		t.Fatalf("Unexpected GOPATHs: %#v", c.GOPATHs)
+	}
+	compareString(t, runtime.GOROOT(), strings.Replace(c.localgoroot, "/", string(filepath.Separator), -1))
+
 	root2 := root
 	switch runtime.GOOS {
 	case "windows":
-		// On Windows, we must make the path to be posix style.
+		// On Windows, we must make the path to be POSIX style.
 		root2 = strings.Replace(root, string(filepath.Separator), "/", -1)
 	case "darwin":
 		// On MacOS, the path is a symlink and it will be somehow evaluated when we
@@ -1151,6 +1157,8 @@ func TestGomoduleComplex(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// Local go module search is on the path with symlink evaluated on MacOS.
+	compareString(t, pathJoin(root2, "pkg1"), c.localGomoduleRoot)
 
 	// TODO(maruel): Use newCallLocal() and remove the manual hack once
 	// updateLocations() succeeds.
@@ -1180,6 +1188,7 @@ func TestGomoduleComplex(t *testing.T) {
 	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
 		t.Error("Unexpected")
 	}
+	// TODO(maruel): Fix LocalSrcPath and RelSrcPath.
 	want[0].Signature.Stack.Calls[0] = call
 
 	call = newCall("example.com/pkg1/internal.Much", Args{}, pathJoin(root2, "pkg1", "internal", "int.go"), 2)
@@ -1189,6 +1198,9 @@ func TestGomoduleComplex(t *testing.T) {
 	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
 		t.Error("Unexpected")
 	}
+	call.LocalSrcPath = call.SrcPath
+	// TODO(maruel): Fix.
+	call.RelSrcPath = "example.com/pkg1/internal/int.go"
 	want[0].Signature.Stack.Calls[1] = call
 
 	call = newCall("main.main", Args{}, pathJoin(root2, "pkg1", "cmd", "main.go"), 4)
@@ -1198,6 +1210,9 @@ func TestGomoduleComplex(t *testing.T) {
 	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
 		t.Error("Unexpected")
 	}
+	call.LocalSrcPath = call.SrcPath
+	// TODO(maruel): Fix.
+	call.RelSrcPath = "example.com/pkg1/cmd/main.go"
 	want[0].Signature.Stack.Calls[2] = call
 
 	similarGoroutines(t, want, c.Goroutines)

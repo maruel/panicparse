@@ -809,19 +809,19 @@ func rootedIn(root string, parts []string) string {
 // reModule find the module line in a go.mod file. It works even on CRLF file.
 var reModule = regexp.MustCompile(`(?m)^module\s+([^\n\r]+)\r?$`)
 
-// isGoModule returns the string to the directory containing a go.mod/go.sum
-// files pair, and the go import path it represents, if found.
+// isGoModule returns the string to the directory containing a go.mod file, and
+// the go import path it represents, if found.
 func isGoModule(parts []string) (string, string) {
+	// TODO(maruel): Keep a cache to skip redundantly checking the same
+	// directories.
 	for i := len(parts); i > 0; i-- {
 		prefix := pathJoin(parts[:i]...)
-		if isFile(pathJoin(prefix, "go.sum")) {
-			b, err := ioutil.ReadFile(pathJoin(prefix, "go.mod"))
-			if err != nil {
-				continue
-			}
-			if match := reModule.FindSubmatch(b); match != nil {
-				return prefix, string(match[1])
-			}
+		b, err := ioutil.ReadFile(strings.Replace(pathJoin(prefix, "go.mod"), "/", string(filepath.Separator), -1))
+		if err != nil {
+			continue
+		}
+		if match := reModule.FindSubmatch(b); match != nil {
+			return prefix, string(match[1])
 		}
 	}
 	return "", ""
