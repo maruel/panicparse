@@ -50,6 +50,10 @@ func (r *reader) fill() {
 	r.err = io.ErrNoProgress
 }
 
+func (r *reader) buffered() []byte {
+	return r.buf[r.r:r.w]
+}
+
 func (r *reader) readSlice() ([]byte, error) {
 	for s := 0; ; r.fill() {
 		if i := bytes.IndexByte(r.buf[r.r+s:r.w], '\n'); i >= 0 {

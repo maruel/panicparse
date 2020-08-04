@@ -454,17 +454,18 @@ func TestAugment(t *testing.T) {
 
 			// Analyze it.
 			prefix := bytes.Buffer{}
-			c, err := ParseDump(bytes.NewBuffer(content), &prefix, true)
+			s, suffix, err := ScanSnapshot(bytes.NewBuffer(content), &prefix, DefaultOpts())
 			if err != nil {
 				t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 			}
-			// On go1.4, there's one less space.
-			if got := prefix.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
+			// On go1.4, there's one less empty line.
+			if got := prefix.String(); got != "panic: ooh\n\n" && got != "panic: ooh\n" {
 				t.Fatalf("Unexpected panic output:\n%#v", got)
 			}
+			compareString(t, "exit status 2\n", string(suffix))
 
-			Augment(c.Goroutines)
-			got := c.Goroutines[0].Signature.Stack
+			Augment(s.Goroutines)
+			got := s.Goroutines[0].Signature.Stack
 			zapPointers(t, &line.want, &got)
 			zapPaths(&got)
 			if diff := cmp.Diff(line.want, got); diff != "" {
@@ -481,16 +482,17 @@ func TestAugment(t *testing.T) {
 
 				// Analyze it.
 				prefix.Reset()
-				if c, err = ParseDump(bytes.NewBuffer(content), &prefix, true); err != nil {
+				if s, suffix, err = ScanSnapshot(bytes.NewBuffer(content), &prefix, DefaultOpts()); err != nil {
 					t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 				}
 				// On go1.4, there's one less space.
-				if got := prefix.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
+				if got := prefix.String(); got != "panic: ooh\n\n" && got != "panic: ooh\n" {
 					t.Fatalf("Unexpected panic output:\n%#v", got)
 				}
+				compareString(t, "exit status 2\n", string(suffix))
 
-				Augment(c.Goroutines)
-				got = c.Goroutines[0].Signature.Stack
+				Augment(s.Goroutines)
+				got = s.Goroutines[0].Signature.Stack
 				// On go1.11 with non-pointer method, it shows elided argument where
 				// there used to be none before. It's only for test case "non-pointer
 				// method".

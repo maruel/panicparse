@@ -24,21 +24,44 @@ import (
 	"strings"
 )
 
-// Context is a parsing context.
-//
-// It contains the deduced GOROOT and GOPATH, if guesspaths is true.
-type Context struct {
+// Opts represents options to process the snapshot.
+type Opts struct {
+	// LocalGOROOT is GOROOT with "/" as path separator. No trailing "/". Can be
+	// unset.
+	LocalGOROOT string
+	// LocalGOPATHs is GOPATH with "/" as path separator. No trailing "/". Can be
+	// unset.
+	LocalGOPATHs []string
+
+	_ struct{}
+}
+
+// DefaultOpts returns default options to process the snapshot.
+func DefaultOpts() *Opts {
+	return &Opts{
+		LocalGOROOT:  strings.Replace(runtime.GOROOT(), "\\", "/", -1),
+		LocalGOPATHs: getGOPATHs(),
+	}
+}
+
+// Snapshot is a parsed runtime.Stack() or race detector dump.
+type Snapshot struct {
 	// Goroutines is the Goroutines found.
 	//
 	// They are in the order that they were printed.
 	Goroutines []*Goroutine
 
+	// LocalGOROOT is copied from Opts.
+	LocalGOROOT string
+	// LocalGOPATHs is copied from Opts.
+	LocalGOPATHs []string
+
+	// The following members are initialized by GuessPaths.
+
 	// GOROOT is the GOROOT as detected in the traceback, not the on the host.
 	//
 	// It can be empty if no root was determined, for example the traceback
 	// contains only non-stdlib source references.
-	//
-	// Empty is guesspaths was false.
 	GOROOT string
 	// GOPATHs is the GOPATH as detected in the traceback, with the value being
 	// the corresponding path mapped to the host.
@@ -46,11 +69,9 @@ type Context struct {
 	// It can be empty if only stdlib code is in the traceback or if no local
 	// sources were matched up. In the general case there is only one entry in
 	// the map.
-	//
-	// Nil is guesspaths was false.
 	GOPATHs map[string]string
 
-	// localGomods are the root directories containing go.mod or that directly
+	// LocalGomods are the root directories containing go.mod or that directly
 	// contained source code as detected in the traceback, with the value being
 	// the corresponding import path found in the go.mod file.
 	//
@@ -63,76 +84,87 @@ type Context struct {
 	// It is initialized by findRoots().
 	//
 	// It only works with stack traces created in the local file system.
-	localGomods map[string]string
+	LocalGomods map[string]string
 
-	// localgoroot is GOROOT with "/" as path separator. No trailing "/".
-	localgoroot string
-	// localgopaths is GOPATH with "/" as path separator. No trailing "/".
-	localgopaths []string
+	_ struct{}
 }
 
-// ParseDump processes the output from runtime.Stack().
+// ScanSnapshot scans the Reader for the output from runtime.Stack() in br.
 //
-// Returns nil *Context if no stack trace was detected.
+// Returns nil *Snapshot if no stack trace was detected.
+//
+// If a Snapshot is returned, you can call the function again to find another
+// trace, or do io.Copy(br, out) to flush the rest of the stream.
+//
+// ParseSnapshot processes the output from runtime.Stack() or the race detector.
+//
+// Returns a nil *Snapshot if no stack trace was detected and SearchSnapshot()
+// was a false positive.
+//
+// Returns io.EOF if all of reader was read.
+//
+// The suffix of the stack trace is returned as []byte.
 //
 // It pipes anything not detected as a panic stack trace from r into out. It
 // assumes there is junk before the actual stack trace. The junk is streamed to
 // out.
-//
-// If guesspaths is false, no guessing of GOROOT and GOPATH is done, and Call
-// entites do not have LocalSrcPath and IsStdlib filled in. If true, be warned
-// that file presence is done, which means some level of disk I/O.
-func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
-	goroutines, err := parseDump(r, out)
-	if len(goroutines) == 0 {
-		return nil, err
+func ScanSnapshot(in io.Reader, prefix io.Writer, opts *Opts) (*Snapshot, []byte, error) {
+	// TODO(maruel): Validate opts.
+	s := scanningState{
+		Snapshot: &Snapshot{
+			LocalGOROOT:  opts.LocalGOROOT,
+			LocalGOPATHs: opts.LocalGOPATHs,
+		},
+		state: looking,
 	}
-	c := &Context{
-		Goroutines:   goroutines,
-		localgoroot:  strings.Replace(runtime.GOROOT(), "\\", "/", -1),
-		localgopaths: getGOPATHs(),
-	}
-	nameArguments(goroutines)
-	// Corresponding local values on the host for Context.
-	if guesspaths {
-		c.findRoots()
-		for _, r := range c.Goroutines {
-			// Note that this is important to call it even if
-			// c.GOROOT == c.localgoroot.
-			r.updateLocations(c.GOROOT, c.localgoroot, c.localGomods, c.GOPATHs)
-		}
-	}
-	return c, err
-}
-
-// Private stuff.
-
-func parseDump(r io.Reader, out io.Writer) ([]*Goroutine, error) {
-	br := reader{rd: r}
-	s := scanningState{}
-	for {
-		slice, err := br.readLine()
-		if slice != nil {
-			l, err1 := s.scan(slice)
+	r := reader{rd: in}
+	var err error
+	var suffix []byte
+	for err == nil && s.state != done {
+		var d []byte
+		if d, err = r.readLine(); len(d) != 0 {
+			l, err1 := s.scan(d)
 			if err1 != nil && (err == nil || err == io.EOF) {
 				err = err1
 			}
 			if !l {
-				if _, err1 = out.Write(slice); err1 != nil && (err == nil || err == io.EOF) {
+				if s.state != looking {
+					suffix = append([]byte{}, d...)
+					suffix = append(suffix, r.buffered()...)
+					break
+				}
+				if _, err1 = prefix.Write(d); err1 != nil && (err == nil || err == io.EOF) {
 					err = err1
+					break
 				}
 			}
-			if err == io.EOF {
-				return s.goroutines, nil
-			}
-		}
-
-		if err != nil {
-			return s.goroutines, err
 		}
 	}
-
+	if s.Goroutines != nil {
+		nameArguments(s.Goroutines)
+		return s.Snapshot, suffix, err
+	}
+	return nil, suffix, err
 }
+
+// GuessPaths guesses local GOROOT and GOPATH for what was found in the
+// snapshot.
+//
+// It initializes GOROOT, GOPATHs, LocalGomoduleRoot and GomodImportPath.
+//
+// This is done by scanning the local disk, so be warned of performance impact.
+func (s *Snapshot) GuessPaths() bool {
+	s.findRoots()
+	b := true
+	for _, r := range s.Goroutines {
+		// Note that this is important to call it even if
+		// s.GOROOT == s.LocalGOROOT.
+		b = r.updateLocations(s.GOROOT, s.LocalGOROOT, s.LocalGomods, s.GOPATHs) && b
+	}
+	return b
+}
+
+// Private stuff.
 
 var (
 	lockedToThread = []byte("locked to thread")
@@ -326,9 +358,7 @@ const (
 // scanningState is the state of the scan to detect and process a stack trace
 // and stores the traces found.
 type scanningState struct {
-	// goroutines contains all the goroutines found.
-	goroutines []*Goroutine
-
+	*Snapshot
 	state          state
 	prefix         []byte
 	goroutineIndex int
@@ -349,8 +379,8 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 	}()
 	//*/
 	var cur *Goroutine
-	if len(s.goroutines) != 0 {
-		cur = s.goroutines[len(s.goroutines)-1]
+	if len(s.Goroutines) != 0 {
+		cur = s.Goroutines[len(s.Goroutines)-1]
 	}
 	trimmed := line
 	if bytes.HasSuffix(line, crlf) {
@@ -414,13 +444,13 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 						Locked:   locked,
 					},
 					ID:    id,
-					First: len(s.goroutines) == 0,
+					First: len(s.Goroutines) == 0,
 				}
 				// Increase performance by always allocating 4 goroutines minimally.
-				if s.goroutines == nil {
-					s.goroutines = make([]*Goroutine, 0, 4)
+				if s.Goroutines == nil {
+					s.Goroutines = make([]*Goroutine, 0, 4)
 				}
-				s.goroutines = append(s.goroutines, g)
+				s.Goroutines = append(s.Goroutines, g)
 				s.state = gotRoutineHeader
 				s.prefix = append([]byte{}, match[1]...)
 				return true, nil
@@ -436,7 +466,6 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 		if s.state != looking {
 			s.state = done
 		}
-		s.prefix = nil
 		return false, nil
 
 	case gotRoutineHeader:
@@ -508,7 +537,6 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			return true, nil
 		}
 		s.state = done
-		s.prefix = nil
 		return false, nil
 
 	case gotFileCreated:
@@ -517,7 +545,6 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			return true, nil
 		}
 		s.state = done
-		s.prefix = nil
 		return false, nil
 
 	case gotUnavail:
@@ -545,7 +572,9 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			s.state = gotRaceHeader2
 			return true, nil
 		}
-		s.state = done
+		// TODO(maruel): While this shouldn't error out, it should still force the
+		// output of raceHeaderFooter.
+		s.state = looking
 		s.prefix = nil
 		return false, nil
 
@@ -560,17 +589,15 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			if !ok {
 				return false, fmt.Errorf("failed to parse goroutine id on line: %q", bytes.TrimSpace(trimmed))
 			}
-			if s.goroutines != nil {
-				panic("internal failure; expected s.goroutines to be nil")
+			if s.Goroutines != nil {
+				panic("internal failure; expected s.Goroutines to be nil")
 			}
-			s.goroutines = append(make([]*Goroutine, 0, 4), &Goroutine{ID: id, First: true, RaceWrite: w, RaceAddr: addr})
-			s.goroutineIndex = len(s.goroutines) - 1
+			s.Goroutines = append(make([]*Goroutine, 0, 4), &Goroutine{ID: id, First: true, RaceWrite: w, RaceAddr: addr})
+			s.goroutineIndex = len(s.Goroutines) - 1
 			s.state = gotRaceOperationHeader
 			return true, nil
 		}
-		s.state = done
-		s.prefix = nil
-		return false, nil
+		return false, fmt.Errorf("expected race condition, got: %q", bytes.TrimSpace(trimmed))
 
 	case gotRaceOperationHeader:
 		c := Call{}
@@ -619,8 +646,8 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			if !ok {
 				return false, fmt.Errorf("failed to parse goroutine id on line: %q", bytes.TrimSpace(trimmed))
 			}
-			s.goroutines = append(s.goroutines, &Goroutine{ID: id, RaceWrite: w, RaceAddr: addr})
-			s.goroutineIndex = len(s.goroutines) - 1
+			s.Goroutines = append(s.Goroutines, &Goroutine{ID: id, RaceWrite: w, RaceAddr: addr})
+			s.goroutineIndex = len(s.Goroutines) - 1
 			s.state = gotRaceOperationHeader
 			return true, nil
 		}
@@ -633,7 +660,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 				return false, fmt.Errorf("failed to parse goroutine id on line: %q", bytes.TrimSpace(trimmed))
 			}
 			found := false
-			for i, g := range s.goroutines {
+			for i, g := range s.Goroutines {
 				if g.ID == id {
 					g.State = string(match[2])
 					s.goroutineIndex = i
@@ -652,13 +679,13 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 		// Race stack traces
 
 	case gotRaceGoroutineFunc:
-		c := s.goroutines[s.goroutineIndex].CreatedBy.Calls
+		c := s.Goroutines[s.goroutineIndex].CreatedBy.Calls
 		if found, err := parseFile(&c[len(c)-1], trimmed); err != nil {
 			return false, err
 		} else if !found {
 			return false, fmt.Errorf("expected a file after a race function, got: %q", trimmed)
 		}
-		// TODO(maruel): Set s.goroutines[].CreatedBy.
+		// TODO(maruel): Set s.Goroutines[].CreatedBy.
 		s.state = gotRaceGoroutineFile
 		return true, nil
 
@@ -669,7 +696,6 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 		}
 		if bytes.Equal(trimmed, raceHeaderFooter) {
 			s.state = done
-			s.prefix = nil
 			return true, nil
 		}
 		fallthrough
@@ -677,7 +703,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 	case gotRaceGoroutineHeader:
 		c := Call{}
 		if found, err := parseFunc(&c, trimLeftSpace(trimmed)); found {
-			s.goroutines[s.goroutineIndex].CreatedBy.Calls = append(s.goroutines[s.goroutineIndex].CreatedBy.Calls, c)
+			s.Goroutines[s.goroutineIndex].CreatedBy.Calls = append(s.Goroutines[s.goroutineIndex].CreatedBy.Calls, c)
 			s.state = gotRaceGoroutineFunc
 			return err == nil, err
 		}
@@ -843,31 +869,31 @@ func isGoModule(parts []string) (string, string) {
 	return "", ""
 }
 
-// findRoots sets member GOROOT, GOPATHs and localGomods.
+// findRoots sets member GOROOT, GOPATHs and LocalGomods.
 //
 // This causes disk I/O as it checks for file presence.
 //
 // Returns the number of missing files.
-func (c *Context) findRoots() int {
+func (s *Snapshot) findRoots() int {
 	// TODO(maruel): Reduce memory allocations in this function.
-	c.GOPATHs = map[string]string{}
-	c.localGomods = map[string]string{}
+	s.GOPATHs = map[string]string{}
+	s.LocalGomods = map[string]string{}
 	missing := 0
-	for _, f := range getFiles(c.Goroutines) {
+	for _, f := range getFiles(s.Goroutines) {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
 		// possible, need to confirm and handle.
 		//log.Printf("  Analyzing %s", f)
 
 		// First checks skip file I/O.
-		if c.GOROOT != "" && strings.HasPrefix(f, c.GOROOT+"/src/") {
+		if s.GOROOT != "" && strings.HasPrefix(f, s.GOROOT+"/src/") {
 			// stdlib.
 			continue
 		}
-		if hasSrcPrefix(f, c.GOPATHs) {
+		if hasSrcPrefix(f, s.GOPATHs) {
 			// $GOPATH/src or go.mod dependency in $GOPATH/pkg/mod.
 			continue
 		}
-		if hasPrefix(f, c.localGomods) {
+		if hasPrefix(f, s.LocalGomods) {
 			continue
 		}
 
@@ -875,26 +901,26 @@ func (c *Context) findRoots() int {
 		parts := splitPath(f)
 		// Initializes GOROOT.
 		const src = "/src"
-		if c.GOROOT == "" {
-			if r := isRootedIn(c.localgoroot+src, parts); r != "" {
-				c.GOROOT = r[:len(r)-len(src)]
-				//log.Printf("Found GOROOT=%s", c.GOROOT)
+		if s.GOROOT == "" {
+			if r := isRootedIn(s.LocalGOROOT+src, parts); r != "" {
+				s.GOROOT = r[:len(r)-len(src)]
+				//log.Printf("Found GOROOT=%s", s.GOROOT)
 				continue
 			}
 		}
 		// Initializes GOPATHs.
 		found := false
-		for _, l := range c.localgopaths {
+		for _, l := range s.LocalGOPATHs {
 			if r := isRootedIn(l+src, parts); r != "" {
 				//log.Printf("Found GOPATH=%s", r[:len(r)-len(src)])
-				c.GOPATHs[r[:len(r)-len(src)]] = l
+				s.GOPATHs[r[:len(r)-len(src)]] = l
 				found = true
 				break
 			}
 			const pkgmod = "/pkg/mod"
 			if r := isRootedIn(l+pkgmod, parts); r != "" {
 				//log.Printf("Found GOPATH=%s", r[:len(r)-len(pkgmod)])
-				c.GOPATHs[r[:len(r)-len(pkgmod)]] = l
+				s.GOPATHs[r[:len(r)-len(pkgmod)]] = l
 				found = true
 				break
 			}
@@ -906,7 +932,7 @@ func (c *Context) findRoots() int {
 		if len(parts) > 1 {
 			// Search upward looking for a go.mod.
 			if root, path := isGoModule(parts[:len(parts)-1]); root != "" {
-				c.localGomods[root] = path
+				s.LocalGomods[root] = path
 				continue
 			}
 		}
@@ -914,7 +940,7 @@ func (c *Context) findRoots() int {
 		if false && isFile(f) {
 			// Assumes "go run" was used, thus is package main. Still consider it a
 			// "go module" but in the weakest sense.
-			c.localGomods[path.Dir(f)] = "main"
+			s.LocalGomods[path.Dir(f)] = "main"
 		}
 		// If the source is not found, just too bad.
 		//log.Printf("Failed to find locally: %s", f)

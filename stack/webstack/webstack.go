@@ -10,6 +10,7 @@ package webstack
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"runtime"
@@ -91,7 +92,7 @@ func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
 
 // snapshot returns a Context based on the snapshot of the stacks of the
 // current process.
-func snapshot(maxmem int) (*stack.Context, error) {
+func snapshot(maxmem int) (*stack.Snapshot, error) {
 	// We don't know how big the buffer needs to be to collect all the
 	// goroutines. Start with 1 MB and try a few times, doubling each time. Give
 	// up and use a truncated trace if maxmem is not enough.
@@ -116,5 +117,13 @@ func snapshot(maxmem int) (*stack.Context, error) {
 	}
 	// TODO(maruel): No disk I/O should be done here, albeit GOROOT should still
 	// be guessed. Thus guesspaths shall be neither true nor false.
-	return stack.ParseDump(bytes.NewReader(buf), ioutil.Discard, true)
+	s, _, err := stack.ScanSnapshot(bytes.NewReader(buf), ioutil.Discard, stack.DefaultOpts())
+	if s != nil {
+		s.GuessPaths()
+	}
+	// That's expected.
+	if err == io.EOF {
+		err = nil
+	}
+	return s, err
 }

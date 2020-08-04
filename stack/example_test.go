@@ -23,19 +23,22 @@ main.crash2(0x7fe50b49d028, 0xc82000a1e0)
 	/home/user/go/src/github.com/maruel/panicparse/cmd/pp/main.go:45 +0x23
 main.main()
 	/home/user/go/src/github.com/maruel/panicparse/cmd/pp/main.go:50 +0xa6
+Extraneous output.
 `
 
 func Example() {
 	// Optional: Check for GOTRACEBACK being set, in particular if there is only
 	// one goroutine returned.
 	in := bytes.NewBufferString(crash)
-	c, err := stack.ParseDump(in, os.Stdout, true)
-	if err != nil {
+	s, suffix, err := stack.ScanSnapshot(in, os.Stdout, stack.DefaultOpts())
+	// io.EOF is returned when the whole stream was read, otherwise there could
+	// still be input data left.
+	if err != nil && err != io.EOF {
 		return
 	}
 
 	// Find out similar goroutine traces and group them into buckets.
-	buckets := stack.Aggregate(c.Goroutines, stack.AnyValue)
+	buckets := stack.Aggregate(s.Goroutines, stack.AnyValue)
 
 	// Calculate alignment.
 	srcLen := 0
@@ -78,6 +81,13 @@ func Example() {
 			io.WriteString(os.Stdout, "    (...)\n")
 		}
 	}
+	// If there was any remaining data in the pipe, dump it now.
+	if len(suffix) != 0 {
+		os.Stdout.Write(suffix)
+	}
+	if err == nil {
+		io.Copy(os.Stdout, in)
+	}
 	// Output:
 	// panic: oh no!
 	//
@@ -85,4 +95,28 @@ func Example() {
 	//          panic.go:464 panic(0, 0)
 	//     main main.go:45   crash2(0x7fe50b49d028, 0xc82000a1e0)
 	//     main main.go:50   main()
+	// Extraneous output.
+}
+
+func Example_stream() {
+	// Stream of stack traces:
+	var r io.Reader
+	var w io.Writer
+	opts := stack.DefaultOpts()
+	for {
+		s, suffix, err := stack.ScanSnapshot(r, w, opts)
+		if s != nil {
+			// Process the snapshot...
+		}
+
+		if err != nil && err != io.EOF {
+			if len(suffix) != 0 {
+				w.Write(suffix)
+			}
+			return
+		}
+		// Prepend the suffix that was read to the rest of the input stream to
+		// catch the next snapshot signature:
+		r = io.MultiReader(bytes.NewReader(suffix), r)
+	}
 }

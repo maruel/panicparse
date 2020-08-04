@@ -244,31 +244,31 @@ func TestSymbol(t *testing.T) {
 func TestWriteGoroutinesRace(t *testing.T) {
 	t.Parallel()
 	data := internaltest.PanicOutputs()["race"]
-	c, err := stack.ParseDump(bytes.NewReader(data), ioutil.Discard, true)
+	s, _, err := stack.ScanSnapshot(bytes.NewReader(data), ioutil.Discard, stack.DefaultOpts())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Goroutines == nil {
+	if s.Goroutines == nil {
 		t.Fatal("missing context")
 	}
-	if c.Goroutines[0].RaceAddr == 0 {
+	if s.Goroutines[0].RaceAddr == 0 {
 		t.Fatal("expected a race")
 	}
-	if err := WriteGoroutines(ioutil.Discard, c.Goroutines, false, false); err != nil {
+	if err := WriteGoroutines(ioutil.Discard, s.Goroutines, false, false); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func BenchmarkWriteBuckets(b *testing.B) {
 	b.ReportAllocs()
-	c, err := stack.ParseDump(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, true)
+	s, _, err := stack.ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, stack.DefaultOpts())
 	if err != nil {
 		b.Fatal(err)
 	}
-	if c == nil {
+	if s == nil {
 		b.Fatal("missing context")
 	}
-	buckets := stack.Aggregate(c.Goroutines, stack.AnyPointer)
+	buckets := stack.Aggregate(s.Goroutines, stack.AnyPointer)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if err := WriteBuckets(ioutil.Discard, buckets, false, false); err != nil {

@@ -17,6 +17,7 @@
 package internal
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -95,15 +96,9 @@ func writeGoroutinesToConsole(out io.Writer, p *Palette, goroutines []*stack.Gor
 	return nil
 }
 
-// process copies stdin to stdout and processes any "panic: " line found.
-//
-// If html is used, a stack trace is written to this file instead.
-func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
-	c, err := stack.ParseDump(in, out, rebase)
-	if c == nil || err != nil {
-		return err
-	}
+func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, parse, rebase bool, html string, filter, match *regexp.Regexp, c *stack.Snapshot, first bool) error {
 	if rebase {
+		c.GuessPaths()
 		log.Printf("GOROOT=%s", c.GOROOT)
 		log.Printf("GOPATH=%s", c.GOPATHs)
 	}
@@ -117,8 +112,8 @@ func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pat
 		if html == "" {
 			return writeBucketsToConsole(out, p, buckets, pf, needsEnv, filter, match)
 		}
-		var f *os.File
-		if f, err = os.Create(html); err != nil {
+		f, err := os.Create(html)
+		if err != nil {
 			return err
 		}
 		err = htmlstack.WriteBuckets(f, buckets, needsEnv, false)
@@ -140,6 +135,36 @@ func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pat
 		err = err2
 	}
 	return err
+}
+
+// process copies stdin to stdout and processes any "panic: " line found.
+//
+// If html is used, a stack trace is written to this file instead.
+func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
+	for first := true; ; first = false {
+		c, suffix, err := stack.ScanSnapshot(in, out, stack.DefaultOpts())
+		if c != nil {
+			// Process it even if an error occurred.
+			if err1 := processInner(out, p, s, pf, parse, rebase, html, filter, match, c, first); err == nil {
+				err = err1
+			}
+		}
+		if err == nil {
+			// This means the whole buffer was not read, loop again.
+			in = io.MultiReader(bytes.NewReader(suffix), in)
+			continue
+		}
+		if len(suffix) != 0 {
+			if _, err1 := out.Write(suffix); err == nil {
+				err = err1
+			}
+		}
+		if err == io.EOF {
+			return nil
+		}
+		// Parts of the input will be lost.
+		return err
+	}
 }
 
 func showBanner() bool {

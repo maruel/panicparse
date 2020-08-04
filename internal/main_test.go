@@ -89,6 +89,35 @@ func TestProcess(t *testing.T) {
 	}
 }
 
+func TestProcessTwoSnapshots(t *testing.T) {
+	t.Parallel()
+	out := bytes.Buffer{}
+	in := bytes.Buffer{}
+	in.WriteString("Ya\n")
+	in.Write(internaltest.PanicOutputs()["simple"])
+	in.WriteString("Ye\n")
+	in.Write(internaltest.PanicOutputs()["int"])
+	in.WriteString("Yo\n")
+	err := process(&in, &out, &Palette{}, stack.AnyPointer, basePath, false, true, "", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := ("Ya\n" +
+		"GOTRACEBACK=all\n" +
+		"panic: simple\n\n" +
+		"1: running\n" +
+		"    main main.go:52 main()\n" +
+		"Ye\n" +
+		"GOTRACEBACK=all\n" +
+		"panic: 42\n\n" +
+		"1: running\n" +
+		"    main main.go:82  panicint(0x2a)\n" +
+		"    main main.go:280 glob..func7()\n" +
+		"    main main.go:54  main()\n" +
+		"Yo\n")
+	compareString(t, want, out.String())
+}
+
 func TestMainFn(t *testing.T) {
 	t.Parallel()
 	// It doesn't do anything since stdin is closed.

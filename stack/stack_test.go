@@ -184,7 +184,7 @@ func TestCallPkg(t *testing.T) {
 			SrcName:      "baz.go",
 			ImportPath:   "example.com/foo/bar",
 			LocalSrcPath: "/gomod/bar/baz.go",
-			// TODO(maruel): Fix.
+			// TODO(maruel): This is incorrect.
 			//RelSrcPath:   "bar/baz.go",
 			RelSrcPath: "example.com/foo/bar/baz.go",
 		},
@@ -194,11 +194,11 @@ func TestCallPkg(t *testing.T) {
 			s:       "/gomod/cmd/panic/main.go",
 			DirSrc:  "panic/main.go",
 			SrcName: "main.go",
-			// TODO(maruel): Fix.
+			// TODO(maruel): This is incorrect.
 			//ImportPath:   "main",
 			ImportPath:   "example.com/foo/cmd/panic",
 			LocalSrcPath: "/gomod/cmd/panic/main.go",
-			// TODO(maruel): Fix.
+			// TODO(maruel): This is incorrect.
 			//RelSrcPath:   "cmd/panic/main.go",
 			RelSrcPath: "example.com/foo/cmd/panic/main.go",
 		},
