@@ -1235,7 +1235,7 @@ func TestSplitPath(t *testing.T) {
 	}
 }
 
-func TestGetGOPATHS(t *testing.T) {
+func TestGetGOPATHs(t *testing.T) {
 	// This test cannot run in parallel.
 	old := os.Getenv("GOPATH")
 	defer os.Setenv("GOPATH", old)
@@ -1263,10 +1263,12 @@ func TestGetGOPATHS(t *testing.T) {
 // TestGomoduleComplex is an integration test that creates a non-trivial tree
 // of go modules using the "replace" statement.
 func TestGomoduleComplex(t *testing.T) {
+	// This test cannot run in parallel.
 	if internaltest.GetGoMinorVersion() < 11 {
 		t.Skip("requires go module support")
 	}
-	t.Parallel()
+	old := os.Getenv("GOPATH")
+	defer os.Setenv("GOPATH", old)
 	root, err := ioutil.TempDir("", "stack")
 	if err != nil {
 		t.Fatal(err)
@@ -1277,26 +1279,42 @@ func TestGomoduleComplex(t *testing.T) {
 		}
 	}()
 
+	os.Setenv("GOPATH", filepath.Join(root, "go"))
 	tree := map[string]string{
 		"pkg1/go.mod": "module example.com/pkg1\n" +
 			"require (\n" +
 			"\texample.com/pkg2 v0.0.1\n" +
+			"\texample.com/pkg3 v0.0.1\n" +
 			")\n" +
-			"replace example.com/pkg2 => ../pkg2\n",
+			"replace example.com/pkg2 => ../pkg2\n" +
+			// This is kind of a hack to force testing with a package inside GOPATH,
+			// since this won't normally work by default.
+			"replace example.com/pkg3 => ../go/src/example.com/pkg3\n",
 		"pkg1/cmd/main.go": "package main\n" +
 			"import \"example.com/pkg1/internal\"\n" +
 			"func main() {\n" +
-			"\tinternal.Much()\n" +
+			"\tinternal.CallCallDie()\n" +
 			"}\n",
 		"pkg1/internal/int.go": "package internal\n" +
 			"import \"example.com/pkg2\"\n" +
-			"func Much() {\n" +
-			"\tpkg2.Foo()\n" +
+			"func CallCallDie() {\n" +
+			"\tpkg2.CallDie()\n" +
 			"}\n",
 
-		"pkg2/go.mod": "module example.com/pkg2\n",
-		"pkg2/foo.go": "package pkg2\n" +
-			"func Foo() { panic(42) }\n",
+		"pkg2/go.mod": "module example.com/pkg2\n" +
+			"require (\n" +
+			"\texample.com/pkg3 v0.0.1\n" +
+			")\n" +
+			// This is kind of a hack to force testing with a package inside GOPATH,
+			// since this won't normally work by default.
+			"replace example.com/pkg3 => ../go/src/example.com/pkg3\n",
+		"pkg2/src2.go": "package pkg2\n" +
+			"import \"example.com/pkg3\"\n" +
+			"func CallDie() { pkg3.Die() }\n",
+
+		"go/src/example.com/pkg3/go.mod": "module example.com/pkg3\n",
+		"go/src/example.com/pkg3/src3.go": "package pkg3\n" +
+			"func Die() { panic(42) }\n",
 	}
 	for path, content := range tree {
 		p := filepath.Join(root, strings.Replace(path, "/", pathSeparator, -1))
@@ -1330,48 +1348,93 @@ func TestGomoduleComplex(t *testing.T) {
 	}
 	compareString(t, "panic: 42\n\n", prefix.String())
 	compareString(t, "", string(suffix))
-	compareString(t, "", s.GOROOT)
-	if len(s.GOPATHs) != 0 {
-		t.Fatalf("Unexpected GOPATHs: %#v", s.GOPATHs)
-	}
+	wantGOROOT := ""
+	compareString(t, wantGOROOT, s.GOROOT)
 	compareString(t, runtime.GOROOT(), strings.Replace(s.LocalGOROOT, "/", pathSeparator, -1))
 
-	root2 := root
-	switch runtime.GOOS {
-	case "windows":
+	rootRemote := root
+	if runtime.GOOS == "windows" {
 		// On Windows, we must make the path to be POSIX style.
-		root2 = strings.Replace(root, pathSeparator, "/", -1)
-	case "darwin":
+		rootRemote = strings.Replace(root, pathSeparator, "/", -1)
+	}
+	rootLocal := rootRemote
+	if runtime.GOOS == "darwin" {
 		// On MacOS, the path is a symlink and it will be somehow evaluated when we
-		// get the traces back. This must not be run on Windows otherwise the path
+		// get the traces back. This must NOT be run on Windows otherwise the path
 		// will be converted to 8.3 format.
-		if root2, err = filepath.EvalSymlinks(root); err != nil {
+		if rootRemote, err = filepath.EvalSymlinks(rootLocal); err != nil {
 			t.Fatal(err)
 		}
 	}
+
+	// This part is a bit tricky. The symlink is evaluated on the left since,
+	// since it's what is the "remote" path, but it is not on the right since,
+	// which is the "local" path. This difference only exists on MacOS.
+	wantGOPATHs := map[string]string{
+		pathJoin(rootRemote, "go"): pathJoin(rootLocal, "go"),
+	}
+	if diff := cmp.Diff(s.GOPATHs, wantGOPATHs); diff != "" {
+		t.Fatalf("+want/-got: %s", diff)
+	}
+
 	// Local go module search is on the path with symlink evaluated on MacOS.
+	// This is kind of confusing because it is the "remote" path.
 	wantGomods := map[string]string{
-		pathJoin(root2, "pkg1"): "example.com/pkg1",
-		pathJoin(root2, "pkg2"): "example.com/pkg2",
+		pathJoin(rootRemote, "pkg1"): "example.com/pkg1",
+		pathJoin(rootRemote, "pkg2"): "example.com/pkg2",
 	}
 	if diff := cmp.Diff(s.LocalGomods, wantGomods); diff != "" {
 		t.Fatalf("+want/-got: %s", diff)
 	}
 
-	// TODO(maruel): Use newCallLocal() and remove the manual hack once
-	// updateLocations() succeeds.
 	want := []*Goroutine{
 		{
 			Signature: Signature{
 				State: "running",
 				Stack: Stack{
 					Calls: []Call{
-						{},
-						{},
-						{},
-						//newCallLocal("example.com/pkg2.Foo", Args{Elided: true}, pathJoin(root2, "pkg2", "foo.go"), 2),
-						//newCallLocal("example.com/pkg1/internal.Much", Args{}, pathJoin(root2, "pkg1", "internal", "int.go"), 2),
-						//newCallLocal("main.main", Args{}, pathJoin(root2, "pkg1", "cmd", "main.go"), 4),
+						{
+							Func:         newFunc("example.com/pkg3.Die"),
+							Args:         Args{Elided: true},
+							SrcPath:      pathJoin(rootRemote, "go", "src", "example.com", "pkg3", "src3.go"),
+							Line:         2,
+							SrcName:      "src3.go",
+							DirSrc:       "pkg3/src3.go",
+							LocalSrcPath: pathJoin(rootLocal, "go", "src", "example.com", "pkg3", "src3.go"),
+							// TODO(maruel): This is incorrect.
+							RelSrcPath: "example.com/pkg3/src3.go",
+						},
+						{
+							Func:         newFunc("example.com/pkg2.CallDie"),
+							Args:         Args{Elided: true},
+							SrcPath:      pathJoin(rootRemote, "pkg2", "src2.go"),
+							Line:         3,
+							SrcName:      "src2.go",
+							DirSrc:       "pkg2/src2.go",
+							LocalSrcPath: pathJoin(rootLocal, "pkg2", "src2.go"),
+							// TODO(maruel): This is incorrect.
+							RelSrcPath: "example.com/pkg2/src2.go",
+						},
+						{
+							Func:         newFunc("example.com/pkg1/internal.CallCallDie"),
+							SrcPath:      pathJoin(rootRemote, "pkg1", "internal", "int.go"),
+							Line:         2,
+							SrcName:      "int.go",
+							DirSrc:       "internal/int.go",
+							LocalSrcPath: pathJoin(rootLocal, "pkg1", "internal", "int.go"),
+							// TODO(maruel): This is incorrect.
+							RelSrcPath: "example.com/pkg1/internal/int.go",
+						},
+						{
+							Func:         newFunc("main.main"),
+							SrcPath:      pathJoin(rootRemote, "pkg1", "cmd", "main.go"),
+							Line:         4,
+							SrcName:      "main.go",
+							DirSrc:       "cmd/main.go",
+							LocalSrcPath: pathJoin(rootLocal, "pkg1", "cmd", "main.go"),
+							// TODO(maruel): This is incorrect.
+							RelSrcPath: "example.com/pkg1/cmd/main.go",
+						},
 					},
 				},
 			},
@@ -1379,42 +1442,6 @@ func TestGomoduleComplex(t *testing.T) {
 			First: true,
 		},
 	}
-	call := newCall("example.com/pkg2.Foo", Args{Elided: true}, pathJoin(root2, "pkg2", "foo.go"), 2)
-	if call.updateLocations(goroot, goroot, gomods, gopaths) {
-		t.Error("Unexpected")
-	}
-	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
-		t.Error("Unexpected")
-	}
-	call.LocalSrcPath = call.SrcPath
-	// TODO(maruel): This is incorrect.
-	call.RelSrcPath = "example.com/pkg2/foo.go"
-	want[0].Signature.Stack.Calls[0] = call
-
-	call = newCall("example.com/pkg1/internal.Much", Args{}, pathJoin(root2, "pkg1", "internal", "int.go"), 2)
-	if call.updateLocations(goroot, goroot, gomods, gopaths) {
-		t.Error("Unexpected")
-	}
-	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
-		t.Error("Unexpected")
-	}
-	call.LocalSrcPath = call.SrcPath
-	// TODO(maruel): This is incorrect.
-	call.RelSrcPath = "example.com/pkg1/internal/int.go"
-	want[0].Signature.Stack.Calls[1] = call
-
-	call = newCall("main.main", Args{}, pathJoin(root2, "pkg1", "cmd", "main.go"), 4)
-	if call.updateLocations(goroot, goroot, gomods, gopaths) {
-		t.Error("Unexpected")
-	}
-	if call.LocalSrcPath != "" || call.RelSrcPath != "" {
-		t.Error("Unexpected")
-	}
-	call.LocalSrcPath = call.SrcPath
-	// TODO(maruel): This is incorrect.
-	call.RelSrcPath = "example.com/pkg1/cmd/main.go"
-	want[0].Signature.Stack.Calls[2] = call
-
 	similarGoroutines(t, want, s.Goroutines)
 }
 
