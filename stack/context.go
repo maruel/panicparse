@@ -178,8 +178,7 @@ func ScanSnapshot(in io.Reader, prefix io.Writer, opts *Opts) (*Snapshot, []byte
 //
 // This is done by scanning the local disk, so be warned of performance impact.
 func (s *Snapshot) GuessPaths() bool {
-	s.findRoots()
-	b := true
+	b := s.findRoots() == 0
 	for _, r := range s.Goroutines {
 		// Note that this is important to call it even if
 		// s.RemoteGOROOT == s.LocalGOROOT.
@@ -975,6 +974,7 @@ func (s *Snapshot) findRoots() int {
 			// Assumes "go run" was used, thus is package main. Still consider it a
 			// "go module" but in the weakest sense.
 			s.LocalGomods[path.Dir(f)] = "main"
+			continue
 		}
 		// If the source is not found, just too bad.
 		//log.Printf("Failed to find locally: %s", f)
