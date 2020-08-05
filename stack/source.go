@@ -14,7 +14,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
-	"log"
 	"math"
 	"strings"
 )
@@ -30,9 +29,12 @@ type cache struct {
 // It modifies goroutines in place. It requires calling GuessPaths() to work
 // properly.
 func Augment(goroutines []*Goroutine) {
-	c := cache{}
+	c := cache{
+		files:  map[string][]byte{},
+		parsed: map[string]*parsedFile{},
+	}
 	for _, g := range goroutines {
-		c.augmentGoroutine(g)
+		_ = c.augmentGoroutine(g)
 	}
 }
 
@@ -40,68 +42,70 @@ func Augment(goroutines []*Goroutine) {
 // descriptive.
 //
 // It modifies the routine.
-func (c *cache) augmentGoroutine(goroutine *Goroutine) {
-	if c.files == nil {
-		c.files = map[string][]byte{}
-	}
-	if c.parsed == nil {
-		c.parsed = map[string]*parsedFile{}
-	}
+func (c *cache) augmentGoroutine(g *Goroutine) error {
+	var err error
 	// For each call site, look at the next call and populate it. Then we can
 	// walk back and reformat things.
-	for i := range goroutine.Stack.Calls {
-		c.load(goroutine.Stack.Calls[i].LocalSrcPath)
+	for i := range g.Stack.Calls {
+		if err1 := c.load(g.Stack.Calls[i].LocalSrcPath); err1 != nil {
+			//log.Printf("%s", err)
+			err = err1
+		}
 	}
 
 	// Once all loaded, we can look at the next call when available.
-	for i := 0; i < len(goroutine.Stack.Calls)-1; i++ {
+	for i := 0; i < len(g.Stack.Calls)-1; i++ {
 		// Get the AST from the previous call and process the call line with it.
-		if f := c.getFuncAST(&goroutine.Stack.Calls[i]); f != nil {
-			processCall(&goroutine.Stack.Calls[i], f)
+		if f := c.getFuncAST(&g.Stack.Calls[i]); f != nil {
+			processCall(&g.Stack.Calls[i], f)
 		}
 	}
+	return err
 }
 
 // Private stuff.
 
 // load loads a source file and parses the AST tree. Failures are ignored.
-func (c *cache) load(fileName string) {
+func (c *cache) load(fileName string) error {
 	if fileName == "" {
-		return
+		return nil
 	}
 	if _, ok := c.parsed[fileName]; ok {
-		return
+		return nil
 	}
 	c.parsed[fileName] = nil
 	if !strings.HasSuffix(fileName, ".go") {
 		// Ignore C and assembly.
 		c.files[fileName] = nil
-		return
+		return nil
 	}
 	//log.Printf("load(%s)", fileName)
 	if _, ok := c.files[fileName]; !ok {
 		var err error
 		if c.files[fileName], err = ioutil.ReadFile(fileName); err != nil {
-			log.Printf("Failed to read %s: %s", fileName, err)
 			c.files[fileName] = nil
-			return
+			return fmt.Errorf("failed to read %s: "+wrap, fileName, err)
 		}
 	}
 	fset := token.NewFileSet()
 	src := c.files[fileName]
 	parsed, err := parser.ParseFile(fset, fileName, src, 0)
 	if err != nil {
-		log.Printf("Failed to parse %s: %s", fileName, err)
-		return
+		return fmt.Errorf("failed to parse %s: "+wrap, fileName, err)
 	}
 	// Convert the line number into raw file offset.
 	offsets := []int{0, 0}
-	start := 0
-	for l := 1; start < len(src); l++ {
-		start += bytes.IndexByte(src[start:], '\n') + 1
-		offsets = append(offsets, start)
+	offset := 0
+	for l := 1; offset < len(src); l++ {
+		n := bytes.IndexByte(src[offset:], '\n')
+		if n == -1 {
+			break
+		}
+		offset += n + 1
+		offsets = append(offsets, l, offset)
 	}
 	c.parsed[fileName] = &parsedFile{offsets, parsed}
+	return nil
 }
 
 func (c *cache) getFuncAST(call *Call) *ast.FuncDecl {

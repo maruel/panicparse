@@ -10,7 +10,9 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -19,6 +21,17 @@ import (
 
 func TestAugment(t *testing.T) {
 	t.Parallel()
+
+	gm := map[string]string{"/root": "main"}
+	newCallSrc := func(f string, a Args, s string, l int) Call {
+		c := newCall(f, a, s, l)
+		// Simulate findRoots().
+		if !c.updateLocations(goroot, goroot, gm, gopaths) {
+			t.Fatalf("c.updateLocations(%v, %v, %v, %v) failed on %s", goroot, goroot, gm, gopaths, s)
+		}
+		return c
+	}
+
 	data := []struct {
 		name  string
 		input string
@@ -44,12 +57,12 @@ func TestAugment(t *testing.T) {
 			false,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 2}}},
-						"main.go",
+						"/root/main.go",
 						10),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -64,12 +77,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -84,12 +97,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -104,12 +117,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -124,12 +137,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -144,12 +157,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -164,12 +177,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -184,12 +197,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -204,12 +217,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -224,12 +237,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -246,12 +259,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.S.f",
 						Args{},
-						"main.go",
+						"/root/main.go",
 						8),
-					newCall("main.main", Args{}, "main.go", 4),
+					newCallSrc("main.main", Args{}, "/root/main.go", 4),
 				},
 			},
 		},
@@ -268,12 +281,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.(*S).f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
-						"main.go",
+						"/root/main.go",
 						8),
-					newCall("main.main", Args{}, "main.go", 4),
+					newCallSrc("main.main", Args{}, "/root/main.go", 4),
 				},
 			},
 		},
@@ -288,12 +301,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 3}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -308,12 +321,12 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 3}, {Value: 42}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -328,7 +341,7 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						Args{
 							Values: []Arg{
@@ -336,9 +349,9 @@ func TestAugment(t *testing.T) {
 							},
 							Elided: true,
 						},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -354,12 +367,15 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}}},
-						"main.go",
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
+							Processed: []string{"0x2fffffff", "0x2fffffff"},
+						},
+						"/root/main.go",
 						7),
-					newCall("main.main", Args{}, "main.go", 4),
+					newCallSrc("main.main", Args{}, "/root/main.go", 4),
 				},
 			},
 		},
@@ -375,12 +391,15 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}}},
-						"main.go",
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
+							Processed: []string{"0x2fffffff", "0x2fffffff"},
+						},
+						"/root/main.go",
 						7),
-					newCall("main.main", Args{}, "main.go", 4),
+					newCallSrc("main.main", Args{}, "/root/main.go", 4),
 				},
 			},
 		},
@@ -395,14 +414,14 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						// The value is NOT a pointer but floating point encoding is not
 						// deterministic.
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
@@ -417,105 +436,127 @@ func TestAugment(t *testing.T) {
 			true,
 			Stack{
 				Calls: []Call{
-					newCall(
+					newCallSrc(
 						"main.f",
 						// The value is NOT a pointer but floating point encoding is not
 						// deterministic.
 						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
-						"main.go",
+						"/root/main.go",
 						6),
-					newCall("main.main", Args{}, "main.go", 3),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
 				},
 			},
 		},
 	}
 
-	for _, line := range data {
+	for i, line := range data {
+		i := i
 		line := line
-		t.Run(line.name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
 			// Marshal the code a bit to make it nicer. Inject 'package main'.
 			lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)
-			for i := 2; i < len(lines); i++ {
+			for j := 2; j < len(lines); j++ {
 				// Strip the 3 first tab characters. It's very adhoc but good enough here
 				// and makes test failure much more readable.
-				if lines[i][:3] != "\t\t\t" {
+				if lines[j][:3] != "\t\t\t" {
 					t.Fatal("expected line to start with 3 tab characters")
 				}
-				lines[i] = lines[i][3:]
+				lines[j] = lines[j][3:]
 			}
 			input := strings.Join(lines, "\n")
 
-			// Run the command.
+			// Create one temporary directory by subtest.
+			root, err := ioutil.TempDir("", "stack")
+			if err != nil {
+				t.Fatalf("failed to create temporary directory: %v", err)
+			}
+			defer func() {
+				if err2 := os.RemoveAll(root); err2 != nil {
+					t.Fatalf("failed to remove temporary directory %q: %v", root, err2)
+				}
+			}()
+			main := filepath.Join(root, "main.go")
+			if err := ioutil.WriteFile(main, []byte(input), 0500); err != nil {
+				t.Fatalf("failed to write %q: %v", main, err)
+			}
+
+			if runtime.GOOS == "windows" {
+				root = strings.Replace(root, pathSeparator, "/", -1)
+			}
+			const prefix = "/root"
+			for j, c := range line.want.Calls {
+				if strings.HasPrefix(c.RemoteSrcPath, prefix) {
+					line.want.Calls[j].RemoteSrcPath = root + c.RemoteSrcPath[len(prefix):]
+				}
+				if strings.HasPrefix(c.LocalSrcPath, prefix) {
+					line.want.Calls[j].LocalSrcPath = root + c.LocalSrcPath[len(prefix):]
+				}
+				if strings.HasPrefix(c.DirSrc, "root") {
+					line.want.Calls[j].DirSrc = path.Base(root) + c.DirSrc[4:]
+				}
+			}
+
+			// Run the command up to twice.
+
 			// Only disable inlining if necessary.
 			disableInline := hasInlining && line.mayBeInlined
-			_, content, clean1 := getCrash(t, input, disableInline)
-			defer clean1()
-
-			// Analyze it.
-			prefix := bytes.Buffer{}
-			s, suffix, err := ScanSnapshot(bytes.NewBuffer(content), &prefix, DefaultOpts())
-			if err != nil {
-				t.Fatalf("failed to parse input for test %s: %v", line.name, err)
-			}
-			// On go1.4, there's one less empty line.
-			if got := prefix.String(); got != "panic: ooh\n\n" && got != "panic: ooh\n" {
-				t.Fatalf("Unexpected panic output:\n%#v", got)
-			}
-			compareString(t, "exit status 2\n", string(suffix))
-
-			Augment(s.Goroutines)
-			got := s.Goroutines[0].Signature.Stack
-			zapPointers(t, &line.want, &got)
-			zapPaths(&got)
-			if diff := cmp.Diff(line.want, got); diff != "" {
-				t.Logf("Different (-want +got):\n%s", diff)
-				t.Logf("Source code:\n%s", input)
-				t.Logf("Output:\n%s", content)
-				t.FailNow()
-			}
+			content := getCrash(t, main, disableInline)
+			t.Log("First")
+			// Warning: this function modifies want.
+			testAugmentCommon(t, content, false, line.want)
 
 			// If inlining was disabled, try a second time but zap things out.
 			if disableInline {
-				_, content, clean2 := getCrash(t, input, false)
-				defer clean2()
-
-				// Analyze it.
-				prefix.Reset()
-				if s, suffix, err = ScanSnapshot(bytes.NewBuffer(content), &prefix, DefaultOpts()); err != nil {
-					t.Fatalf("failed to parse input for test %s: %v", line.name, err)
+				for j := range line.want.Calls {
+					line.want.Calls[j].Args.Processed = nil
 				}
-				// On go1.4, there's one less space.
-				if got := prefix.String(); got != "panic: ooh\n\n" && got != "panic: ooh\n" {
-					t.Fatalf("Unexpected panic output:\n%#v", got)
-				}
-				compareString(t, "exit status 2\n", string(suffix))
-
-				Augment(s.Goroutines)
-				got = s.Goroutines[0].Signature.Stack
-				// On go1.11 with non-pointer method, it shows elided argument where
-				// there used to be none before. It's only for test case "non-pointer
-				// method".
-				zapPointers(t, &line.want, &got)
-				zapPaths(&got)
-				if line.mayBeInlined {
-					for i := range got.Calls {
-						if !line.want.Calls[i].Args.Elided {
-							got.Calls[i].Args.Elided = false
-						}
-						if got.Calls[i].Args.Values == nil {
-							line.want.Calls[i].Args.Values = nil
-						}
-					}
-				}
-				if diff := cmp.Diff(line.want, got); diff != "" {
-					t.Logf("Different (inlined) (-want +got):\n%s", diff)
-					t.Logf("Source code:\n%s", input)
-					t.Logf("Output:\n%s", content)
-					t.FailNow()
-				}
+				content := getCrash(t, main, false)
+				t.Log("Second")
+				testAugmentCommon(t, content, line.mayBeInlined, line.want)
 			}
 		})
+	}
+}
+
+func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Stack) {
+	// Analyze it.
+	prefix := bytes.Buffer{}
+	s, suffix, err := ScanSnapshot(bytes.NewBuffer(content), &prefix, DefaultOpts())
+	if err != nil {
+		t.Fatalf("failed to parse input: %v", err)
+	}
+	// On go1.4, there's one less empty line.
+	if got := prefix.String(); got != "panic: ooh\n\n" && got != "panic: ooh\n" {
+		t.Fatalf("Unexpected panic output:\n%#v", got)
+	}
+	compareString(t, "exit status 2\n", string(suffix))
+	if !s.GuessPaths() {
+		t.Error("expected success")
+	}
+
+	Augment(s.Goroutines)
+	got := s.Goroutines[0].Signature.Stack
+	zapPointers(t, &want, &got)
+
+	// On go1.11 with non-pointer method, it shows elided argument where
+	// there used to be none before. It's only for test case "non-pointer
+	// method".
+	if mayBeInlined {
+		for j := range got.Calls {
+			if !want.Calls[j].Args.Elided {
+				got.Calls[j].Args.Elided = false
+			}
+			if got.Calls[j].Args.Values == nil {
+				want.Calls[j].Args.Values = nil
+			}
+		}
+	}
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Logf("Different (-want +got):\n%s", diff)
+		t.Logf("Output:\n%s", content)
+		t.FailNow()
 	}
 }
 
@@ -575,22 +616,7 @@ func overrideEnv(env []string, key, value string) []string {
 	return append(env, prefix+value)
 }
 
-func getCrash(t *testing.T, content string, disableInline bool) (string, []byte, func()) {
-	helper(t)()
-	name, err := ioutil.TempDir("", "panicparse")
-	if err != nil {
-		t.Fatalf("failed to create temporary directory: %v", err)
-	}
-	clean := func() {
-		if err2 := os.RemoveAll(name); err2 != nil {
-			t.Fatalf("failed to remove temporary directory %q: %v", name, err2)
-		}
-	}
-	main := filepath.Join(name, "main.go")
-	if err = ioutil.WriteFile(main, []byte(content), 0500); err != nil {
-		clean()
-		t.Fatalf("failed to write %q: %v", main, err)
-	}
+func getCrash(t *testing.T, main string, disableInline bool) []byte {
 	args := []string{"run"}
 	if disableInline {
 		args = append(args, "-gcflags", "-l")
@@ -600,10 +626,9 @@ func getCrash(t *testing.T, content string, disableInline bool) (string, []byte,
 	cmd.Env = overrideEnv(os.Environ(), "GOTRACEBACK", "1")
 	out, err := cmd.CombinedOutput()
 	if err == nil {
-		clean()
 		t.Fatal("expected error since this is supposed to crash")
 	}
-	return main, out, clean
+	return out
 }
 
 // zapPointers zaps out pointers.
@@ -633,15 +658,5 @@ func zapPointers(t *testing.T, want, got *Stack) {
 				}
 			}
 		}
-	}
-}
-
-// zapPaths removes the directory part and only keep the base file name.
-func zapPaths(s *Stack) {
-	for j := range s.Calls {
-		s.Calls[j].RemoteSrcPath = filepath.Base(s.Calls[j].RemoteSrcPath)
-		s.Calls[j].SrcName = ""
-		s.Calls[j].DirSrc = ""
-		s.Calls[j].LocalSrcPath = ""
 	}
 }
