@@ -26,22 +26,22 @@ func TestParseDumpSynthetic(t *testing.T) {
 	t.Parallel()
 
 	data := []struct {
-		name  string
-		in    []string
-		extra string
-		err   error
-		want  []*Goroutine
+		name   string
+		in     []string
+		prefix string
+		err    error
+		want   []*Goroutine
 	}{
 		{name: "Nothing"},
 		{
-			name:  "NothingEmpty",
-			in:    make([]string, 111),
-			extra: strings.Repeat("\n", 110),
+			name:   "NothingEmpty",
+			in:     make([]string, 111),
+			prefix: strings.Repeat("\n", 110),
 		},
 		{
-			name:  "NothingLong",
-			in:    []string{strings.Repeat("a", bufio.MaxScanTokenSize+10)},
-			extra: strings.Repeat("a", bufio.MaxScanTokenSize+10),
+			name:   "NothingLong",
+			in:     []string{strings.Repeat("a", bufio.MaxScanTokenSize+10)},
+			prefix: strings.Repeat("a", bufio.MaxScanTokenSize+10),
 		},
 
 		// One call from main, one from stdlib, one from third party.
@@ -64,7 +64,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:428 +0x27",
 				"",
 			},
-			extra: strings.Repeat("a", bufio.MaxScanTokenSize+1) + "\npanic: reflect.Set: value of type\n\n",
+			prefix: strings.Repeat("a", bufio.MaxScanTokenSize+1) + "\npanic: reflect.Set: value of type\n\n",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -116,7 +116,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
 				"",
 			},
-			extra: "panic: bleh\n\n",
+			prefix: "panic: bleh\n\n",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -183,7 +183,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/goroot/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0",
 				"",
 			},
-			extra: "panic: reflect.Set: value of type\n\n",
+			prefix: "panic: reflect.Set: value of type\n\n",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -214,7 +214,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/goroot/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0 pc=0x5007be",
 				"",
 			},
-			extra: "panic: reflect.Set: value of type\n\n",
+			prefix: "panic: reflect.Set: value of type\n\n",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -331,8 +331,8 @@ func TestParseDumpSynthetic(t *testing.T) {
 				" \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1",
 				"",
 			},
-			extra: " \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1\n",
-			err:   errors.New(`inconsistent indentation: " \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1", expected "  "`),
+			prefix: " \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1\n",
+			err:    errors.New(`inconsistent indentation: " \t/gopath/src/github.com/maruel/panicparse/stack/stack.go:1", expected "  "`),
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -360,7 +360,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/goroot/src/runtime/asm_amd64.s:198 fp=0xc20cfb80d8 sp=0xc20cfb80d0",
 				"",
 			},
-			extra: "panic: reflect.Set: value of type\n\n	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6\n",
+			prefix: "panic: reflect.Set: value of type\n\n	/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6\n",
 			err: errors.New("expected a function after a goroutine header, got: \"/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6\""),
 			want: []*Goroutine{
 				{
@@ -384,7 +384,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/goroot/src/testing/testing.go:555 +0xa8b",
 				"",
 			},
-			extra: "panic: reflect.Set: value of type\n\n",
+			prefix: "panic: reflect.Set: value of type\n\n",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -441,7 +441,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/goroot/src/os/signal/signal_unix.go:27 +0x35",
 				"",
 			},
-			extra: "panic: reflect.Set: value of type\n\n",
+			prefix: "panic: reflect.Set: value of type\n\n",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -503,7 +503,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:131 +0x381",
 				"",
 			},
-			extra: "panic: reflect.Set: value of type\n\n",
+			prefix: "panic: reflect.Set: value of type\n\n",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -537,7 +537,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"",
 				"",
 			},
-			extra: "panic: reflect.Set: value of type\n\n",
+			prefix: "panic: reflect.Set: value of type\n\n",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -561,8 +561,8 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\tgoroutine running on other thread; stack unavailable",
 				"junk",
 			},
-			extra: "panic: reflect.Set: value of type\n\njunk",
-			err:   errors.New("expected empty line after unavailable stack, got: \"junk\""),
+			prefix: "panic: reflect.Set: value of type\n\njunk",
+			err:    errors.New("expected empty line after unavailable stack, got: \"junk\""),
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -627,8 +627,8 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"goroutine 1 [running]:",
 				"junk",
 			},
-			extra: "panic: reflect.Set: value of type\n\njunk",
-			err:   errors.New("expected a function after a goroutine header, got: \"junk\""),
+			prefix: "panic: reflect.Set: value of type\n\njunk",
+			err:    errors.New("expected a function after a goroutine header, got: \"junk\""),
 			want: []*Goroutine{
 				{
 					Signature: Signature{State: "running"},
@@ -648,8 +648,8 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"github.com/maruel/panicparse/stack.func·002()",
 				"junk",
 			},
-			extra: "panic: reflect.Set: value of type\n\njunk",
-			err:   errors.New("expected a file after a function, got: \"junk\""),
+			prefix: "panic: reflect.Set: value of type\n\njunk",
+			err:    errors.New("expected a file after a function, got: \"junk\""),
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -679,7 +679,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:131 +0x381",
 				"exit status 2",
 			},
-			extra: "panic: reflect.Set: value of type\n\nexit status 2",
+			prefix: "panic: reflect.Set: value of type\n\nexit status 2",
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -721,8 +721,8 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"created by github.com/maruel/panicparse/stack.New",
 				"junk",
 			},
-			extra: "panic: reflect.Set: value of type\n\njunk",
-			err:   errors.New("expected a file after a created line, got: \"junk\""),
+			prefix: "panic: reflect.Set: value of type\n\njunk",
+			err:    errors.New("expected a file after a created line, got: \"junk\""),
 			want: []*Goroutine{
 				{
 					Signature: Signature{
@@ -896,7 +896,7 @@ func TestParseDumpSynthetic(t *testing.T) {
 				"",
 				"",
 			},
-			extra: strings.Join([]string{
+			prefix: strings.Join([]string{
 				"Failures:",
 				"",
 				"  * /home/maruel/go/src/foo/bar_test.go",
@@ -1033,8 +1033,8 @@ func TestParseDumpSynthetic(t *testing.T) {
 		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
-			extra := bytes.Buffer{}
-			c, err := ParseDump(bytes.NewBufferString(strings.Join(line.in, "\n")), &extra, false)
+			prefix := bytes.Buffer{}
+			c, err := ParseDump(bytes.NewBufferString(strings.Join(line.in, "\n")), &prefix, false)
 			compareErr(t, line.err, err)
 			if line.want == nil {
 				if c != nil {
@@ -1649,11 +1649,11 @@ func BenchmarkParseDump_Passthru(b *testing.B) {
 			buf[i] = '\n'
 		}
 	}
-	extra := bytes.Buffer{}
-	extra.Grow(len(buf))
+	prefix := bytes.Buffer{}
+	prefix.Grow(len(buf))
 	r := bytes.NewReader(buf)
 	b.ResetTimer()
-	c, err := ParseDump(r, &extra, false)
+	c, err := ParseDump(r, &prefix, false)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1661,8 +1661,8 @@ func BenchmarkParseDump_Passthru(b *testing.B) {
 		b.Fatalf("unexpected %v", c)
 	}
 	b.StopTimer()
-	if !bytes.Equal(extra.Bytes(), buf) {
-		b.Fatal("unexpected extra")
+	if !bytes.Equal(prefix.Bytes(), buf) {
+		b.Fatal("unexpected prefix")
 	}
 }
 

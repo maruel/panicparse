@@ -453,13 +453,13 @@ func TestAugment(t *testing.T) {
 			defer clean1()
 
 			// Analyze it.
-			extra := bytes.Buffer{}
-			c, err := ParseDump(bytes.NewBuffer(content), &extra, true)
+			prefix := bytes.Buffer{}
+			c, err := ParseDump(bytes.NewBuffer(content), &prefix, true)
 			if err != nil {
 				t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 			}
 			// On go1.4, there's one less space.
-			if got := extra.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
+			if got := prefix.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
 				t.Fatalf("Unexpected panic output:\n%#v", got)
 			}
 
@@ -480,12 +480,12 @@ func TestAugment(t *testing.T) {
 				defer clean2()
 
 				// Analyze it.
-				extra.Reset()
-				if c, err = ParseDump(bytes.NewBuffer(content), &extra, true); err != nil {
+				prefix.Reset()
+				if c, err = ParseDump(bytes.NewBuffer(content), &prefix, true); err != nil {
 					t.Fatalf("failed to parse input for test %s: %v", line.name, err)
 				}
 				// On go1.4, there's one less space.
-				if got := extra.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
+				if got := prefix.String(); got != "panic: ooh\n\nexit status 2\n" && got != "panic: ooh\nexit status 2\n" {
 					t.Fatalf("Unexpected panic output:\n%#v", got)
 				}
 
