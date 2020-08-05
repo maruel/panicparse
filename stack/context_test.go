@@ -1401,8 +1401,8 @@ func TestGomoduleComplex(t *testing.T) {
 							SrcName:       "src3.go",
 							DirSrc:        "pkg3/src3.go",
 							LocalSrcPath:  pathJoin(rootLocal, "go", "src", "example.com", "pkg3", "src3.go"),
-							// TODO(maruel): This is incorrect.
-							RelSrcPath: "example.com/pkg3/src3.go",
+							RelSrcPath:    "example.com/pkg3/src3.go",
+							ImportPath:    "example.com/pkg3",
 						},
 						{
 							Func:          newFunc("example.com/pkg2.CallDie"),
@@ -1411,10 +1411,11 @@ func TestGomoduleComplex(t *testing.T) {
 							Line:          3,
 							SrcName:       "src2.go",
 							DirSrc:        "pkg2/src2.go",
-							// TODO(maruel): This is incorrect.
+							// Since this was found locally as a go module using the remote
+							// path, this is correct, even if confusing.
 							LocalSrcPath: pathJoin(rootRemote, "pkg2", "src2.go"),
-							// TODO(maruel): This is incorrect.
-							RelSrcPath: "example.com/pkg2/src2.go",
+							RelSrcPath:   "src2.go",
+							ImportPath:   "example.com/pkg2",
 						},
 						{
 							Func:          newFunc("example.com/pkg1/internal.CallCallDie"),
@@ -1422,10 +1423,11 @@ func TestGomoduleComplex(t *testing.T) {
 							Line:          2,
 							SrcName:       "int.go",
 							DirSrc:        "internal/int.go",
-							// TODO(maruel): This is incorrect.
+							// Since this was found locally as a go module using the remote
+							// path, this is correct, even if confusing.
 							LocalSrcPath: pathJoin(rootRemote, "pkg1", "internal", "int.go"),
-							// TODO(maruel): This is incorrect.
-							RelSrcPath: "example.com/pkg1/internal/int.go",
+							RelSrcPath:   "internal/int.go",
+							ImportPath:   "example.com/pkg1/internal",
 						},
 						{
 							Func:          newFunc("main.main"),
@@ -1433,10 +1435,11 @@ func TestGomoduleComplex(t *testing.T) {
 							Line:          4,
 							SrcName:       "main.go",
 							DirSrc:        "cmd/main.go",
-							// TODO(maruel): This is incorrect.
+							// Since this was found locally as a go module using the remote
+							// path, this is correct, even if confusing.
 							LocalSrcPath: pathJoin(rootRemote, "pkg1", "cmd", "main.go"),
-							// TODO(maruel): This is incorrect.
-							RelSrcPath: "example.com/pkg1/cmd/main.go",
+							RelSrcPath:   "cmd/main.go",
+							ImportPath:   "example.com/pkg1/cmd",
 						},
 					},
 				},
@@ -1977,8 +1980,8 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.Stack.Calls[0].ImportPath() != "github.com/maruel/panicparse"+ver+"/cmd/panicweb/internal" {
-			t.Fatalf("suspicious: %#v", b)
+		if b.Stack.Calls[0].ImportPath != "github.com/maruel/panicparse"+ver+"/cmd/panicweb/internal" {
+			t.Fatalf("suspicious: %q\n%#v", b.Stack.Calls[0].ImportPath, b)
 			return pstUnknown
 		}
 		if b.Stack.Calls[0].SrcName != "internal.go" {
@@ -1989,7 +1992,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
-		if b.CreatedBy.Calls[0].ImportPath() != "net/http" {
+		if b.CreatedBy.Calls[0].ImportPath != "net/http" {
 			t.Fatalf("suspicious: %#v", b)
 			return pstUnknown
 		}
@@ -2005,13 +2008,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 
 	// Find the client goroutine signatures. For the client, it is likely that
 	// they haven't all bucketed perfectly.
-	if b.CreatedBy.Calls[0].ImportPath() == "github.com/maruel/panicparse"+ver+"/cmd/panicweb/internal" && b.CreatedBy.Calls[0].Func.Name == "GetAsync" {
+	if b.CreatedBy.Calls[0].ImportPath == "github.com/maruel/panicparse"+ver+"/cmd/panicweb/internal" && b.CreatedBy.Calls[0].Func.Name == "GetAsync" {
 		// TODO(maruel): More checks.
 		return pstClient
 	}
 
 	// Now find the two goroutine started by main.
-	if b.CreatedBy.Calls[0].ImportPath() == "github.com/maruel/panicparse"+ver+"/cmd/panicweb" && b.CreatedBy.Calls[0].Func.ImportPath == "main" && b.CreatedBy.Calls[0].Func.Name == "main" {
+	if b.CreatedBy.Calls[0].ImportPath == "github.com/maruel/panicparse"+ver+"/cmd/panicweb" && b.CreatedBy.Calls[0].Func.ImportPath == "main" && b.CreatedBy.Calls[0].Func.Name == "main" {
 		if b.State == "IO wait" {
 			return pstServe
 		}
@@ -2151,7 +2154,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			return pstStdlib
 		}
 	}
-	t.Logf("CreatedBy import: %s", b.CreatedBy.Calls[0].ImportPath())
+	t.Logf("CreatedBy import: %s", b.CreatedBy.Calls[0].ImportPath)
 	t.Logf("CreatedBy:\n%#v", b.CreatedBy)
 	t.Fatalf("unexpected thread started by non-stdlib:\n%#v", b.Stack.Calls)
 	return pstUnknown

@@ -540,6 +540,8 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 				cur.CreatedBy.Calls = nil
 				return false, err
 			}
+			// This initializes ImportPath.
+			cur.CreatedBy.Calls[0].init("", 0)
 			s.state = gotCreated
 			return true, nil
 		}
@@ -748,6 +750,9 @@ func parseFunc(c *Call, line []byte) (bool, error) {
 		if err := c.Func.Init(string(match[1])); err != nil {
 			return true, err
 		}
+		// It is also done in c.init() but do it here in case of a corrupted trace
+		// for the file section.
+		c.ImportPath = c.Func.ImportPath
 		for _, a := range bytes.Split(match[2], commaSpace) {
 			if bytes.Equal(a, threeDots) {
 				c.Args.Elided = true

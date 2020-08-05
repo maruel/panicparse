@@ -122,7 +122,7 @@ func minus(i, j int) int {
 
 // pkgURL returns a link to the godoc for the call.
 func pkgURL(c *stack.Call) template.URL {
-	imp := c.ImportPath()
+	imp := c.ImportPath
 	// Check for vendored code first.
 	if i := strings.Index(imp, "/vendor/"); i != -1 {
 		imp = imp[i+8:]

@@ -87,10 +87,10 @@ func TestCallPkg(t *testing.T) {
 		// Expectations
 		DirSrc       string
 		SrcName      string
-		ImportPath   string
 		IsStdlib     bool
 		LocalSrcPath string
 		RelSrcPath   string
+		ImportPath   string
 	}{
 		{
 			name:         "Pkg",
@@ -98,9 +98,9 @@ func TestCallPkg(t *testing.T) {
 			s:            "/gpremote/src/gopkg.in/yaml.v2/yaml.go",
 			DirSrc:       pathJoin("yaml.v2", "yaml.go"),
 			SrcName:      "yaml.go",
-			ImportPath:   "gopkg.in/yaml.v2",
 			LocalSrcPath: "/gplocal/src/gopkg.in/yaml.v2/yaml.go",
 			RelSrcPath:   "gopkg.in/yaml.v2/yaml.go",
+			ImportPath:   "gopkg.in/yaml.v2",
 		},
 		{
 			name:         "PkgMod",
@@ -108,9 +108,9 @@ func TestCallPkg(t *testing.T) {
 			s:            "/gpremote/pkg/mod/gopkg.in/yaml.v2@v2.3.0/yaml.go",
 			DirSrc:       pathJoin("yaml.v2@v2.3.0", "yaml.go"),
 			SrcName:      "yaml.go",
-			ImportPath:   "gopkg.in/yaml.v2@v2.3.0",
 			LocalSrcPath: "/gplocal/pkg/mod/gopkg.in/yaml.v2@v2.3.0/yaml.go",
 			RelSrcPath:   "gopkg.in/yaml.v2@v2.3.0/yaml.go",
+			ImportPath:   "gopkg.in/yaml.v2@v2.3.0",
 		},
 		{
 			name:         "PkgMethod",
@@ -118,9 +118,9 @@ func TestCallPkg(t *testing.T) {
 			s:            "/gpremote/src/gopkg.in/yaml.v2/yaml.go",
 			DirSrc:       pathJoin("yaml.v2", "yaml.go"),
 			SrcName:      "yaml.go",
-			ImportPath:   "gopkg.in/yaml.v2",
 			LocalSrcPath: "/gplocal/src/gopkg.in/yaml.v2/yaml.go",
 			RelSrcPath:   "gopkg.in/yaml.v2/yaml.go",
+			ImportPath:   "gopkg.in/yaml.v2",
 		},
 		{
 			name:         "Stdlib",
@@ -128,10 +128,10 @@ func TestCallPkg(t *testing.T) {
 			s:            "/grremote/src/reflect/value.go",
 			DirSrc:       pathJoin("reflect", "value.go"),
 			SrcName:      "value.go",
-			ImportPath:   "reflect",
 			IsStdlib:     true,
 			LocalSrcPath: "/grlocal/src/reflect/value.go",
 			RelSrcPath:   "reflect/value.go",
+			ImportPath:   "reflect",
 		},
 		{
 			name:         "Main",
@@ -139,9 +139,9 @@ func TestCallPkg(t *testing.T) {
 			s:            "/gpremote/src/github.com/maruel/panicparse/cmd/pp/main.go",
 			DirSrc:       pathJoin("pp", "main.go"),
 			SrcName:      "main.go",
-			ImportPath:   "github.com/maruel/panicparse/cmd/pp",
 			LocalSrcPath: "/gplocal/src/github.com/maruel/panicparse/cmd/pp/main.go",
 			RelSrcPath:   "github.com/maruel/panicparse/cmd/pp/main.go",
+			ImportPath:   "github.com/maruel/panicparse/cmd/pp",
 		},
 		{
 			// See testPanicMismatched in context_test.go.
@@ -150,9 +150,9 @@ func TestCallPkg(t *testing.T) {
 			s:            "/gpremote/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 			DirSrc:       pathJoin("incorrect", "correct.go"),
 			SrcName:      "correct.go",
-			ImportPath:   "github.com/maruel/panicparse/cmd/panic/internal/incorrect",
 			LocalSrcPath: "/gplocal/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 			RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
+			ImportPath:   "github.com/maruel/panicparse/cmd/panic/internal/incorrect",
 		},
 		{
 			// See testPanicUTF8 in context_test.go.
@@ -161,9 +161,9 @@ func TestCallPkg(t *testing.T) {
 			s:            "/gpremote/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 			DirSrc:       pathJoin("ùtf8", "ùtf8.go"),
 			SrcName:      "ùtf8.go",
-			ImportPath:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8",
 			LocalSrcPath: "/gplocal/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 			RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
+			ImportPath:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8",
 		},
 		{
 			name:         "C",
@@ -171,10 +171,10 @@ func TestCallPkg(t *testing.T) {
 			s:            "/grremote/src/runtime/proc.c",
 			DirSrc:       pathJoin("runtime", "proc.c"),
 			SrcName:      "proc.c",
-			ImportPath:   "runtime",
 			IsStdlib:     true,
 			LocalSrcPath: "/grlocal/src/runtime/proc.c",
 			RelSrcPath:   "runtime/proc.c",
+			ImportPath:   "runtime",
 		},
 		{
 			name:         "Gomod",
@@ -182,25 +182,19 @@ func TestCallPkg(t *testing.T) {
 			s:            "/gomod/bar/baz.go",
 			DirSrc:       "bar/baz.go",
 			SrcName:      "baz.go",
-			ImportPath:   "example.com/foo/bar",
 			LocalSrcPath: "/gomod/bar/baz.go",
-			// TODO(maruel): This is incorrect.
-			//RelSrcPath:   "bar/baz.go",
-			RelSrcPath: "example.com/foo/bar/baz.go",
+			RelSrcPath:   "bar/baz.go",
+			ImportPath:   "example.com/foo/bar",
 		},
 		{
-			name:    "GomodMain",
-			f:       "main.main",
-			s:       "/gomod/cmd/panic/main.go",
-			DirSrc:  "panic/main.go",
-			SrcName: "main.go",
-			// TODO(maruel): This is incorrect.
-			//ImportPath:   "main",
-			ImportPath:   "example.com/foo/cmd/panic",
+			name:         "GomodMain",
+			f:            "main.main",
+			s:            "/gomod/cmd/panic/main.go",
+			DirSrc:       "panic/main.go",
+			SrcName:      "main.go",
 			LocalSrcPath: "/gomod/cmd/panic/main.go",
-			// TODO(maruel): This is incorrect.
-			//RelSrcPath:   "cmd/panic/main.go",
-			RelSrcPath: "example.com/foo/cmd/panic/main.go",
+			RelSrcPath:   "cmd/panic/main.go",
+			ImportPath:   "example.com/foo/cmd/panic",
 		},
 	}
 	for i, line := range data {
@@ -216,7 +210,7 @@ func TestCallPkg(t *testing.T) {
 			if !c.updateLocations("/grremote", "/grlocal", gm, gp) {
 				t.Error("Unexpected")
 			}
-			compareString(t, line.ImportPath, c.ImportPath())
+			compareString(t, line.ImportPath, c.ImportPath)
 			compareBool(t, line.IsStdlib, c.IsStdlib)
 			compareString(t, line.LocalSrcPath, c.LocalSrcPath)
 			compareString(t, line.RelSrcPath, c.RelSrcPath)

@@ -25,7 +25,7 @@ type Func struct {
 	// path contains dots.
 	Complete string
 	// ImportPath is the directory name for this function reference, or "main" if
-	// it was in package main.
+	// it was in package main. The package name may not match.
 	ImportPath string
 	// DirName is the directory name containing the package in which the function
 	// is. Normally this matches the package name, but sometimes there's smartass
@@ -85,6 +85,7 @@ func (f *Func) Init(raw string) error {
 	}
 	if f.ImportPath == "main" {
 		f.IsPkgMain = true
+		// Consider main.main to be exported.
 		if f.Name == "main" {
 			f.IsExported = true
 		}
@@ -264,6 +265,12 @@ type Call struct {
 	LocalSrcPath string
 	// RelSrcPath is the relative path to GOROOT, GOPATH or LocalGoMods.
 	RelSrcPath string
+	// ImportPath is the fully qualified import path as found on disk (when
+	// GuessPaths() was called). Defaults to Func.ImportPath otherwise.
+	//
+	// In the case of package "main", it returns the underlying path to the main
+	// package instead of "main" if GuessPaths() was called.
+	ImportPath string
 	// IsStdlib is true if it is a Go standard library function. This includes
 	// the 'go test' generated main executable.
 	IsStdlib bool
@@ -272,44 +279,30 @@ type Call struct {
 	_ struct{}
 }
 
-// ImportPath returns the fully qualified package import path.
+// Init initializes RemoteSrcPath, SrcName, DirName and Line.
 //
-// In the case of package "main", it returns the underlying path to the main
-// package instead of "main" if GuessPaths() was called.
-func (c *Call) ImportPath() string {
-	// In case GuessPaths() was called.
-	if c.RelSrcPath != "" {
-		if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
-			return c.RelSrcPath[:i]
-		}
-	}
-	// Fallback to best effort.
-	if !c.Func.IsPkgMain {
-		return c.Func.ImportPath
-	}
-	// In package main, it can only work well if GuessPaths() was called. Return
-	// an empty string instead of garbagge.
-	return ""
-}
-
-// Init initializes RemoteSrcPath, SrcName, DirName, Line and IsStdlib for test
-// main.
+// For test main, it initializes IsStdlib.
+//
+// It does its best educated guess for ImportPath.
 func (c *Call) init(srcPath string, line int) {
-	c.RemoteSrcPath = srcPath
 	c.Line = line
-	if i := strings.LastIndexByte(c.RemoteSrcPath, '/'); i != -1 {
-		c.SrcName = c.RemoteSrcPath[i+1:]
-		if i = strings.LastIndexByte(c.RemoteSrcPath[:i], '/'); i != -1 {
-			c.DirSrc = c.RemoteSrcPath[i+1:]
+	if srcPath != "" {
+		c.RemoteSrcPath = srcPath
+		if i := strings.LastIndexByte(c.RemoteSrcPath, '/'); i != -1 {
+			c.SrcName = c.RemoteSrcPath[i+1:]
+			if i = strings.LastIndexByte(c.RemoteSrcPath[:i], '/'); i != -1 {
+				c.DirSrc = c.RemoteSrcPath[i+1:]
+			}
 		}
+		// Consider _test/_testmain.go as stdlib since it's injected by "go test".
+		c.IsStdlib = c.DirSrc == testMainSrc
 	}
-	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
-	c.IsStdlib = c.DirSrc == testMainSrc
+	c.ImportPath = c.Func.ImportPath
 }
 
 const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 
-// updateLocations initializes LocalSrcPath, RelSrcPath and IsStdlib.
+// updateLocations initializes LocalSrcPath, RelSrcPath, IsStdlib and ImportPath.
 //
 // goroot, localgoroot, localgomod, gomodImportPath and gopaths are expected to
 // be in "/" format even on Windows. They must not have a trailing "/".
@@ -326,6 +319,9 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 			// Replace remote GOROOT with local GOROOT.
 			c.RelSrcPath = c.RemoteSrcPath[len(prefix):]
 			c.LocalSrcPath = pathJoin(localgoroot, "src", c.RelSrcPath)
+			if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
+				c.ImportPath = c.RelSrcPath[:i]
+			}
 			c.IsStdlib = true
 			return true
 		}
@@ -336,12 +332,18 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 		if p := prefix + "/src/"; strings.HasPrefix(c.RemoteSrcPath, p) {
 			c.RelSrcPath = c.RemoteSrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "src", c.RelSrcPath)
+			if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
+				c.ImportPath = c.RelSrcPath[:i]
+			}
 			return true
 		}
 		// For modules, the path has to be altered, as it contains the version.
 		if p := prefix + "/pkg/mod/"; strings.HasPrefix(c.RemoteSrcPath, p) {
 			c.RelSrcPath = c.RemoteSrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "pkg/mod", c.RelSrcPath)
+			if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
+				c.ImportPath = c.RelSrcPath[:i]
+			}
 			return true
 		}
 	}
@@ -350,9 +352,13 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 	// file system.
 	for prefix, pkg := range localgomods {
 		if strings.HasPrefix(c.RemoteSrcPath, prefix+"/") {
-			// TODO(maruel): Handle pkg, especially if "main".
-			c.RelSrcPath = pkg + "/" + c.RemoteSrcPath[len(prefix)+1:]
+			c.RelSrcPath = c.RemoteSrcPath[len(prefix)+1:]
 			c.LocalSrcPath = c.RemoteSrcPath
+			if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
+				c.ImportPath = pkg + "/" + c.RelSrcPath[:i]
+			} else {
+				c.ImportPath = pkg
+			}
 			return true
 		}
 	}
@@ -382,6 +388,7 @@ func (c *Call) merge(r *Call) Call {
 		DirSrc:        c.DirSrc,
 		LocalSrcPath:  c.LocalSrcPath,
 		RelSrcPath:    c.RelSrcPath,
+		ImportPath:    c.ImportPath,
 		IsStdlib:      c.IsStdlib,
 	}
 }

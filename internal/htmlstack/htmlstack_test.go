@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	"path"
 	"regexp"
 	"runtime"
 	"strings"
@@ -302,12 +303,15 @@ func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(goroot):]
 		c.IsStdlib = true
+		c.ImportPath = path.Dir(c.RelSrcPath)
 	} else if strings.HasPrefix(s, gopath) {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(gopath):]
+		c.ImportPath = path.Dir(c.RelSrcPath)
 	} else if strings.HasPrefix(s, gopathmod) {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(gopathmod):]
+		c.ImportPath = path.Dir(c.RelSrcPath)
 	}
 	return c
 }
