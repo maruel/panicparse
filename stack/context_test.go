@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -1164,7 +1165,9 @@ func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 	prefix := bytes.Buffer{}
 	s, suffix, err := ScanSnapshot(&in, &prefix, DefaultOpts())
 	compareErr(t, nil, err)
-	s.GuessPaths()
+	if !s.GuessPaths() {
+		t.Error("expected success")
+	}
 	want := []*Goroutine{
 		{
 			Signature: Signature{
@@ -1191,7 +1194,9 @@ func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 	r := io.MultiReader(bytes.NewReader(suffix), &in)
 	s, suffix, err = ScanSnapshot(r, &prefix, DefaultOpts())
 	compareErr(t, nil, err)
-	s.GuessPaths()
+	if !s.GuessPaths() {
+		t.Error("expected success")
+	}
 	want = []*Goroutine{
 		{
 			Signature: Signature{
@@ -1342,7 +1347,9 @@ func TestGomoduleComplex(t *testing.T) {
 	prefix := bytes.Buffer{}
 	s, suffix, err := ScanSnapshot(bytes.NewReader(out), &prefix, DefaultOpts())
 	compareErr(t, io.EOF, err)
-	s.GuessPaths()
+	if !s.GuessPaths() {
+		t.Error("expected success")
+	}
 	if s == nil {
 		t.Fatal("expected snapshot")
 	}
@@ -1447,6 +1454,77 @@ func TestGomoduleComplex(t *testing.T) {
 			ID:    1,
 			First: true,
 		},
+	}
+	similarGoroutines(t, want, s.Goroutines)
+}
+
+func TestGoRun(t *testing.T) {
+	t.Parallel()
+	root, err := ioutil.TempDir("", "stack")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err = os.RemoveAll(root); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	p := filepath.Join(root, "main.go")
+	content := "package main\nfunc main() { panic(42) }\n"
+	if err = ioutil.WriteFile(p, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c := exec.Command("go", "run", p)
+	out, err := c.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected failure")
+	}
+	prefix := bytes.Buffer{}
+	s, suffix, err := ScanSnapshot(bytes.NewReader(out), &prefix, DefaultOpts())
+	compareErr(t, nil, err)
+	compareString(t, "panic: 42\n\n", prefix.String())
+	compareString(t, "exit status 2\n", string(suffix))
+	if s == nil {
+		t.Fatal("expected snapshot")
+	}
+	if runtime.GOOS == "windows" {
+		// On Windows, we must make the path to be POSIX style.
+		p = strings.Replace(p, pathSeparator, "/", -1)
+	}
+
+	want := []*Goroutine{
+		{
+			Signature: Signature{
+				State: "running",
+				Stack: Stack{
+					Calls: []Call{
+						{
+							Func: Func{
+								Complete:   "main.main",
+								ImportPath: "main",
+								DirName:    "main",
+								Name:       "main",
+								IsExported: true,
+								IsPkgMain:  true,
+							},
+							RemoteSrcPath: p,
+							Line:          2,
+							SrcName:       "main.go",
+							DirSrc:        path.Base(path.Dir(p)) + "/main.go",
+							ImportPath:    "main",
+						},
+					},
+				},
+			},
+			ID:    1,
+			First: true,
+		},
+	}
+	similarGoroutines(t, want, s.Goroutines)
+
+	if s.GuessPaths() {
+		t.Error("expected failure")
 	}
 	similarGoroutines(t, want, s.Goroutines)
 }
@@ -1778,7 +1856,9 @@ func TestPanicweb(t *testing.T) {
 	if s.RemoteGOROOT != "" {
 		t.Fatalf("unexpected RemoteGOROOT: %q", s.RemoteGOROOT)
 	}
-	s.GuessPaths()
+	if !s.GuessPaths() {
+		t.Error("expected success")
+	}
 	if s.RemoteGOROOT != strings.Replace(runtime.GOROOT(), "\\", "/", -1) {
 		t.Fatalf("RemoteGOROOT mismatch; want:%q got:%q", runtime.GOROOT(), s.RemoteGOROOT)
 	}
