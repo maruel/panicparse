@@ -33,6 +33,7 @@ type Opts struct {
 	// unset.
 	LocalGOPATHs []string
 
+	// Disallow initialization with unnamed parameters.
 	_ struct{}
 }
 
@@ -102,6 +103,7 @@ type Snapshot struct {
 	// It only works with stack traces created in the local file system.
 	LocalGomods map[string]string
 
+	// Disallow initialization with unnamed parameters.
 	_ struct{}
 }
 

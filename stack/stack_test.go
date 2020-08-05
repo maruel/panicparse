@@ -210,7 +210,7 @@ func TestCallPkg(t *testing.T) {
 			c := newCall(line.f, Args{}, line.s, 153)
 			compareString(t, line.DirSrc, c.DirSrc)
 			compareString(t, line.SrcName, c.SrcName)
-			// ParseDump(guesspaths=true).
+			// Equivalent of calling GuessPaths().
 			gp := map[string]string{"/gpremote": "/gplocal"}
 			gm := map[string]string{"/gomod": "example.com/foo"}
 			if !c.updateLocations("/grremote", "/grlocal", gm, gp) {

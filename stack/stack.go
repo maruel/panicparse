@@ -33,7 +33,7 @@ type Func struct {
 	DirName string
 	// Name is the function name or fully quality method name.
 	Name string
-	// IsExported returns true if the function is exported.
+	// IsExported is true if the function is exported.
 	IsExported bool
 	// IsPkgMain is true if it is in the main package.
 	IsPkgMain bool
@@ -234,31 +234,35 @@ func (a *Args) merge(r *Args) Args {
 }
 
 // Call is an item in the stack trace.
+//
+// All paths in this struct are in POSIX format, using "/" as path separator.
 type Call struct {
 	// The following are initialized on the first line of the call stack.
+
 	// Func is the fully qualified function name (encoded).
 	Func Func
 	// Args is the call arguments.
 	Args Args
 
 	// The following are initialized on the second line of the call stack.
+
 	// SrcPath is the full path name of the source file as seen in the trace.
 	SrcPath string
 	// Line is the line number.
 	Line int
-	// SrcName returns the base file name of the source file. It is a subset of
+	// SrcName is the base file name of the source file. It is a subset of
 	// SrcPath.
 	SrcName string
 	// DirSrc is one directory plus the file name of the source file. It is a
 	// subset of SrcPath.
 	DirSrc string
 
-	// The following are only set if guesspaths is set to true in ParseDump().
+	// The following are only set if GuessPaths() was called on the Snapshot.
+
 	// LocalSrcPath is the full path name of the source file as seen in the host,
 	// if found.
 	LocalSrcPath string
-	// RelSrcPath is the relative path to GOROOT or GOPATH. Only set when
-	// Augment() is called.
+	// RelSrcPath is the relative path to GOROOT, GOPATH or LocalGoMods.
 	RelSrcPath string
 	// IsStdlib is true if it is a Go standard library function. This includes
 	// the 'go test' generated main executable.
@@ -271,9 +275,9 @@ type Call struct {
 // ImportPath returns the fully qualified package import path.
 //
 // In the case of package "main", it returns the underlying path to the main
-// package instead of "main" if guesspaths=true was specified to ParseDump().
+// package instead of "main" if GuessPaths() was called.
 func (c *Call) ImportPath() string {
-	// In case guesspath=true was passed to ParseDump().
+	// In case GuessPaths() was called.
 	if c.RelSrcPath != "" {
 		if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
 			return c.RelSrcPath[:i]
@@ -283,7 +287,7 @@ func (c *Call) ImportPath() string {
 	if !c.Func.IsPkgMain {
 		return c.Func.ImportPath
 	}
-	// In package main, it can only work well if guesspath=true was used. Return
+	// In package main, it can only work well if GuessPaths() was called. Return
 	// an empty string instead of garbagge.
 	return ""
 }
@@ -311,6 +315,7 @@ const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 //
 // Returns true if a match was found.
 func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths map[string]string) bool {
+	// TODO(maruel): Reduce memory allocations.
 	if c.SrcPath == "" {
 		return false
 	}
