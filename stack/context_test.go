@@ -1349,7 +1349,7 @@ func TestGomoduleComplex(t *testing.T) {
 	compareString(t, "panic: 42\n\n", prefix.String())
 	compareString(t, "", string(suffix))
 	wantGOROOT := ""
-	compareString(t, wantGOROOT, s.GOROOT)
+	compareString(t, wantGOROOT, s.RemoteGOROOT)
 	compareString(t, runtime.GOROOT(), strings.Replace(s.LocalGOROOT, "/", pathSeparator, -1))
 
 	rootRemote := root
@@ -1373,7 +1373,7 @@ func TestGomoduleComplex(t *testing.T) {
 	wantGOPATHs := map[string]string{
 		pathJoin(rootRemote, "go"): pathJoin(rootLocal, "go"),
 	}
-	if diff := cmp.Diff(s.GOPATHs, wantGOPATHs); diff != "" {
+	if diff := cmp.Diff(s.RemoteGOPATHs, wantGOPATHs); diff != "" {
 		t.Fatalf("+want/-got: %s", diff)
 	}
 
@@ -1394,45 +1394,45 @@ func TestGomoduleComplex(t *testing.T) {
 				Stack: Stack{
 					Calls: []Call{
 						{
-							Func:         newFunc("example.com/pkg3.Die"),
-							Args:         Args{Elided: true},
-							SrcPath:      pathJoin(rootRemote, "go", "src", "example.com", "pkg3", "src3.go"),
-							Line:         2,
-							SrcName:      "src3.go",
-							DirSrc:       "pkg3/src3.go",
-							LocalSrcPath: pathJoin(rootLocal, "go", "src", "example.com", "pkg3", "src3.go"),
+							Func:          newFunc("example.com/pkg3.Die"),
+							Args:          Args{Elided: true},
+							RemoteSrcPath: pathJoin(rootRemote, "go", "src", "example.com", "pkg3", "src3.go"),
+							Line:          2,
+							SrcName:       "src3.go",
+							DirSrc:        "pkg3/src3.go",
+							LocalSrcPath:  pathJoin(rootLocal, "go", "src", "example.com", "pkg3", "src3.go"),
 							// TODO(maruel): This is incorrect.
 							RelSrcPath: "example.com/pkg3/src3.go",
 						},
 						{
-							Func:    newFunc("example.com/pkg2.CallDie"),
-							Args:    Args{Elided: true},
-							SrcPath: pathJoin(rootRemote, "pkg2", "src2.go"),
-							Line:    3,
-							SrcName: "src2.go",
-							DirSrc:  "pkg2/src2.go",
+							Func:          newFunc("example.com/pkg2.CallDie"),
+							Args:          Args{Elided: true},
+							RemoteSrcPath: pathJoin(rootRemote, "pkg2", "src2.go"),
+							Line:          3,
+							SrcName:       "src2.go",
+							DirSrc:        "pkg2/src2.go",
 							// TODO(maruel): This is incorrect.
 							LocalSrcPath: pathJoin(rootRemote, "pkg2", "src2.go"),
 							// TODO(maruel): This is incorrect.
 							RelSrcPath: "example.com/pkg2/src2.go",
 						},
 						{
-							Func:    newFunc("example.com/pkg1/internal.CallCallDie"),
-							SrcPath: pathJoin(rootRemote, "pkg1", "internal", "int.go"),
-							Line:    2,
-							SrcName: "int.go",
-							DirSrc:  "internal/int.go",
+							Func:          newFunc("example.com/pkg1/internal.CallCallDie"),
+							RemoteSrcPath: pathJoin(rootRemote, "pkg1", "internal", "int.go"),
+							Line:          2,
+							SrcName:       "int.go",
+							DirSrc:        "internal/int.go",
 							// TODO(maruel): This is incorrect.
 							LocalSrcPath: pathJoin(rootRemote, "pkg1", "internal", "int.go"),
 							// TODO(maruel): This is incorrect.
 							RelSrcPath: "example.com/pkg1/internal/int.go",
 						},
 						{
-							Func:    newFunc("main.main"),
-							SrcPath: pathJoin(rootRemote, "pkg1", "cmd", "main.go"),
-							Line:    4,
-							SrcName: "main.go",
-							DirSrc:  "cmd/main.go",
+							Func:          newFunc("main.main"),
+							RemoteSrcPath: pathJoin(rootRemote, "pkg1", "cmd", "main.go"),
+							Line:          4,
+							SrcName:       "main.go",
+							DirSrc:        "cmd/main.go",
 							// TODO(maruel): This is incorrect.
 							LocalSrcPath: pathJoin(rootRemote, "pkg1", "cmd", "main.go"),
 							// TODO(maruel): This is incorrect.
@@ -1513,8 +1513,8 @@ func TestPanic(t *testing.T) {
 }
 
 func testPanicArgsElided(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
-	if s.GOROOT != "" {
-		t.Fatalf("GOROOT is %q", s.GOROOT)
+	if s.RemoteGOROOT != "" {
+		t.Fatalf("RemoteGOROOT is %q", s.RemoteGOROOT)
 	}
 	if b.String() != "GOTRACEBACK=all\npanic: 1\n\n" {
 		t.Fatalf("output: %q", b.String())
@@ -1546,8 +1546,8 @@ func testPanicArgsElided(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir strin
 }
 
 func testPanicMismatched(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
-	if s.GOROOT != "" {
-		t.Fatalf("GOROOT is %q", s.GOROOT)
+	if s.RemoteGOROOT != "" {
+		t.Fatalf("RemoteGOROOT is %q", s.RemoteGOROOT)
 	}
 	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
 		t.Fatalf("output: %q", b.String())
@@ -1585,8 +1585,8 @@ func testPanicMismatched(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir strin
 }
 
 func testPanicRace(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
-	if s.GOROOT != "" {
-		t.Fatalf("GOROOT is %q", s.GOROOT)
+	if s.RemoteGOROOT != "" {
+		t.Fatalf("RemoteGOROOT is %q", s.RemoteGOROOT)
 	}
 	if b.String() != "GOTRACEBACK=all\n" {
 		t.Fatalf("output: %q", b.String())
@@ -1687,8 +1687,8 @@ func testPanicRace(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 }
 
 func testPanicStr(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
-	if s.GOROOT != "" {
-		t.Fatalf("GOROOT is %q", s.GOROOT)
+	if s.RemoteGOROOT != "" {
+		t.Fatalf("RemoteGOROOT is %q", s.RemoteGOROOT)
 	}
 	if b.String() != "GOTRACEBACK=all\npanic: allo\n\n" {
 		t.Fatalf("output: %q", b.String())
@@ -1717,8 +1717,8 @@ func testPanicStr(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 }
 
 func testPanicUTF8(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
-	if s.GOROOT != "" {
-		t.Fatalf("GOROOT is %q", s.GOROOT)
+	if s.RemoteGOROOT != "" {
+		t.Fatalf("RemoteGOROOT is %q", s.RemoteGOROOT)
 	}
 	if b.String() != "GOTRACEBACK=all\npanic: 42\n\n" {
 		t.Fatalf("output: %q", b.String())
@@ -1772,12 +1772,12 @@ func TestPanicweb(t *testing.T) {
 	}
 	compareString(t, "panic: Here's a snapshot of a normal web server.\n\n", prefix.String())
 	compareString(t, "", string(suffix))
-	if s.GOROOT != "" {
-		t.Fatalf("unexpected GOROOT: %q", s.GOROOT)
+	if s.RemoteGOROOT != "" {
+		t.Fatalf("unexpected RemoteGOROOT: %q", s.RemoteGOROOT)
 	}
 	s.GuessPaths()
-	if s.GOROOT != strings.Replace(runtime.GOROOT(), "\\", "/", -1) {
-		t.Fatalf("GOROOT mismatch; want:%q got:%q", runtime.GOROOT(), s.GOROOT)
+	if s.RemoteGOROOT != strings.Replace(runtime.GOROOT(), "\\", "/", -1) {
+		t.Fatalf("RemoteGOROOT mismatch; want:%q got:%q", runtime.GOROOT(), s.RemoteGOROOT)
 	}
 	if got := len(s.Goroutines); got < 30 {
 		t.Fatalf("unexpected Goroutines; want at least 30, got %d", got)

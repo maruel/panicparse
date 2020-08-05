@@ -75,18 +75,19 @@ type Snapshot struct {
 
 	// The following members are initialized by GuessPaths.
 
-	// GOROOT is the GOROOT as detected in the traceback, not the on the host.
+	// RemoteGOROOT is the GOROOT as detected in the traceback, not the on the
+	// host.
 	//
 	// It can be empty if no root was determined, for example the traceback
 	// contains only non-stdlib source references.
-	GOROOT string
-	// GOPATHs is the GOPATH as detected in the traceback, with the value being
-	// the corresponding path mapped to the host.
+	RemoteGOROOT string
+	// RemoteGOPATHs is the GOPATH as detected in the traceback, with the value
+	// being the corresponding path mapped to the host if found.
 	//
 	// It can be empty if only stdlib code is in the traceback or if no local
 	// sources were matched up. In the general case there is only one entry in
 	// the map.
-	GOPATHs map[string]string
+	RemoteGOPATHs map[string]string
 
 	// LocalGomods are the root directories containing go.mod or that directly
 	// contained source code as detected in the traceback, with the value being
@@ -100,7 +101,8 @@ type Snapshot struct {
 	//
 	// It is initialized by findRoots().
 	//
-	// It only works with stack traces created in the local file system.
+	// Unlike GOROOT and GOPATH, it only works with stack traces created in the
+	// local file system, hence "Local" prefix.
 	LocalGomods map[string]string
 
 	// Disallow initialization with unnamed parameters.
@@ -168,10 +170,11 @@ func ScanSnapshot(in io.Reader, prefix io.Writer, opts *Opts) (*Snapshot, []byte
 	return nil, suffix, err
 }
 
-// GuessPaths guesses local GOROOT and GOPATH for what was found in the
+// GuessPaths guesses local RemoteGOROOT and GOPATH for what was found in the
 // snapshot.
 //
-// It initializes GOROOT, GOPATHs, LocalGomoduleRoot and GomodImportPath.
+// Initializes RemoteGOROOT, RemoteGOPATHs, LocalGomoduleRoot and
+// GomodImportPath.
 //
 // This is done by scanning the local disk, so be warned of performance impact.
 func (s *Snapshot) GuessPaths() bool {
@@ -179,8 +182,8 @@ func (s *Snapshot) GuessPaths() bool {
 	b := true
 	for _, r := range s.Goroutines {
 		// Note that this is important to call it even if
-		// s.GOROOT == s.LocalGOROOT.
-		b = r.updateLocations(s.GOROOT, s.LocalGOROOT, s.LocalGomods, s.GOPATHs) && b
+		// s.RemoteGOROOT == s.LocalGOROOT.
+		b = r.updateLocations(s.RemoteGOROOT, s.LocalGOROOT, s.LocalGomods, s.RemoteGOPATHs) && b
 	}
 	return b
 }
@@ -494,7 +497,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 	case gotRoutineHeader:
 		if reUnavail.Match(trimmed) {
 			// Generate a fake stack entry.
-			cur.Stack.Calls = []Call{{SrcPath: "<unavailable>"}}
+			cur.Stack.Calls = []Call{{RemoteSrcPath: "<unavailable>"}}
 			// Next line is expected to be an empty line.
 			s.state = gotUnavail
 			return true, nil
@@ -812,7 +815,7 @@ func getFiles(goroutines []*Goroutine) []string {
 	files := map[string]struct{}{}
 	for _, g := range goroutines {
 		for _, c := range g.Stack.Calls {
-			files[c.SrcPath] = struct{}{}
+			files[c.RemoteSrcPath] = struct{}{}
 		}
 	}
 	if len(files) == 0 {
@@ -896,14 +899,14 @@ func isGoModule(parts []string) (string, string) {
 	return "", ""
 }
 
-// findRoots sets member GOROOT, GOPATHs and LocalGomods.
+// findRoots sets member RemoteGOROOT, RemoteGOPATHs and LocalGomods.
 //
 // This causes disk I/O as it checks for file presence.
 //
 // Returns the number of missing files.
 func (s *Snapshot) findRoots() int {
 	// TODO(maruel): Reduce memory allocations in this function.
-	s.GOPATHs = map[string]string{}
+	s.RemoteGOPATHs = map[string]string{}
 	s.LocalGomods = map[string]string{}
 	missing := 0
 	for _, f := range getFiles(s.Goroutines) {
@@ -912,11 +915,11 @@ func (s *Snapshot) findRoots() int {
 		//log.Printf("  Analyzing %s", f)
 
 		// First checks skip file I/O.
-		if s.GOROOT != "" && strings.HasPrefix(f, s.GOROOT+"/src/") {
+		if s.RemoteGOROOT != "" && strings.HasPrefix(f, s.RemoteGOROOT+"/src/") {
 			// stdlib.
 			continue
 		}
-		if hasSrcPrefix(f, s.GOPATHs) {
+		if hasSrcPrefix(f, s.RemoteGOPATHs) {
 			// $GOPATH/src or go.mod dependency in $GOPATH/pkg/mod.
 			continue
 		}
@@ -926,28 +929,28 @@ func (s *Snapshot) findRoots() int {
 
 		// At this point, disk will be looked up.
 		parts := splitPath(f)
-		// Initializes GOROOT.
+		// Initializes RemoteGOROOT.
 		const src = "/src"
-		if s.GOROOT == "" {
+		if s.RemoteGOROOT == "" {
 			if r := isRootedIn(s.LocalGOROOT+src, parts); r != "" {
-				s.GOROOT = r[:len(r)-len(src)]
-				//log.Printf("Found GOROOT=%s", s.GOROOT)
+				s.RemoteGOROOT = r[:len(r)-len(src)]
+				//log.Printf("Found RemoteGOROOT=%s", s.RemoteGOROOT)
 				continue
 			}
 		}
-		// Initializes GOPATHs.
+		// Initializes RemoteGOPATHs.
 		found := false
 		for _, l := range s.LocalGOPATHs {
 			if r := isRootedIn(l+src, parts); r != "" {
-				//log.Printf("Found GOPATH=%s", r[:len(r)-len(src)])
-				s.GOPATHs[r[:len(r)-len(src)]] = l
+				//log.Printf("Found RemoteGOPATHs[%s] = %s", r[:len(r)-len(src)], l)
+				s.RemoteGOPATHs[r[:len(r)-len(src)]] = l
 				found = true
 				break
 			}
 			const pkgmod = "/pkg/mod"
 			if r := isRootedIn(l+pkgmod, parts); r != "" {
-				//log.Printf("Found GOPATH=%s", r[:len(r)-len(pkgmod)])
-				s.GOPATHs[r[:len(r)-len(pkgmod)]] = l
+				//log.Printf("Found RemoteGOPATHs[%s] = %s", r[:len(r)-len(pkgmod)], l)
+				s.RemoteGOPATHs[r[:len(r)-len(pkgmod)]] = l
 				found = true
 				break
 			}

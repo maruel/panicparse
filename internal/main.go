@@ -99,8 +99,8 @@ func writeGoroutinesToConsole(out io.Writer, p *Palette, goroutines []*stack.Gor
 func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, parse, rebase bool, html string, filter, match *regexp.Regexp, c *stack.Snapshot, first bool) error {
 	if rebase {
 		c.GuessPaths()
-		log.Printf("GOROOT=%s", c.GOROOT)
-		log.Printf("GOPATH=%s", c.GOPATHs)
+		log.Printf("GOROOT=%s", c.RemoteGOROOT)
+		log.Printf("GOPATH=%s", c.RemoteGOPATHs)
 	}
 	needsEnv := len(c.Goroutines) == 1 && showBanner()
 	if parse {

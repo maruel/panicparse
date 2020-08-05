@@ -525,7 +525,7 @@ func TestAugmentDummy(t *testing.T) {
 		{
 			Signature: Signature{
 				Stack: Stack{
-					Calls: []Call{{SrcPath: "missing.go"}},
+					Calls: []Call{{RemoteSrcPath: "missing.go"}},
 				},
 			},
 		},
@@ -554,7 +554,7 @@ func TestLoad(t *testing.T) {
 	if c.parsed["doesnt_exist.go"] != nil {
 		t.Fatalf("doesnt_exist.go is not present; should not have been loaded")
 	}
-	if c.getFuncAST(&Call{SrcPath: "other"}) != nil {
+	if c.getFuncAST(&Call{RemoteSrcPath: "other"}) != nil {
 		t.Fatalf("there's no 'other'")
 	}
 }
@@ -639,7 +639,7 @@ func zapPointers(t *testing.T, want, got *Stack) {
 // zapPaths removes the directory part and only keep the base file name.
 func zapPaths(s *Stack) {
 	for j := range s.Calls {
-		s.Calls[j].SrcPath = filepath.Base(s.Calls[j].SrcPath)
+		s.Calls[j].RemoteSrcPath = filepath.Base(s.Calls[j].RemoteSrcPath)
 		s.Calls[j].SrcName = ""
 		s.Calls[j].DirSrc = ""
 		s.Calls[j].LocalSrcPath = ""

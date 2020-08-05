@@ -173,10 +173,10 @@ func newFunc(s string) stack.Func {
 }
 
 func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {
-	c := stack.Call{Func: newFunc(f), Args: a, SrcPath: s, Line: l}
+	c := stack.Call{Func: newFunc(f), Args: a, RemoteSrcPath: s, Line: l}
 	// Do the equivalent of Call.init().
-	c.SrcName = filepath.Base(c.SrcPath)
-	c.DirSrc = path.Join(filepath.Base(c.SrcPath[:len(c.SrcPath)-len(c.SrcName)-1]), c.SrcName)
+	c.SrcName = filepath.Base(c.RemoteSrcPath)
+	c.DirSrc = path.Join(filepath.Base(c.RemoteSrcPath[:len(c.RemoteSrcPath)-len(c.SrcName)-1]), c.SrcName)
 	const goroot = "/goroot/src/"
 	const gopath = "/home/user/go/src/"
 	const gopathmod = "/home/user/go/pkg/mod/"

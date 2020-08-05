@@ -54,7 +54,7 @@ func (pf pathFormat) formatCall(c *stack.Call) string {
 		if c.LocalSrcPath != "" {
 			return fmt.Sprintf("%s:%d", c.LocalSrcPath, c.Line)
 		}
-		return fmt.Sprintf("%s:%d", c.SrcPath, c.Line)
+		return fmt.Sprintf("%s:%d", c.RemoteSrcPath, c.Line)
 	default:
 		return fmt.Sprintf("%s:%d", c.SrcName, c.Line)
 	}

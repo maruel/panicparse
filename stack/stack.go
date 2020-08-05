@@ -246,15 +246,15 @@ type Call struct {
 
 	// The following are initialized on the second line of the call stack.
 
-	// SrcPath is the full path name of the source file as seen in the trace.
-	SrcPath string
+	// RemoteSrcPath is the full path name of the source file as seen in the
+	// trace.
+	RemoteSrcPath string
 	// Line is the line number.
 	Line int
-	// SrcName is the base file name of the source file. It is a subset of
-	// SrcPath.
+	// SrcName is the base file name of the source file.
 	SrcName string
 	// DirSrc is one directory plus the file name of the source file. It is a
-	// subset of SrcPath.
+	// subset of RemoteSrcPath.
 	DirSrc string
 
 	// The following are only set if GuessPaths() was called on the Snapshot.
@@ -292,14 +292,15 @@ func (c *Call) ImportPath() string {
 	return ""
 }
 
-// Init initializes SrcPath, SrcName, DirName, Line and IsStdlib for test main.
+// Init initializes RemoteSrcPath, SrcName, DirName, Line and IsStdlib for test
+// main.
 func (c *Call) init(srcPath string, line int) {
-	c.SrcPath = srcPath
+	c.RemoteSrcPath = srcPath
 	c.Line = line
-	if i := strings.LastIndexByte(c.SrcPath, '/'); i != -1 {
-		c.SrcName = c.SrcPath[i+1:]
-		if i = strings.LastIndexByte(c.SrcPath[:i], '/'); i != -1 {
-			c.DirSrc = c.SrcPath[i+1:]
+	if i := strings.LastIndexByte(c.RemoteSrcPath, '/'); i != -1 {
+		c.SrcName = c.RemoteSrcPath[i+1:]
+		if i = strings.LastIndexByte(c.RemoteSrcPath[:i], '/'); i != -1 {
+			c.DirSrc = c.RemoteSrcPath[i+1:]
 		}
 	}
 	// Consider _test/_testmain.go as stdlib since it's injected by "go test".
@@ -316,14 +317,14 @@ const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 // Returns true if a match was found.
 func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths map[string]string) bool {
 	// TODO(maruel): Reduce memory allocations.
-	if c.SrcPath == "" {
+	if c.RemoteSrcPath == "" {
 		return false
 	}
 	// Check GOROOT first.
 	if goroot != "" {
-		if prefix := goroot + "/src/"; strings.HasPrefix(c.SrcPath, prefix) {
+		if prefix := goroot + "/src/"; strings.HasPrefix(c.RemoteSrcPath, prefix) {
 			// Replace remote GOROOT with local GOROOT.
-			c.RelSrcPath = c.SrcPath[len(prefix):]
+			c.RelSrcPath = c.RemoteSrcPath[len(prefix):]
 			c.LocalSrcPath = pathJoin(localgoroot, "src", c.RelSrcPath)
 			c.IsStdlib = true
 			return true
@@ -332,14 +333,14 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 	// Check GOPATH.
 	// TODO(maruel): Sort for deterministic behavior?
 	for prefix, dest := range gopaths {
-		if p := prefix + "/src/"; strings.HasPrefix(c.SrcPath, p) {
-			c.RelSrcPath = c.SrcPath[len(p):]
+		if p := prefix + "/src/"; strings.HasPrefix(c.RemoteSrcPath, p) {
+			c.RelSrcPath = c.RemoteSrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "src", c.RelSrcPath)
 			return true
 		}
 		// For modules, the path has to be altered, as it contains the version.
-		if p := prefix + "/pkg/mod/"; strings.HasPrefix(c.SrcPath, p) {
-			c.RelSrcPath = c.SrcPath[len(p):]
+		if p := prefix + "/pkg/mod/"; strings.HasPrefix(c.RemoteSrcPath, p) {
+			c.RelSrcPath = c.RemoteSrcPath[len(p):]
 			c.LocalSrcPath = pathJoin(dest, "pkg/mod", c.RelSrcPath)
 			return true
 		}
@@ -348,10 +349,10 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 	// Go module path detection only works with stack traces created on the local
 	// file system.
 	for prefix, pkg := range localgomods {
-		if strings.HasPrefix(c.SrcPath, prefix+"/") {
+		if strings.HasPrefix(c.RemoteSrcPath, prefix+"/") {
 			// TODO(maruel): Handle pkg, especially if "main".
-			c.RelSrcPath = pkg + "/" + c.SrcPath[len(prefix)+1:]
-			c.LocalSrcPath = c.SrcPath
+			c.RelSrcPath = pkg + "/" + c.RemoteSrcPath[len(prefix)+1:]
+			c.LocalSrcPath = c.RemoteSrcPath
 			return true
 		}
 	}
@@ -361,27 +362,27 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 
 // equal returns true only if both calls are exactly equal.
 func (c *Call) equal(r *Call) bool {
-	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.SrcPath == r.SrcPath && c.Args.equal(&r.Args)
+	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.RemoteSrcPath == r.RemoteSrcPath && c.Args.equal(&r.Args)
 }
 
 // similar returns true if the two Call are equal or almost but not quite
 // equal.
 func (c *Call) similar(r *Call, similar Similarity) bool {
-	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.SrcPath == r.SrcPath && c.Args.similar(&r.Args, similar)
+	return c.Line == r.Line && c.Func.Complete == r.Func.Complete && c.RemoteSrcPath == r.RemoteSrcPath && c.Args.similar(&r.Args, similar)
 }
 
 // merge merges two similar Call, zapping out differences.
 func (c *Call) merge(r *Call) Call {
 	return Call{
-		Func:         c.Func,
-		Args:         c.Args.merge(&r.Args),
-		SrcPath:      c.SrcPath,
-		Line:         c.Line,
-		SrcName:      c.SrcName,
-		DirSrc:       c.DirSrc,
-		LocalSrcPath: c.LocalSrcPath,
-		RelSrcPath:   c.RelSrcPath,
-		IsStdlib:     c.IsStdlib,
+		Func:          c.Func,
+		Args:          c.Args.merge(&r.Args),
+		RemoteSrcPath: c.RemoteSrcPath,
+		Line:          c.Line,
+		SrcName:       c.SrcName,
+		DirSrc:        c.DirSrc,
+		LocalSrcPath:  c.LocalSrcPath,
+		RelSrcPath:    c.RelSrcPath,
+		IsStdlib:      c.IsStdlib,
 	}
 }
 

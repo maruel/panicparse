@@ -168,7 +168,7 @@ func TestGetSrcBranchURL(t *testing.T) {
 		},
 		{
 			"windows",
-			stack.Call{SrcPath: "c:/random.go"},
+			stack.Call{RemoteSrcPath: "c:/random.go"},
 			"file:///c:/random.go",
 			"",
 			"",
@@ -289,7 +289,7 @@ func newFunc(s string) stack.Func {
 }
 
 func newCall(f string, a stack.Args, s string, l int) stack.Call {
-	return stack.Call{Func: newFunc(f), Args: a, SrcPath: s, Line: l}
+	return stack.Call{Func: newFunc(f), Args: a, RemoteSrcPath: s, Line: l}
 }
 
 func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {
@@ -338,18 +338,18 @@ func getBuckets() []*stack.Bucket {
 							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
 							72),
 						{
-							Func:     newFunc("sliceInternal"),
-							Args:     stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
-							SrcPath:  "/golang/src/sort/slices.go",
-							Line:     72,
-							IsStdlib: true,
+							Func:          newFunc("sliceInternal"),
+							Args:          stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
+							RemoteSrcPath: "/golang/src/sort/slices.go",
+							Line:          72,
+							IsStdlib:      true,
 						},
 						{
-							Func:     newFunc("Slice"),
-							Args:     stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
-							SrcPath:  "/golang/src/sort/slices.go",
-							Line:     72,
-							IsStdlib: true,
+							Func:          newFunc("Slice"),
+							Args:          stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
+							RemoteSrcPath: "/golang/src/sort/slices.go",
+							Line:          72,
+							IsStdlib:      true,
 						},
 						newCall(
 							"DoStuff",

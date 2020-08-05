@@ -42,6 +42,7 @@ func WriteBuckets(w io.Writer, buckets []*stack.Bucket, needsEnv, live bool) err
 	if err != nil {
 		return err
 	}
+	// TODO(maruel): Pass data from stack.Snapshot for GOROOT and GOPATH.
 	data := map[string]interface{}{
 		"Buckets":    buckets,
 		"Favicon":    favicon,
@@ -77,6 +78,7 @@ func WriteGoroutines(w io.Writer, goroutines []*stack.Goroutine, needsEnv, live 
 	if err != nil {
 		return err
 	}
+	// TODO(maruel): Pass data from stack.Snapshot for GOROOT and GOPATH.
 	data := map[string]interface{}{
 		"Routines":   goroutines,
 		"Favicon":    favicon,
@@ -219,8 +221,8 @@ func getSrcBranchURL(c *stack.Call) (template.URL, template.URL) {
 	if c.LocalSrcPath != "" {
 		return template.URL("file:///" + escape(c.LocalSrcPath)), template.URL(tag)
 	}
-	if c.SrcPath != "" {
-		return template.URL("file:///" + escape(c.SrcPath)), template.URL(tag)
+	if c.RemoteSrcPath != "" {
+		return template.URL("file:///" + escape(c.RemoteSrcPath)), template.URL(tag)
 	}
 	return "", ""
 }
