@@ -8,7 +8,6 @@
 package stack
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -109,10 +108,10 @@ func ParseDump(r io.Reader, out io.Writer, guesspaths bool) (*Context, error) {
 // Private stuff.
 
 func parseDump(r io.Reader, out io.Writer) ([]*Goroutine, error) {
-	br := bufio.NewReaderSize(r, 16*1024)
+	br := reader{rd: r}
 	s := scanningState{}
 	for {
-		slice, err := readLine(br)
+		slice, err := br.readLine()
 		if slice != nil {
 			l, err1 := s.scan(slice)
 			if err1 != nil && (err == nil || err == io.EOF) {
@@ -986,29 +985,4 @@ func trimLeftSpace(s []byte) []byte {
 		}
 	}
 	return nil
-}
-
-// readLine is our own implementation of ReadBytes().
-//
-// We try to use ReadSlice() as much as we can but we need to tolerate if an
-// input line is longer than the buffer specified at Reader creation. Not using
-// the more complicated slice of slices that Reader.ReadBytes() uses since it
-// should not happen often here. Instead bootstrap the memory allocation by
-// starting with 4x buffer size, which should get most cases with a single
-// allocation.
-func readLine(b *bufio.Reader) ([]byte, error) {
-	var d []byte
-	for {
-		f, err := b.ReadSlice('\n')
-		if err != bufio.ErrBufferFull {
-			if d == nil {
-				return f, err
-			}
-			return append(d, f...), err
-		}
-		if d == nil {
-			d = make([]byte, 0, len(f)*4)
-		}
-		d = append(d, f...)
-	}
 }
