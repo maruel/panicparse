@@ -23,9 +23,22 @@ import (
 	"github.com/maruel/panicparse/v2/internal/internaltest"
 )
 
+func TestScanSnapshotErr(t *testing.T) {
+	t.Parallel()
+	data := []*Opts{
+		nil,
+		{LocalGOROOT: "\\"},
+		{LocalGOPATHs: []string{"\\"}},
+	}
+	for _, opts := range data {
+		if _, _, err := ScanSnapshot(&bytes.Buffer{}, ioutil.Discard, opts); err == nil {
+			t.Fatal("expected error")
+		}
+	}
+}
+
 func TestScanSnapshotSynthetic(t *testing.T) {
 	t.Parallel()
-
 	data := []struct {
 		name   string
 		in     []string
@@ -1135,6 +1148,7 @@ func TestScanSnapshotSynthetic(t *testing.T) {
 		})
 	}
 }
+
 func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 	t.Parallel()
 	in := bytes.Buffer{}
@@ -1222,13 +1236,27 @@ func TestSplitPath(t *testing.T) {
 }
 
 func TestGetGOPATHS(t *testing.T) {
+	// This test cannot run in parallel.
 	old := os.Getenv("GOPATH")
-	defer func() {
-		os.Setenv("GOPATH", old)
-	}()
+	defer os.Setenv("GOPATH", old)
 	os.Setenv("GOPATH", "")
 	if p := getGOPATHs(); len(p) != 1 {
+		// It's the home directory + /go.
 		t.Fatalf("expected only one path: %v", p)
+	}
+
+	root, err := ioutil.TempDir("", "stack")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err = os.RemoveAll(root); err != nil {
+			t.Error(err)
+		}
+	}()
+	os.Setenv("GOPATH", filepath.Join(root, "a")+string(filepath.ListSeparator)+filepath.Join(root, "b")+string(filepath.Separator))
+	if p := getGOPATHs(); len(p) != 2 {
+		t.Fatalf("expected two paths: %v", p)
 	}
 }
 
@@ -1271,7 +1299,7 @@ func TestGomoduleComplex(t *testing.T) {
 			"func Foo() { panic(42) }\n",
 	}
 	for path, content := range tree {
-		p := filepath.Join(root, strings.Replace(path, "/", string(filepath.Separator), -1))
+		p := filepath.Join(root, strings.Replace(path, "/", pathSeparator, -1))
 		b := filepath.Dir(p)
 		if err = os.MkdirAll(b, 0700); err != nil {
 			t.Fatal(err)
@@ -1306,13 +1334,13 @@ func TestGomoduleComplex(t *testing.T) {
 	if len(s.GOPATHs) != 0 {
 		t.Fatalf("Unexpected GOPATHs: %#v", s.GOPATHs)
 	}
-	compareString(t, runtime.GOROOT(), strings.Replace(s.LocalGOROOT, "/", string(filepath.Separator), -1))
+	compareString(t, runtime.GOROOT(), strings.Replace(s.LocalGOROOT, "/", pathSeparator, -1))
 
 	root2 := root
 	switch runtime.GOOS {
 	case "windows":
 		// On Windows, we must make the path to be POSIX style.
-		root2 = strings.Replace(root, string(filepath.Separator), "/", -1)
+		root2 = strings.Replace(root, pathSeparator, "/", -1)
 	case "darwin":
 		// On MacOS, the path is a symlink and it will be somehow evaluated when we
 		// get the traces back. This must not be run on Windows otherwise the path
@@ -1762,6 +1790,7 @@ func TestPanicweb(t *testing.T) {
 }
 
 func TestIsGomodule(t *testing.T) {
+	t.Parallel()
 	pwd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -1778,6 +1807,20 @@ func TestIsGomodule(t *testing.T) {
 	got := reModule.FindStringSubmatch("foo\r\nmodule bar\r\nbaz")
 	if diff := cmp.Diff([]string{"module bar\r", "bar"}, got); diff != "" {
 		t.Fatalf("-want, +got:\n%s", diff)
+	}
+}
+
+func TestAtou(t *testing.T) {
+	t.Parallel()
+	if i, b := atou([]byte("a")); i != 0 || b {
+		t.Error("oops")
+	}
+}
+
+func TestTrimLeftSpace(t *testing.T) {
+	t.Parallel()
+	if trimLeftSpace(nil) != nil {
+		t.Error("oops")
 	}
 }
 

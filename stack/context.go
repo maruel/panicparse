@@ -38,10 +38,26 @@ type Opts struct {
 
 // DefaultOpts returns default options to process the snapshot.
 func DefaultOpts() *Opts {
+	p := runtime.GOROOT()
+	if runtime.GOOS == "windows" {
+		p = strings.Replace(p, pathSeparator, "/", -1)
+	}
 	return &Opts{
-		LocalGOROOT:  strings.Replace(runtime.GOROOT(), "\\", "/", -1),
+		LocalGOROOT:  p,
 		LocalGOPATHs: getGOPATHs(),
 	}
+}
+
+func (o *Opts) isValid() bool {
+	if strings.Contains(o.LocalGOROOT, "\\") {
+		return false
+	}
+	for _, p := range o.LocalGOPATHs {
+		if strings.Contains(p, "\\") {
+			return false
+		}
+	}
+	return true
 }
 
 // Snapshot is a parsed runtime.Stack() or race detector dump.
@@ -109,6 +125,9 @@ type Snapshot struct {
 // assumes there is junk before the actual stack trace. The junk is streamed to
 // out.
 func ScanSnapshot(in io.Reader, prefix io.Writer, opts *Opts) (*Snapshot, []byte, error) {
+	if opts == nil || !opts.isValid() {
+		return nil, nil, errors.New("invalid Opts")
+	}
 	// TODO(maruel): Validate opts.
 	s := scanningState{
 		Snapshot: &Snapshot{
@@ -165,6 +184,8 @@ func (s *Snapshot) GuessPaths() bool {
 }
 
 // Private stuff.
+
+const pathSeparator = string(filepath.Separator)
 
 var (
 	lockedToThread = []byte("locked to thread")
@@ -858,7 +879,11 @@ func isGoModule(parts []string) (string, string) {
 	// directories.
 	for i := len(parts); i > 0; i-- {
 		prefix := pathJoin(parts[:i]...)
-		b, err := ioutil.ReadFile(strings.Replace(pathJoin(prefix, "go.mod"), "/", string(filepath.Separator), -1))
+		p := pathJoin(prefix, "go.mod")
+		if runtime.GOOS == "windows" {
+			p = strings.Replace(p, "/", pathSeparator, -1)
+		}
+		b, err := ioutil.ReadFile(p)
 		if err != nil {
 			continue
 		}
@@ -956,7 +981,9 @@ func getGOPATHs() []string {
 		for _, v := range filepath.SplitList(gp) {
 			// Disallow non-absolute paths?
 			if v != "" {
-				v = strings.Replace(v, "\\", "/", -1)
+				if runtime.GOOS == "windows" {
+					v = strings.Replace(v, pathSeparator, "/", -1)
+				}
 				// Trim trailing "/".
 				if l := len(v); v[l-1] == '/' {
 					v = v[:l-1]
@@ -976,7 +1003,11 @@ func getGOPATHs() []string {
 		} else {
 			homeDir = u.HomeDir
 		}
-		out = []string{strings.Replace(homeDir+"/go", "\\", "/", -1)}
+		p := homeDir + "/go"
+		if runtime.GOOS == "windows" {
+			p = strings.Replace(p, pathSeparator, "/", -1)
+		}
+		out = []string{p}
 	}
 	return out
 }
