@@ -971,8 +971,7 @@ func (s *Snapshot) findRoots() int {
 				continue
 			}
 		}
-		// TODO(maruel): Requires a bit more fine tuning.
-		if false && isFile(f) {
+		if isFile(f) {
 			// Assumes "go run" was used, thus is package main. Still consider it a
 			// "go module" but in the weakest sense.
 			s.LocalGomods[path.Dir(f)] = "main"

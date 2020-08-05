@@ -1523,9 +1523,11 @@ func TestGoRun(t *testing.T) {
 	}
 	similarGoroutines(t, want, s.Goroutines)
 
-	if s.GuessPaths() {
-		t.Error("expected failure")
+	if !s.GuessPaths() {
+		t.Error("expected success")
 	}
+	want[0].Stack.Calls[0].LocalSrcPath = p
+	want[0].Stack.Calls[0].RelSrcPath = "main.go"
 	similarGoroutines(t, want, s.Goroutines)
 }
 
