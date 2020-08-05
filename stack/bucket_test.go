@@ -184,7 +184,7 @@ func TestAggregateAggressive(t *testing.T) {
 func BenchmarkAggregate(b *testing.B) {
 	b.ReportAllocs()
 	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, DefaultOpts())
-	if err != nil {
+	if err != io.EOF {
 		b.Fatal(err)
 	}
 	if s == nil {

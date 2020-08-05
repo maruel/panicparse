@@ -1831,7 +1831,7 @@ func BenchmarkScanSnapshot_Guess(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s, _, err := ScanSnapshot(bytes.NewReader(data), ioutil.Discard, opts)
-		if err != nil {
+		if err != io.EOF {
 			b.Fatal(err)
 		}
 		if s == nil {
@@ -1847,7 +1847,7 @@ func BenchmarkScanSnapshot_NoGuess(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s, _, err := ScanSnapshot(bytes.NewReader(data), ioutil.Discard, opts)
-		if err != nil {
+		if err != io.EOF {
 			b.Fatal(err)
 		}
 		if s == nil {
@@ -1871,7 +1871,7 @@ func BenchmarkScanSnapshot_Passthru(b *testing.B) {
 	opts := DefaultOpts()
 	b.ResetTimer()
 	s, suffix, err := ScanSnapshot(r, &prefix, opts)
-	if err != nil {
+	if err != io.EOF {
 		b.Fatal(err)
 	}
 	if s != nil {

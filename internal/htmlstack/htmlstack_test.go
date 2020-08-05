@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"regexp"
 	"runtime"
@@ -262,7 +263,7 @@ func TestWriteGoroutinesRace(t *testing.T) {
 func BenchmarkWriteBuckets(b *testing.B) {
 	b.ReportAllocs()
 	s, _, err := stack.ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, stack.DefaultOpts())
-	if err != nil {
+	if err != io.EOF {
 		b.Fatal(err)
 	}
 	if s == nil {
