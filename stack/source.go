@@ -64,14 +64,21 @@ func (c *cache) augmentGoroutine(g *Goroutine) error {
 	// Once all loaded, we can look at the next call when available.
 	for i := 0; i < len(g.Stack.Calls)-1; i++ {
 		// Get the AST from the previous call and process the call line with it.
-		if f := c.getFuncAST(&g.Stack.Calls[i]); f != nil {
-			processCall(&g.Stack.Calls[i], f)
+		if p := c.parsed[g.Stack.Calls[i].LocalSrcPath]; p != nil {
+			f, err1 := p.getFuncAST(g.Stack.Calls[i].Func.Name, g.Stack.Calls[i].Line)
+			if err1 != nil {
+				err = err1
+				continue
+			}
+			if f != nil {
+				augmentCall(&g.Stack.Calls[i], f)
+			}
 		}
 	}
 	return err
 }
 
-// load loads a source file and parses the AST tree. Failures are ignored.
+// load loads a source file and parses the AST tree.
 func (c *cache) load(fileName string) error {
 	if fileName == "" {
 		return nil
@@ -79,46 +86,44 @@ func (c *cache) load(fileName string) error {
 	if _, ok := c.parsed[fileName]; ok {
 		return nil
 	}
+	// Do not attempt to parse the same file twice.
 	c.parsed[fileName] = nil
+
 	if !strings.HasSuffix(fileName, ".go") {
 		// Ignore C and assembly.
-		c.files[fileName] = nil
-		return nil
+		return fmt.Errorf("cannot load non-go file %q", fileName)
 	}
-	//log.Printf("load(%s)", fileName)
-	if _, ok := c.files[fileName]; !ok {
-		var err error
-		if c.files[fileName], err = ioutil.ReadFile(fileName); err != nil {
-			c.files[fileName] = nil
-			return fmt.Errorf("failed to read %s: "+wrap, fileName, err)
-		}
+	src, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: "+wrap, fileName, err)
 	}
+	c.files[fileName] = src
 	fset := token.NewFileSet()
-	src := c.files[fileName]
 	parsed, err := parser.ParseFile(fset, fileName, src, 0)
 	if err != nil {
 		return fmt.Errorf("failed to parse %s: "+wrap, fileName, err)
 	}
-	// Convert the line number into raw file offset.
+	c.parsed[fileName] = &parsedFile{
+		lineToByteOffset: lineToByteOffsets(src),
+		parsed:           parsed,
+	}
+	return nil
+}
+
+// lineToByteOffsets extract the line number into raw file offset.
+//
+// Inserts a dummy 0 at offset 0 so line offsets can be 1 based.
+func lineToByteOffsets(src []byte) []int {
 	offsets := []int{0, 0}
-	offset := 0
-	for l := 1; offset < len(src); l++ {
+	for offset := 0; offset < len(src); {
 		n := bytes.IndexByte(src[offset:], '\n')
 		if n == -1 {
 			break
 		}
 		offset += n + 1
-		offsets = append(offsets, l, offset)
+		offsets = append(offsets, offset)
 	}
-	c.parsed[fileName] = &parsedFile{offsets, parsed}
-	return nil
-}
-
-func (c *cache) getFuncAST(call *Call) *ast.FuncDecl {
-	if p := c.parsed[call.LocalSrcPath]; p != nil {
-		return p.getFuncAST(call.Func.Name, call.Line)
-	}
-	return nil
+	return offsets
 }
 
 type parsedFile struct {
@@ -128,14 +133,12 @@ type parsedFile struct {
 
 // getFuncAST gets the callee site function AST representation for the code
 // inside the function f at line l.
-func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl) {
+func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl, err error) {
 	if len(p.lineToByteOffset) <= l {
 		// The line number in the stack trace line does not exist in the file. That
 		// can only mean that the sources on disk do not match the sources used to
 		// build the binary.
-		// TODO(maruel): This should be surfaced, so that source parsing is
-		// completely ignored.
-		return
+		return nil, fmt.Errorf("line %d is over line count of %d", l, len(p.lineToByteOffset))
 	}
 
 	// Walk the AST to find the lineToByteOffset that fits the line number.
@@ -246,8 +249,8 @@ func extractArgumentsType(f *ast.FuncDecl) ([]string, bool) {
 	return types, extra
 }
 
-// processCall walks the function and populate call accordingly.
-func processCall(call *Call, f *ast.FuncDecl) {
+// augmentCall walks the function and populate call accordingly.
+func augmentCall(call *Call, f *ast.FuncDecl) {
 	values := make([]uint64, len(call.Args.Values))
 	for i := range call.Args.Values {
 		values[i] = call.Args.Values[i].Value

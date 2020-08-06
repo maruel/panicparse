@@ -59,7 +59,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 2}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 2}},
+							Processed: []string{"string(0x2fffffff, len=2)"},
+						},
 						"/root/main.go",
 						10),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -79,7 +82,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}},
+							Processed: []string{"func(0x2fffffff)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -99,7 +105,11 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}}},
+						Args{
+							Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}},
+							// TODO(maruel): Handle.
+							Processed: []string{"<unknown>(0x2fffffff)", "<unknown>(0x1)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -119,7 +129,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}},
+							Processed: []string{"[]interface{}(0x2fffffff len=5 cap=7)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -139,7 +152,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}},
+							Processed: []string{"[]int(0x2fffffff len=5 cap=7)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -159,7 +175,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}},
+							Processed: []string{"[]interface{}(0x2fffffff len=1 cap=1)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -179,7 +198,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}},
+							Processed: []string{"map[int]int(0x2fffffff)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -199,7 +221,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}},
+							Processed: []string{"map[interface{}]interface{}(0x2fffffff)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -219,7 +244,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}},
+							Processed: []string{"chan int(0x2fffffff)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -239,7 +267,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}},
+							Processed: []string{"chan interface{}(0x2fffffff)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -283,7 +314,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.(*S).f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}},
+							Processed: []string{"*S(0x2fffffff)"},
+						},
 						"/root/main.go",
 						8),
 					newCallSrc("main.main", Args{}, "/root/main.go", 4),
@@ -303,7 +337,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 3}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 3}},
+							Processed: []string{"string(0x2fffffff, len=3)"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -323,7 +360,10 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 3}, {Value: 42}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 3}, {Value: 42}},
+							Processed: []string{"string(0x2fffffff, len=3)", "42"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -344,10 +384,9 @@ func TestAugment(t *testing.T) {
 					newCallSrc(
 						"main.f",
 						Args{
-							Values: []Arg{
-								{}, {}, {}, {}, {}, {}, {}, {}, {Value: 42}, {Value: 43},
-							},
-							Elided: true,
+							Values:    []Arg{{}, {}, {}, {}, {}, {}, {}, {}, {Value: 42}, {Value: 43}},
+							Processed: []string{"0", "0", "0", "0", "0", "0", "0", "0", "42", "43"},
+							Elided:    true,
 						},
 						"/root/main.go",
 						6),
@@ -371,7 +410,7 @@ func TestAugment(t *testing.T) {
 						"main.f",
 						Args{
 							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
-							Processed: []string{"0x2fffffff", "0x2fffffff"},
+							Processed: []string{"error(0x2fffffff)"},
 						},
 						"/root/main.go",
 						7),
@@ -395,7 +434,7 @@ func TestAugment(t *testing.T) {
 						"main.f",
 						Args{
 							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
-							Processed: []string{"0x2fffffff", "0x2fffffff"},
+							Processed: []string{"error(0x2fffffff)"},
 						},
 						"/root/main.go",
 						7),
@@ -418,7 +457,10 @@ func TestAugment(t *testing.T) {
 						"main.f",
 						// The value is NOT a pointer but floating point encoding is not
 						// deterministic.
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}},
+							Processed: []string{"0.5"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -440,7 +482,10 @@ func TestAugment(t *testing.T) {
 						"main.f",
 						// The value is NOT a pointer but floating point encoding is not
 						// deterministic.
-						Args{Values: []Arg{{Value: pointer, IsPtr: true}}},
+						Args{
+							Values:    []Arg{{Value: pointer, IsPtr: true}},
+							Processed: []string{"0.5"},
+						},
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -583,15 +628,21 @@ func TestAugmentDummy(t *testing.T) {
 	}
 }
 
-func TestLoad(t *testing.T) {
+func TestLoadErr(t *testing.T) {
 	t.Parallel()
 	c := &cache{
 		files:  map[string][]byte{"bad.go": []byte("bad content")},
 		parsed: map[string]*parsedFile{},
 	}
-	c.load("foo.asm")
-	c.load("bad.go")
-	c.load("doesnt_exist.go")
+	if err := c.load("foo.asm"); err == nil {
+		t.Error("expected failure")
+	}
+	if err := c.load("bad.go"); err == nil {
+		t.Error("expected failure")
+	}
+	if err := c.load("doesnt_exist.go"); err == nil {
+		t.Error("expected failure")
+	}
 	if l := len(c.parsed); l != 3 {
 		t.Fatalf("want 3, got %d", l)
 	}
@@ -604,8 +655,23 @@ func TestLoad(t *testing.T) {
 	if c.parsed["doesnt_exist.go"] != nil {
 		t.Fatalf("doesnt_exist.go is not present; should not have been loaded")
 	}
-	if c.getFuncAST(&Call{RemoteSrcPath: "other"}) != nil {
-		t.Fatalf("there's no 'other'")
+}
+
+func TestLineToByteOffsets(t *testing.T) {
+	src := "\n\n\n"
+	want := []int{0, 0, 1, 2, 3}
+	if diff := cmp.Diff(want, lineToByteOffsets([]byte(src))); diff != "" {
+		t.Error(diff)
+	}
+	src = "hello"
+	want = []int{0, 0}
+	if diff := cmp.Diff(want, lineToByteOffsets([]byte(src))); diff != "" {
+		t.Error(diff)
+	}
+	src = "this\nis\na\ntest"
+	want = []int{0, 0, 5, 8, 10}
+	if diff := cmp.Diff(want, lineToByteOffsets([]byte(src))); diff != "" {
+		t.Error(diff)
 	}
 }
 
