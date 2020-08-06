@@ -535,7 +535,9 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 		t.Error("expected success")
 	}
 
-	Augment(s.Goroutines)
+	if err := Augment(s.Goroutines); err != nil {
+		t.Errorf("Augment() returned %v", err)
+	}
 	got := s.Goroutines[0].Signature.Stack
 	zapPointers(t, &want, &got)
 
@@ -562,7 +564,7 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 
 func TestAugmentDummy(t *testing.T) {
 	t.Parallel()
-	goroutines := []*Goroutine{
+	g := []*Goroutine{
 		{
 			Signature: Signature{
 				Stack: Stack{
@@ -571,7 +573,14 @@ func TestAugmentDummy(t *testing.T) {
 			},
 		},
 	}
-	Augment(goroutines)
+	// There's no error because there's no Call with LocalSrcPath set.
+	if err := Augment(g); err != nil {
+		t.Error(err)
+	}
+	g[0].Stack.Calls[0].LocalSrcPath = "missing.go"
+	if err := Augment(g); err == nil {
+		t.Error("expected error")
+	}
 }
 
 func TestLoad(t *testing.T) {

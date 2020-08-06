@@ -18,24 +18,32 @@ import (
 	"strings"
 )
 
-// cache is a cache of sources on the file system.
-type cache struct {
-	files  map[string][]byte
-	parsed map[string]*parsedFile
-}
-
 // Augment processes source files to improve calls to be more descriptive.
 //
 // It modifies goroutines in place. It requires calling GuessPaths() to work
 // properly.
-func Augment(goroutines []*Goroutine) {
+//
+// Returns the last error that occurred while processing files.
+func Augment(goroutines []*Goroutine) error {
 	c := cache{
 		files:  map[string][]byte{},
 		parsed: map[string]*parsedFile{},
 	}
+	var err error
 	for _, g := range goroutines {
-		_ = c.augmentGoroutine(g)
+		if err1 := c.augmentGoroutine(g); err1 != nil {
+			err = err1
+		}
 	}
+	return err
+}
+
+// Private stuff.
+
+// cache is a cache of sources on the file system.
+type cache struct {
+	files  map[string][]byte
+	parsed map[string]*parsedFile
 }
 
 // augmentGoroutine processes source files to improve call to be more
@@ -62,8 +70,6 @@ func (c *cache) augmentGoroutine(g *Goroutine) error {
 	}
 	return err
 }
-
-// Private stuff.
 
 // load loads a source file and parses the AST tree. Failures are ignored.
 func (c *cache) load(fileName string) error {

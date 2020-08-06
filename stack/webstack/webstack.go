@@ -63,7 +63,8 @@ func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	if s := req.FormValue("augment"); s != "" {
 		if v, err := strconv.Atoi(s); v == 1 {
-			stack.Augment(c.Goroutines)
+			// Should we give feedback to the user that source parsing failed? How?
+			_ = stack.Augment(c.Goroutines)
 		} else if err != nil || v != 0 {
 			http.Error(w, "invalid augment value", http.StatusBadRequest)
 			return
@@ -117,9 +118,8 @@ func snapshot(maxmem int) (*stack.Snapshot, error) {
 	}
 	s, _, err := stack.ScanSnapshot(bytes.NewReader(buf), ioutil.Discard, stack.DefaultOpts())
 	if s != nil {
-		// TODO(maruel): It'd be better to be able to run this without touching
-		// disk.
-		s.GuessPaths()
+		// It'd be better to be able to run this without touching disk. How?
+		_ = s.GuessPaths()
 	}
 	// That's expected.
 	if err == io.EOF {

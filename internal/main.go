@@ -98,13 +98,17 @@ func writeGoroutinesToConsole(out io.Writer, p *Palette, goroutines []*stack.Gor
 
 func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, parse, rebase bool, html string, filter, match *regexp.Regexp, c *stack.Snapshot, first bool) error {
 	if rebase {
-		c.GuessPaths()
+		if !c.GuessPaths() {
+			log.Printf("GuessPaths() did not succeed")
+		}
 		log.Printf("GOROOT=%s", c.RemoteGOROOT)
 		log.Printf("GOPATH=%s", c.RemoteGOPATHs)
 	}
 	needsEnv := len(c.Goroutines) == 1 && showBanner()
 	if parse {
-		stack.Augment(c.Goroutines)
+		if err := stack.Augment(c.Goroutines); err != nil {
+			log.Printf("Augment() returned %v", err)
+		}
 	}
 	// Bucketing should only be done if no data race was detected.
 	if c.Goroutines[0].RaceAddr == 0 {
