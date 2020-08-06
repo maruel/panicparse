@@ -795,8 +795,9 @@ func parseFile(c *Call, line []byte) (bool, error) {
 
 // hasPrefix returns true if any of s is the prefix of p.
 func hasPrefix(p string, s map[string]string) bool {
+	lp := len(p)
 	for prefix := range s {
-		if strings.HasPrefix(p, prefix+"/") {
+		if l := len(prefix); lp > l+1 && p[:l] == prefix && p[l] == '/' {
 			return true
 		}
 	}
@@ -806,8 +807,15 @@ func hasPrefix(p string, s map[string]string) bool {
 // hasSrcPrefix returns true if any of s is the prefix of p with /src/ or
 // /pkg/mod/.
 func hasSrcPrefix(p string, s map[string]string) bool {
+	lp := len(p)
+	const src = "/src/"
+	const pkgmod = "/pkg/mod/"
 	for prefix := range s {
-		if strings.HasPrefix(p, prefix+"/src/") || strings.HasPrefix(p, prefix+"/pkg/mod/") {
+		l := len(prefix)
+		if lp > l+len(src) && p[:l] == prefix && p[l:l+len(src)] == src {
+			return true
+		}
+		if lp > l+len(pkgmod) && p[:l] == prefix && p[l:l+len(pkgmod)] == pkgmod {
 			return true
 		}
 	}
@@ -868,7 +876,6 @@ func isFile(p string) bool {
 //
 // Uses "/" as path separator.
 func isRootedIn(root string, parts []string) string {
-	//log.Printf("rootIn(%s, %v)", root, parts)
 	for i := 1; i < len(parts); i++ {
 		suffix := pathJoin(parts[i:]...)
 		if isFile(pathJoin(root, suffix)) {
@@ -881,13 +888,18 @@ func isRootedIn(root string, parts []string) string {
 // reModule find the module line in a go.mod file. It works even on CRLF file.
 var reModule = regexp.MustCompile(`(?m)^module\s+([^\n\r]+)\r?$`)
 
+type gomodCache map[string]struct{}
+
 // isGoModule returns the string to the directory containing a go.mod file, and
 // the go import path it represents, if found.
-func isGoModule(parts []string) (string, string) {
-	// TODO(maruel): Keep a cache to skip redundantly checking the same
-	// directories.
+func (g *gomodCache) isGoModule(parts []string) (string, string) {
 	for i := len(parts); i > 0; i-- {
 		prefix := pathJoin(parts[:i]...)
+		// Was already looked up.
+		if _, ok := (*g)[prefix]; ok {
+			break
+		}
+		(*g)[prefix] = struct{}{}
 		p := pathJoin(prefix, "go.mod")
 		if runtime.GOOS == "windows" {
 			p = strings.Replace(p, "/", pathSeparator, -1)
@@ -913,6 +925,7 @@ func (s *Snapshot) findRoots() int {
 	s.RemoteGOPATHs = map[string]string{}
 	s.LocalGomods = map[string]string{}
 	missing := 0
+	gmc := gomodCache{}
 	for _, f := range getFiles(s.Goroutines) {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
 		// possible, need to confirm and handle.
@@ -965,7 +978,7 @@ func (s *Snapshot) findRoots() int {
 		// Initializes localGomods.
 		if len(parts) > 1 {
 			// Search upward looking for a go.mod.
-			if root, path := isGoModule(parts[:len(parts)-1]); root != "" {
+			if root, path := gmc.isGoModule(parts[:len(parts)-1]); root != "" {
 				s.LocalGomods[root] = path
 				continue
 			}

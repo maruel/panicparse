@@ -314,7 +314,8 @@ func init() {
 	// Our internal functions work with '/' as path separator.
 	pwd = strings.Replace(pwd, "\\", "/", -1)
 	gomods = map[string]string{}
-	if prefix, path := isGoModule(splitPath(pwd)); prefix != "" {
+	gmc := gomodCache{}
+	if prefix, path := gmc.isGoModule(splitPath(pwd)); prefix != "" {
 		gomods[prefix] = path
 	}
 

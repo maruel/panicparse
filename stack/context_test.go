@@ -1903,7 +1903,8 @@ func TestIsGomodule(t *testing.T) {
 	}
 	// Our internal functions work with '/' as path separator.
 	parts := splitPath(strings.Replace(pwd, "\\", "/", -1))
-	root, importPath := isGoModule(parts)
+	gmc := gomodCache{}
+	root, importPath := gmc.isGoModule(parts)
 	if want := strings.Join(parts[:len(parts)-1], "/"); want != root {
 		t.Errorf("want: %q, got: %q", want, root)
 	}
