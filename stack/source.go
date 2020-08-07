@@ -52,15 +52,15 @@ type cache struct {
 // It modifies the routine.
 func (c *cache) augmentGoroutine(g *Goroutine) error {
 	var err error
-	// Load each of the source file referenced.
-	for i := range g.Stack.Calls {
+	for i, call := range g.Stack.Calls {
+		// Only load the AST if there's an argument to process.
+		if len(call.Args.Values) == 0 {
+			continue
+		}
 		if err1 := c.load(g.Stack.Calls[i].LocalSrcPath); err1 != nil {
 			//log.Printf("%s", err)
 			err = err1
 		}
-	}
-
-	for i, call := range g.Stack.Calls {
 		if p := c.parsed[call.LocalSrcPath]; p != nil {
 			f, err1 := p.getFuncAST(call.Func.Name, call.Line)
 			if err1 != nil {
@@ -230,11 +230,11 @@ func extractArgumentsType(f *ast.FuncDecl) ([]string, bool) {
 		}
 	}
 	var types []string
-	extra := false
+	ellipsis := false
 	for _, arg := range append(fields, f.Type.Params.List...) {
-		// Assert that extra is only set on the last item of fields?
+		// Assert that ellipsis is only set on the last item of fields?
 		var t string
-		t, extra = fieldToType(arg)
+		t, ellipsis = fieldToType(arg)
 		mult := len(arg.Names)
 		if mult == 0 {
 			mult = 1
@@ -243,7 +243,7 @@ func extractArgumentsType(f *ast.FuncDecl) ([]string, bool) {
 			types = append(types, t)
 		}
 	}
-	return types, extra
+	return types, ellipsis
 }
 
 // augmentCall walks the function and populate call accordingly.

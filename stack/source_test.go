@@ -609,28 +609,7 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 	}
 }
 
-func TestAugmentDummy(t *testing.T) {
-	t.Parallel()
-	g := []*Goroutine{
-		{
-			Signature: Signature{
-				Stack: Stack{
-					Calls: []Call{{RemoteSrcPath: "missing.go"}},
-				},
-			},
-		},
-	}
-	// There's no error because there's no Call with LocalSrcPath set.
-	if err := Augment(g); err != nil {
-		t.Error(err)
-	}
-	g[0].Stack.Calls[0].LocalSrcPath = "missing.go"
-	if err := Augment(g); err == nil {
-		t.Error("expected error")
-	}
-}
-
-func TestLoadErr(t *testing.T) {
+func TestAugmentErr(t *testing.T) {
 	t.Parallel()
 	root, err := ioutil.TempDir("", "stack")
 	if err != nil {
@@ -651,34 +630,95 @@ func TestLoadErr(t *testing.T) {
 	createTree(t, root, tree)
 
 	type dataLine struct {
+		name string
 		src  string
 		line int
+		args Args
 		err  error
 	}
 	// Note: these tests assumes an OS running in English-US locale. That should
 	// eventually be fixed, maybe by using regexes?
-	data := []dataLine{
-		{"foo.asm", 1, fmt.Errorf("cannot load non-go file %q", filepath.Join(root, "foo.asm"))},
-		{"good.go", 10, errors.New("line 10 is over line count of 1")},
-	}
-	if internaltest.GetGoMinorVersion() > 11 {
-		// The format changed between 1.9 and 1.12.
-		data = append(data, dataLine{"bad.go", 1, fmt.Errorf("failed to parse %s:1:1: expected 'package', found bad", filepath.Join(root, "bad.go"))})
-	}
 	msg := "The system cannot find the file specified."
 	if runtime.GOOS != "windows" {
 		msg = "no such file or directory"
+	}
+	data := []dataLine{
+		{
+			name: "assembly is skipped",
+			src:  "foo.asm",
+			args: Args{Values: []Arg{{}}},
+			err:  fmt.Errorf("cannot load non-go file %q", filepath.Join(root, "foo.asm")),
+		},
+		{
+			name: "assembly is skipped (no arg)",
+			src:  "foo.asm",
+			err:  nil,
+		},
+		{
+			name: "invalid line number",
+			src:  "good.go",
+			line: 2,
+			args: Args{Values: []Arg{{}}},
+			err:  errors.New("line 2 is over line count of 1"),
+		},
+		{
+			name: "invalid line number (no arg)",
+			src:  "good.go",
+			line: 2,
+		},
+		{
+			name: "missing file",
+			src:  "missing.go",
+			args: Args{Values: []Arg{{}}},
+			err:  fmt.Errorf("open %s: %s", filepath.Join(root, "missing.go"), msg),
+		},
+		{
+			name: "missing file (no arg)",
+			src:  "missing.go",
+		},
+		{
+			name: "invalid go code (no arg)",
+			src:  "bad.go",
+		},
+		{
+			name: "no I/O access (no arg)",
+			src:  "no_access.go",
+		},
+	}
+	if internaltest.GetGoMinorVersion() > 11 {
+		// The format changed between 1.9 and 1.12.
+		data = append(data, dataLine{
+			name: "invalid go code",
+			src:  "bad.go",
+			args: Args{Values: []Arg{{}}},
+			err:  fmt.Errorf("failed to parse %s:1:1: expected 'package', found bad", filepath.Join(root, "bad.go")),
+		})
+	}
+	if runtime.GOOS != "windows" {
 		// Chmod has no effect on Windows.
 		compareErr(t, nil, os.Chmod(filepath.Join(root, "no_access.go"), 0))
-		data = append(data, dataLine{"no_access.go", 1, fmt.Errorf("open %s: permission denied", filepath.Join(root, "no_access.go"))})
+		data = append(data, dataLine{
+			name: "no I/O access",
+			src:  "no_access.go",
+			args: Args{Values: []Arg{{}}},
+			err:  fmt.Errorf("open %s: permission denied", filepath.Join(root, "no_access.go")),
+		})
 	}
-	data = append(data, dataLine{"missing.go", 1, fmt.Errorf("open %s: %s", filepath.Join(root, "missing.go"), msg)})
 
-	for _, line := range data {
-		g := []*Goroutine{
-			{Signature: Signature{Stack: Stack{Calls: []Call{{LocalSrcPath: filepath.Join(root, line.src), Line: line.line}}}}},
-		}
-		compareErr(t, line.err, Augment(g))
+	for i, line := range data {
+		line := line
+		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
+			l := line.line
+			if l == 0 {
+				l = 1
+			}
+			g := []*Goroutine{
+				{Signature: Signature{Stack: Stack{Calls: []Call{
+					{LocalSrcPath: filepath.Join(root, line.src), Args: line.args, Line: l},
+				}}}},
+			}
+			compareErr(t, line.err, Augment(g))
+		})
 	}
 }
 
