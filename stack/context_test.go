@@ -1866,14 +1866,12 @@ func TestPanicweb(t *testing.T) {
 	if got := len(s.Goroutines); got < 30 {
 		t.Fatalf("unexpected Goroutines; want at least 30, got %d", got)
 	}
-	// Reduce the goroutines.
-	got := Aggregate(s.Goroutines, AnyPointer)
 	// The goal here is not to find the exact match since it'll change across
 	// OSes and Go versions, but to find some of the expected signatures.
 	pwebDir := pathJoin(getPanicParseDir(t), "cmd", "panicweb")
-	// Categorize the signatures.
+	// Reduce the goroutines and categorize the signatures.
 	var types []panicwebSignatureType
-	for _, b := range got {
+	for _, b := range s.Aggregate(AnyPointer).Buckets {
 		types = append(types, identifyPanicwebSignature(t, b, pwebDir))
 	}
 	// Count the expected types.

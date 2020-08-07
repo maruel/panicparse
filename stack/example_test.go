@@ -49,7 +49,7 @@ func Example() {
 	}
 
 	// Find out similar goroutine traces and group them into buckets.
-	buckets := stack.Aggregate(s.Goroutines, stack.AnyValue)
+	buckets := s.Aggregate(stack.AnyValue).Buckets
 
 	// Calculate alignment.
 	srcLen := 0

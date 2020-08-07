@@ -70,7 +70,11 @@ func TestAggregateNotAggressive(t *testing.T) {
 			IDs: []int{7},
 		},
 	}
-	compareBuckets(t, want, Aggregate(s.Goroutines, ExactLines))
+	a := s.Aggregate(ExactLines)
+	compareBuckets(t, want, a.Buckets)
+	if a.Snapshot != s {
+		t.Fatal("unexpected snapshot")
+	}
 	compareString(t, "", string(suffix))
 }
 
@@ -127,7 +131,7 @@ func TestAggregateExactMatching(t *testing.T) {
 			First: true,
 		},
 	}
-	compareBuckets(t, want, Aggregate(s.Goroutines, ExactLines))
+	compareBuckets(t, want, s.Aggregate(ExactLines).Buckets)
 	compareString(t, "", string(suffix))
 }
 
@@ -177,7 +181,7 @@ func TestAggregateAggressive(t *testing.T) {
 			First: true,
 		},
 	}
-	compareBuckets(t, want, Aggregate(s.Goroutines, AnyPointer))
+	compareBuckets(t, want, s.Aggregate(AnyPointer).Buckets)
 	compareString(t, "", string(suffix))
 }
 
@@ -195,7 +199,7 @@ func BenchmarkAggregate(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		buckets := Aggregate(s.Goroutines, AnyPointer)
+		buckets := s.Aggregate(AnyPointer).Buckets
 		if len(buckets) < 5 {
 			b.Fatal("expected more buckets")
 		}

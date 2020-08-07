@@ -247,7 +247,7 @@ func BenchmarkWriteBuckets(b *testing.B) {
 	if s == nil {
 		b.Fatal("missing context")
 	}
-	buckets := stack.Aggregate(s.Goroutines, stack.AnyPointer)
+	buckets := s.Aggregate(stack.AnyPointer).Buckets
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if err := WriteBuckets(ioutil.Discard, buckets, ""); err != nil {
