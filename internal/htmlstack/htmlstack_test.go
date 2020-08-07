@@ -302,16 +302,18 @@ func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {
 	if strings.HasPrefix(s, goroot) {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(goroot):]
-		c.IsStdlib = true
 		c.ImportPath = path.Dir(c.RelSrcPath)
+		c.Location = stack.Stdlib
 	} else if strings.HasPrefix(s, gopath) {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(gopath):]
 		c.ImportPath = path.Dir(c.RelSrcPath)
+		c.Location = stack.GOPATH
 	} else if strings.HasPrefix(s, gopathmod) {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(gopathmod):]
 		c.ImportPath = path.Dir(c.RelSrcPath)
+		c.Location = stack.GoPkg
 	}
 	return c
 }
@@ -346,14 +348,14 @@ func getBuckets() []*stack.Bucket {
 							Args:          stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
 							RemoteSrcPath: "/golang/src/sort/slices.go",
 							Line:          72,
-							IsStdlib:      true,
+							Location:      stack.Stdlib,
 						},
 						{
 							Func:          newFunc("Slice"),
 							Args:          stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
 							RemoteSrcPath: "/golang/src/sort/slices.go",
 							Line:          72,
-							IsStdlib:      true,
+							Location:      stack.Stdlib,
 						},
 						newCall(
 							"DoStuff",

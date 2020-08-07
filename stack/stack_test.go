@@ -87,10 +87,10 @@ func TestCallPkg(t *testing.T) {
 		// Expectations
 		DirSrc       string
 		SrcName      string
-		IsStdlib     bool
 		LocalSrcPath string
 		RelSrcPath   string
 		ImportPath   string
+		Location     Location
 	}{
 		{
 			name:         "Pkg",
@@ -101,6 +101,7 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/gplocal/src/gopkg.in/yaml.v2/yaml.go",
 			RelSrcPath:   "gopkg.in/yaml.v2/yaml.go",
 			ImportPath:   "gopkg.in/yaml.v2",
+			Location:     GOPATH,
 		},
 		{
 			name:         "PkgMod",
@@ -111,6 +112,7 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/gplocal/pkg/mod/gopkg.in/yaml.v2@v2.3.0/yaml.go",
 			RelSrcPath:   "gopkg.in/yaml.v2@v2.3.0/yaml.go",
 			ImportPath:   "gopkg.in/yaml.v2@v2.3.0",
+			Location:     GoPkg,
 		},
 		{
 			name:         "PkgMethod",
@@ -121,6 +123,7 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/gplocal/src/gopkg.in/yaml.v2/yaml.go",
 			RelSrcPath:   "gopkg.in/yaml.v2/yaml.go",
 			ImportPath:   "gopkg.in/yaml.v2",
+			Location:     GOPATH,
 		},
 		{
 			name:         "Stdlib",
@@ -128,10 +131,10 @@ func TestCallPkg(t *testing.T) {
 			s:            "/grremote/src/reflect/value.go",
 			DirSrc:       pathJoin("reflect", "value.go"),
 			SrcName:      "value.go",
-			IsStdlib:     true,
 			LocalSrcPath: "/grlocal/src/reflect/value.go",
 			RelSrcPath:   "reflect/value.go",
 			ImportPath:   "reflect",
+			Location:     Stdlib,
 		},
 		{
 			name:         "Main",
@@ -142,6 +145,7 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/gplocal/src/github.com/maruel/panicparse/cmd/pp/main.go",
 			RelSrcPath:   "github.com/maruel/panicparse/cmd/pp/main.go",
 			ImportPath:   "github.com/maruel/panicparse/cmd/pp",
+			Location:     GOPATH,
 		},
 		{
 			// See testPanicMismatched in context_test.go.
@@ -153,6 +157,7 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/gplocal/src/github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 			RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/incorrect/correct.go",
 			ImportPath:   "github.com/maruel/panicparse/cmd/panic/internal/incorrect",
+			Location:     GOPATH,
 		},
 		{
 			// See testPanicUTF8 in context_test.go.
@@ -164,6 +169,7 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/gplocal/src/github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 			RelSrcPath:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8/ùtf8.go",
 			ImportPath:   "github.com/maruel/panicparse/cmd/panic/internal/ùtf8",
+			Location:     GOPATH,
 		},
 		{
 			name:         "C",
@@ -171,10 +177,10 @@ func TestCallPkg(t *testing.T) {
 			s:            "/grremote/src/runtime/proc.c",
 			DirSrc:       pathJoin("runtime", "proc.c"),
 			SrcName:      "proc.c",
-			IsStdlib:     true,
 			LocalSrcPath: "/grlocal/src/runtime/proc.c",
 			RelSrcPath:   "runtime/proc.c",
 			ImportPath:   "runtime",
+			Location:     Stdlib,
 		},
 		{
 			name:         "Gomod",
@@ -185,6 +191,7 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/gomod/bar/baz.go",
 			RelSrcPath:   "bar/baz.go",
 			ImportPath:   "example.com/foo/bar",
+			Location:     GoMod,
 		},
 		{
 			name:         "GomodMain",
@@ -195,6 +202,7 @@ func TestCallPkg(t *testing.T) {
 			LocalSrcPath: "/gomod/cmd/panic/main.go",
 			RelSrcPath:   "cmd/panic/main.go",
 			ImportPath:   "example.com/foo/cmd/panic",
+			Location:     GoMod,
 		},
 	}
 	for i, line := range data {
@@ -211,7 +219,9 @@ func TestCallPkg(t *testing.T) {
 				t.Error("Unexpected")
 			}
 			compareString(t, line.ImportPath, c.ImportPath)
-			compareBool(t, line.IsStdlib, c.IsStdlib)
+			if line.Location != c.Location {
+				t.Errorf("want %s, got %s", line.Location, c.Location)
+			}
 			compareString(t, line.LocalSrcPath, c.LocalSrcPath)
 			compareString(t, line.RelSrcPath, c.RelSrcPath)
 		})
@@ -357,13 +367,6 @@ func newCallLocal(f string, a Args, s string, l int) Call {
 	return c
 }
 
-func compareBool(t *testing.T, want, got bool) {
-	helper(t)()
-	if want != got {
-		t.Fatalf("%t != %t", want, got)
-	}
-}
-
 func compareErr(t *testing.T, want, got error) {
 	helper(t)()
 	if want == nil && got == nil {
@@ -496,14 +499,14 @@ func getSignature() *Signature {
 					Args:          Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
 					RemoteSrcPath: "/golang/src/sort/slices.go",
 					Line:          72,
-					IsStdlib:      true,
+					Location:      Stdlib,
 				},
 				{
 					Func:          newFunc("Slice"),
 					Args:          Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
 					RemoteSrcPath: "/golang/src/sort/slices.go",
 					Line:          72,
-					IsStdlib:      true,
+					Location:      Stdlib,
 				},
 				{
 					Func:          newFunc("DoStuff"),

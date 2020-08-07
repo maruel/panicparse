@@ -14,6 +14,9 @@ import (
 // Palette defines the color used.
 //
 // An empty object Palette{} can be used to disable coloring.
+//
+// TODO(maruel): Redo the color selection as part of
+// https://github.com/maruel/panicparse/issues/26
 type Palette struct {
 	EOLReset string
 
@@ -105,18 +108,36 @@ func calcGoroutinesLengths(goroutines []*stack.Goroutine, pf pathFormat) (int, i
 
 // functionColor returns the color to be used for the function name based on
 // the type of package the function is in.
-func (p *Palette) functionColor(line *stack.Call) string {
-	if line.IsStdlib {
-		if line.Func.IsExported {
+func (p *Palette) functionColor(c *stack.Call) string {
+	if c.Func.IsPkgMain {
+		return p.FuncMain
+	}
+	switch c.Location {
+	case stack.LocationUnknown:
+		return p.FuncOther
+	case stack.GoMod:
+		if c.Func.IsExported {
+			return p.FuncOtherExported
+		}
+		return p.FuncOther
+	case stack.GOPATH:
+		if c.Func.IsExported {
+			return p.FuncOtherExported
+		}
+		return p.FuncOther
+	case stack.GoPkg:
+		if c.Func.IsExported {
+			return p.FuncOtherExported
+		}
+		return p.FuncOther
+	case stack.Stdlib:
+		if c.Func.IsExported {
 			return p.FuncStdLibExported
 		}
 		return p.FuncStdLib
-	} else if line.Func.IsPkgMain {
-		return p.FuncMain
-	} else if line.Func.IsExported {
-		return p.FuncOtherExported
+	default:
+		return p.FuncOther
 	}
-	return p.FuncOther
 }
 
 // routineColor returns the color for the header of the goroutines bucket.

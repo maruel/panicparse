@@ -102,18 +102,15 @@ func isDebug() bool {
 	return false
 }
 
-func funcClass(line *stack.Call) template.HTML {
-	if line.IsStdlib {
-		if line.Func.IsExported {
-			return "FuncStdLibExported"
-		}
-		return "FuncStdLib"
-	} else if line.Func.IsPkgMain {
+func funcClass(c *stack.Call) template.HTML {
+	if c.Func.IsPkgMain {
 		return "FuncMain"
-	} else if line.Func.IsExported {
-		return "FuncOtherExported"
 	}
-	return "FuncOther"
+	s := c.Location.String()
+	if c.Func.IsExported {
+		s += "Exported"
+	}
+	return template.HTML("Func" + s)
 }
 
 func minus(i, j int) int {
@@ -132,11 +129,12 @@ func pkgURL(c *stack.Call) template.URL {
 		return ""
 	}
 	url := template.URL("")
-	if c.IsStdlib {
+	if c.Location == stack.Stdlib {
 		// This always links to the latest release, past releases are not online.
 		// That's somewhat unfortunate.
 		url = "https://golang.org/pkg/"
 	} else {
+		// TODO(maruel): Leverage Location.
 		// Use pkg.go.dev when there's a version (go module) and godoc.org when
 		// there's none (implies branch master).
 		_, branch := getSrcBranchURL(c)
@@ -171,12 +169,13 @@ func escape(s string) template.URL {
 // the package version, if possible.
 func getSrcBranchURL(c *stack.Call) (template.URL, template.URL) {
 	tag := ""
-	if c.IsStdlib {
+	if c.Location == stack.Stdlib {
 		// TODO(maruel): This is not strictly speaking correct. The remote could be
 		// running a different Go version from the current executable.
 		tag = url.QueryEscape(runtime.Version())
 		return template.URL(fmt.Sprintf("https://github.com/golang/go/blob/%s/src/%s#L%d", tag, escape(c.RelSrcPath), c.Line)), template.URL(tag)
 	}
+	// TODO(maruel): Leverage Location.
 	if rel := c.RelSrcPath; rel != "" {
 		// Check for vendored code first.
 		if i := strings.Index(rel, "/vendor/"); i != -1 {

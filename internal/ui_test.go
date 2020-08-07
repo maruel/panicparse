@@ -184,13 +184,15 @@ func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {
 	if strings.HasPrefix(s, goroot) {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(goroot):]
-		c.IsStdlib = true
+		c.Location = stack.Stdlib
 	} else if strings.HasPrefix(s, gopath) {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(gopath):]
+		c.Location = stack.GOPATH
 	} else if strings.HasPrefix(s, gopathmod) {
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(gopathmod):]
+		c.Location = stack.GoPkg
 	}
 	return c
 }

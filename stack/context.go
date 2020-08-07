@@ -4,6 +4,7 @@
 
 //go:generate go get golang.org/x/tools/cmd/stringer
 //go:generate stringer -type state
+//go:generate stringer -type Location
 
 package stack
 

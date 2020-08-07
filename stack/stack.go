@@ -234,6 +234,29 @@ func (a *Args) merge(r *Args) Args {
 	return out
 }
 
+// Location is the source location, if determined.
+type Location int
+
+const (
+	// LocationUnknown is the default value when GuessPaths() was not called.
+	LocationUnknown Location = iota
+	// GoMod is a go module, it is outside $GOPATH and is inside a directory
+	// containing a go.mod file. This is considered a local copy.
+	GoMod
+	// GOPATH is in $GOPATH/src. This is either a dependency fetched via
+	// GO111MODULE=off or intentionally fetched this way. There is no guaranteed
+	// that the local copy is pristine.
+	GOPATH
+	// GoPkg is in $GOPATH/pkg/mod. This is a dependency fetched via go module.
+	// It is considered to be an unmodified external dependency.
+	GoPkg
+	// Stdlib is when it is a Go standard library function. This includes the 'go
+	// test' generated main executable.
+	Stdlib
+
+	lastLocation
+)
+
 // Call is an item in the stack trace.
 //
 // All paths in this struct are in POSIX format, using "/" as path separator.
@@ -271,9 +294,8 @@ type Call struct {
 	// In the case of package "main", it returns the underlying path to the main
 	// package instead of "main" if GuessPaths() was called.
 	ImportPath string
-	// IsStdlib is true if it is a Go standard library function. This includes
-	// the 'go test' generated main executable.
-	IsStdlib bool
+	// Location is the source location, if determined.
+	Location Location
 
 	// Disallow initialization with unnamed parameters.
 	_ struct{}
@@ -281,7 +303,7 @@ type Call struct {
 
 // Init initializes RemoteSrcPath, SrcName, DirName and Line.
 //
-// For test main, it initializes IsStdlib.
+// For test main, it initializes Location only with Stdlib.
 //
 // It does its best educated guess for ImportPath.
 func (c *Call) init(srcPath string, line int) {
@@ -294,15 +316,17 @@ func (c *Call) init(srcPath string, line int) {
 				c.DirSrc = c.RemoteSrcPath[i+1:]
 			}
 		}
-		// Consider _test/_testmain.go as stdlib since it's injected by "go test".
-		c.IsStdlib = c.DirSrc == testMainSrc
+		if c.DirSrc == testMainSrc {
+			// Consider _test/_testmain.go as stdlib since it's injected by "go test".
+			c.Location = Stdlib
+		}
 	}
 	c.ImportPath = c.Func.ImportPath
 }
 
 const testMainSrc = "_test" + string(os.PathSeparator) + "_testmain.go"
 
-// updateLocations initializes LocalSrcPath, RelSrcPath, IsStdlib and ImportPath.
+// updateLocations initializes LocalSrcPath, RelSrcPath, Location and ImportPath.
 //
 // goroot, localgoroot, localgomod, gomodImportPath and gopaths are expected to
 // be in "/" format even on Windows. They must not have a trailing "/".
@@ -322,7 +346,9 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 			if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
 				c.ImportPath = c.RelSrcPath[:i]
 			}
-			c.IsStdlib = true
+			if c.Location == LocationUnknown {
+				c.Location = Stdlib
+			}
 			return true
 		}
 	}
@@ -335,6 +361,9 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 			if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
 				c.ImportPath = c.RelSrcPath[:i]
 			}
+			if c.Location == LocationUnknown {
+				c.Location = GOPATH
+			}
 			return true
 		}
 		// For modules, the path has to be altered, as it contains the version.
@@ -343,6 +372,9 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 			c.LocalSrcPath = pathJoin(dest, "pkg/mod", c.RelSrcPath)
 			if i := strings.LastIndexByte(c.RelSrcPath, '/'); i != -1 {
 				c.ImportPath = c.RelSrcPath[:i]
+			}
+			if c.Location == LocationUnknown {
+				c.Location = GoPkg
 			}
 			return true
 		}
@@ -358,6 +390,9 @@ func (c *Call) updateLocations(goroot, localgoroot string, localgomods, gopaths 
 				c.ImportPath = pkg + "/" + c.RelSrcPath[:i]
 			} else {
 				c.ImportPath = pkg
+			}
+			if c.Location == LocationUnknown {
+				c.Location = GoMod
 			}
 			return true
 		}
@@ -389,7 +424,7 @@ func (c *Call) merge(r *Call) Call {
 		LocalSrcPath:  c.LocalSrcPath,
 		RelSrcPath:    c.RelSrcPath,
 		ImportPath:    c.ImportPath,
-		IsStdlib:      c.IsStdlib,
+		Location:      c.Location,
 	}
 }
 
@@ -453,47 +488,35 @@ func (s *Stack) merge(r *Stack) *Stack {
 // Inversely, a Stack with only public functions is 'more' so it is at the
 // bottom.
 func (s *Stack) less(r *Stack) bool {
-	lStdlib := 0
+	lLoc := [lastLocation]int{}
+	rLoc := [lastLocation]int{}
 	lMain := 0
-	lOther := 0
-	for _, c := range s.Calls {
-		if c.IsStdlib {
-			lStdlib++
-		} else if c.Func.IsPkgMain {
-			lMain++
-		} else {
-			lOther++
-		}
-	}
-	rStdlib := 0
 	rMain := 0
-	rOther := 0
-	for _, s := range r.Calls {
-		if s.IsStdlib {
-			rStdlib++
-		} else if s.Func.IsPkgMain {
-			rMain++
-		} else {
-			rOther++
+	for _, c := range s.Calls {
+		lLoc[c.Location]++
+		if c.Func.IsPkgMain {
+			lMain++
 		}
 	}
-	if lMain > rMain {
-		return true
+	for _, s := range r.Calls {
+		rLoc[s.Location]++
+		if s.Func.IsPkgMain {
+			rMain++
+		}
 	}
-	if lMain < rMain {
-		return false
-	}
-	if lOther > rOther {
-		return true
-	}
-	if lOther < rOther {
-		return false
-	}
-	if lStdlib > rStdlib {
-		return false
-	}
-	if lStdlib < rStdlib {
-		return true
+	for i := 1; i < int(lastLocation); i++ {
+		if lMain > rMain {
+			return true
+		}
+		if lMain < rMain {
+			return false
+		}
+		if lLoc[i] > rLoc[i] {
+			return true
+		}
+		if lLoc[i] < rLoc[i] {
+			return false
+		}
 	}
 
 	// Stack lengths are the same.

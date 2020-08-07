@@ -33,7 +33,7 @@
   <br>SrcPath: {{.SrcPath}}
   <br>LocalSrcPath: {{.LocalSrcPath}}
   <br>Func: {{.Func.Complete}}
-  <br>IsStdlib: {{.IsStdlib}}
+  <br>Location: {{.Location}}
   {{- end -}}
 {{- end -}}
 
@@ -161,22 +161,44 @@
     width: 100%;
   }
 
-  {{- /* Highlights */ -}}
-  .FuncStdLibExported {
-    color: #00B000;
-  }
-  .FuncStdLib {
-    color: #006000;
-  }
+  {{- /* Highlights based on stack.Location value.
+         TODO(maruel): Redo the color selection as part of
+         https://github.com/maruel/panicparse/issues/26
+      */ -}}
   .FuncMain {
     color: #808000;
   }
-  .FuncOtherExported {
+  .FuncLocationUnknownExported {
+    color: #00B000;
+  }
+  .FuncLocationUnknown {
+    color: #00B000;
+  }
+  .FuncGoModExported {
     color: #C00000;
   }
-  .FuncOther {
+  .FuncGoMod {
     color: #800000;
   }
+  .FuncGOPATHExported {
+    color: #C00000;
+  }
+  .FuncGOPATH {
+    color: #800000;
+  }
+  .FuncGoPkgExported {
+    color: #C00000;
+  }
+  .FuncGoPkg {
+    color: #800000;
+  }
+  .FuncStdlibExported {
+    color: #00B000;
+  }
+  .FuncStdlib {
+    color: #006000;
+  }
+  {{- /* Highlight on first routine (if any) */ -}}
   .RoutineFirst {
   }
   .Routine {

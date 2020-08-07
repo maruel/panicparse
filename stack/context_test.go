@@ -1401,6 +1401,7 @@ func TestGomoduleComplex(t *testing.T) {
 							LocalSrcPath:  pathJoin(rootLocal, "go", "src", "example.com", "pkg3", "src3.go"),
 							RelSrcPath:    "example.com/pkg3/src3.go",
 							ImportPath:    "example.com/pkg3",
+							Location:      GOPATH,
 						},
 						{
 							Func:          newFunc("example.com/pkg2.CallDie"),
@@ -1414,6 +1415,7 @@ func TestGomoduleComplex(t *testing.T) {
 							LocalSrcPath: pathJoin(rootRemote, "pkg2", "src2.go"),
 							RelSrcPath:   "src2.go",
 							ImportPath:   "example.com/pkg2",
+							Location:     GoMod,
 						},
 						{
 							Func:          newFunc("example.com/pkg1/internal.CallCallDie"),
@@ -1426,6 +1428,7 @@ func TestGomoduleComplex(t *testing.T) {
 							LocalSrcPath: pathJoin(rootRemote, "pkg1", "internal", "int.go"),
 							RelSrcPath:   "internal/int.go",
 							ImportPath:   "example.com/pkg1/internal",
+							Location:     GoMod,
 						},
 						{
 							Func:          newFunc("main.main"),
@@ -1438,6 +1441,7 @@ func TestGomoduleComplex(t *testing.T) {
 							LocalSrcPath: pathJoin(rootRemote, "pkg1", "cmd", "main.go"),
 							RelSrcPath:   "cmd/main.go",
 							ImportPath:   "example.com/pkg1/cmd",
+							Location:     GoMod,
 						},
 					},
 				},
@@ -1504,6 +1508,7 @@ func TestGoRun(t *testing.T) {
 							SrcName:       "main.go",
 							DirSrc:        path.Base(path.Dir(p)) + "/main.go",
 							ImportPath:    "main",
+							Location:      LocationUnknown,
 						},
 					},
 				},
@@ -1519,6 +1524,9 @@ func TestGoRun(t *testing.T) {
 	}
 	want[0].Stack.Calls[0].LocalSrcPath = p
 	want[0].Stack.Calls[0].RelSrcPath = "main.go"
+	// This is not technically true, when using go run there's no need for a
+	// go.mod file, but I don't think it's worth handling specifically.
+	want[0].Stack.Calls[0].Location = GoMod
 	similarGoroutines(t, want, s.Goroutines)
 }
 
@@ -2218,7 +2226,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 	}
 
 	// The rest should all be created with internal threads.
-	if b.CreatedBy.Calls[0].IsStdlib {
+	if b.CreatedBy.Calls[0].Location == Stdlib {
 		return pstStdlib
 	}
 
