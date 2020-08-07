@@ -52,8 +52,7 @@ type cache struct {
 // It modifies the routine.
 func (c *cache) augmentGoroutine(g *Goroutine) error {
 	var err error
-	// For each call site, look at the next call and populate it. Then we can
-	// walk back and reformat things.
+	// Load each of the source file referenced.
 	for i := range g.Stack.Calls {
 		if err1 := c.load(g.Stack.Calls[i].LocalSrcPath); err1 != nil {
 			//log.Printf("%s", err)
@@ -61,11 +60,9 @@ func (c *cache) augmentGoroutine(g *Goroutine) error {
 		}
 	}
 
-	// Once all loaded, we can look at the next call when available.
-	for i := 0; i < len(g.Stack.Calls)-1; i++ {
-		// Get the AST from the previous call and process the call line with it.
-		if p := c.parsed[g.Stack.Calls[i].LocalSrcPath]; p != nil {
-			f, err1 := p.getFuncAST(g.Stack.Calls[i].Func.Name, g.Stack.Calls[i].Line)
+	for i, call := range g.Stack.Calls {
+		if p := c.parsed[call.LocalSrcPath]; p != nil {
+			f, err1 := p.getFuncAST(call.Func.Name, call.Line)
 			if err1 != nil {
 				err = err1
 				continue
@@ -95,13 +92,13 @@ func (c *cache) load(fileName string) error {
 	}
 	src, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		return fmt.Errorf("failed to read %s: "+wrap, fileName, err)
+		return err
 	}
 	c.files[fileName] = src
 	fset := token.NewFileSet()
 	parsed, err := parser.ParseFile(fset, fileName, src, 0)
 	if err != nil {
-		return fmt.Errorf("failed to parse %s: "+wrap, fileName, err)
+		return fmt.Errorf("failed to parse "+wrap, err)
 	}
 	c.parsed[fileName] = &parsedFile{
 		lineToByteOffset: lineToByteOffsets(src),
@@ -138,7 +135,7 @@ func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl, err error) {
 		// The line number in the stack trace line does not exist in the file. That
 		// can only mean that the sources on disk do not match the sources used to
 		// build the binary.
-		return nil, fmt.Errorf("line %d is over line count of %d", l, len(p.lineToByteOffset))
+		return nil, fmt.Errorf("line %d is over line count of %d", l, len(p.lineToByteOffset)-1)
 	}
 
 	// Walk the AST to find the lineToByteOffset that fits the line number.

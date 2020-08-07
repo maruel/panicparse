@@ -1321,16 +1321,7 @@ func TestGomoduleComplex(t *testing.T) {
 		"go/src/example.com/pkg3/src3.go": "package pkg3\n" +
 			"func Die() { panic(42) }\n",
 	}
-	for path, content := range tree {
-		p := filepath.Join(root, strings.Replace(path, "/", pathSeparator, -1))
-		b := filepath.Dir(p)
-		if err = os.MkdirAll(b, 0700); err != nil {
-			t.Fatal(err)
-		}
-		if err = ioutil.WriteFile(p, []byte(content), 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
+	createTree(t, root, tree)
 
 	exe := filepath.Join(root, "yo")
 	if runtime.GOOS == "windows" {
@@ -2257,4 +2248,17 @@ func getPanicParseDir(t *testing.T) string {
 	// "/" is used even on Windows in the stack trace, return in this format to
 	// simply our life.
 	return strings.Replace(filepath.Dir(thisDir), "\\", "/", -1)
+}
+
+func createTree(t *testing.T, root string, tree map[string]string) {
+	for path, content := range tree {
+		p := filepath.Join(root, strings.Replace(path, "/", pathSeparator, -1))
+		b := filepath.Dir(p)
+		if err := os.MkdirAll(b, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := ioutil.WriteFile(p, []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

@@ -368,8 +368,10 @@ func compareErr(t *testing.T, want, got error) {
 	if want == nil && got == nil {
 		return
 	}
-	if want == nil || got == nil || (want.Error() != got.Error()) {
+	if want == nil || got == nil {
 		t.Errorf("want: %v, got: %v", want, got)
+	} else if want.Error() != got.Error() {
+		t.Errorf("want: %q, got: %q", want.Error(), got.Error())
 	}
 }
 

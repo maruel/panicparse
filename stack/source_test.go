@@ -6,6 +6,7 @@ package stack
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/maruel/panicparse/v2/internal/internaltest"
 )
 
 func TestAugment(t *testing.T) {
@@ -630,30 +632,53 @@ func TestAugmentDummy(t *testing.T) {
 
 func TestLoadErr(t *testing.T) {
 	t.Parallel()
-	c := &cache{
-		files:  map[string][]byte{"bad.go": []byte("bad content")},
-		parsed: map[string]*parsedFile{},
+	root, err := ioutil.TempDir("", "stack")
+	if err != nil {
+		t.Fatalf("failed to create temporary directory: %v", err)
 	}
-	if err := c.load("foo.asm"); err == nil {
-		t.Error("expected failure")
+	defer func() {
+		if err2 := os.RemoveAll(root); err2 != nil {
+			t.Fatalf("failed to remove temporary directory %q: %v", root, err2)
+		}
+	}()
+
+	tree := map[string]string{
+		"bad.go":       "bad content",
+		"foo.asm":      "; good but ignored",
+		"good.go":      "package main",
+		"no_access.go": "package main",
 	}
-	if err := c.load("bad.go"); err == nil {
-		t.Error("expected failure")
+	createTree(t, root, tree)
+
+	type dataLine struct {
+		src  string
+		line int
+		err  error
 	}
-	if err := c.load("doesnt_exist.go"); err == nil {
-		t.Error("expected failure")
+	// Note: these tests assumes an OS running in English-US locale. That should
+	// eventually be fixed, maybe by using regexes?
+	data := []dataLine{
+		{"foo.asm", 1, fmt.Errorf("cannot load non-go file %q", filepath.Join(root, "foo.asm"))},
+		{"good.go", 10, errors.New("line 10 is over line count of 1")},
 	}
-	if l := len(c.parsed); l != 3 {
-		t.Fatalf("want 3, got %d", l)
+	if internaltest.GetGoMinorVersion() > 11 {
+		// The format changed between 1.9 and 1.12.
+		data = append(data, dataLine{"bad.go", 1, fmt.Errorf("failed to parse %s:1:1: expected 'package', found bad", filepath.Join(root, "bad.go"))})
 	}
-	if c.parsed["foo.asm"] != nil {
-		t.Fatalf("foo.asm is not present; should not have been loaded")
+	msg := "The system cannot find the file specified."
+	if runtime.GOOS != "windows" {
+		msg = "no such file or directory"
+		// Chmod has no effect on Windows.
+		compareErr(t, nil, os.Chmod(filepath.Join(root, "no_access.go"), 0))
+		data = append(data, dataLine{"no_access.go", 1, fmt.Errorf("open %s: permission denied", filepath.Join(root, "no_access.go"))})
 	}
-	if c.parsed["bad.go"] != nil {
-		t.Fatalf("bad.go is not valid code; should not have been loaded")
-	}
-	if c.parsed["doesnt_exist.go"] != nil {
-		t.Fatalf("doesnt_exist.go is not present; should not have been loaded")
+	data = append(data, dataLine{"missing.go", 1, fmt.Errorf("open %s: %s", filepath.Join(root, "missing.go"), msg)})
+
+	for _, line := range data {
+		g := []*Goroutine{
+			{Signature: Signature{Stack: Stack{Calls: []Call{{LocalSrcPath: filepath.Join(root, line.src), Line: line.line}}}}},
+		}
+		compareErr(t, line.err, Augment(g))
 	}
 }
 
