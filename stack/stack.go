@@ -238,7 +238,7 @@ func (a *Args) merge(r *Args) Args {
 type Location int
 
 const (
-	// LocationUnknown is the default value when GuessPaths() was not called.
+	// LocationUnknown is the default value when Opts.GuessPaths was false.
 	LocationUnknown Location = iota
 	// GoMod is a go module, it is outside $GOPATH and is inside a directory
 	// containing a go.mod file. This is considered a local copy.
@@ -281,7 +281,7 @@ type Call struct {
 	// subset of RemoteSrcPath.
 	DirSrc string
 
-	// The following are only set if GuessPaths() was called on the Snapshot.
+	// The following are only set if Opts.GuessPaths was set.
 
 	// LocalSrcPath is the full path name of the source file as seen in the host,
 	// if found.
@@ -289,10 +289,10 @@ type Call struct {
 	// RelSrcPath is the relative path to GOROOT, GOPATH or LocalGoMods.
 	RelSrcPath string
 	// ImportPath is the fully qualified import path as found on disk (when
-	// GuessPaths() was called). Defaults to Func.ImportPath otherwise.
+	// Opts.GuessPaths was set). Defaults to Func.ImportPath otherwise.
 	//
 	// In the case of package "main", it returns the underlying path to the main
-	// package instead of "main" if GuessPaths() was called.
+	// package instead of "main" if Opts.GuessPaths was set.
 	ImportPath string
 	// Location is the source location, if determined.
 	Location Location

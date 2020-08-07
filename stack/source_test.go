@@ -569,7 +569,7 @@ func TestAugment(t *testing.T) {
 func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Stack) {
 	// Analyze it.
 	prefix := bytes.Buffer{}
-	s, suffix, err := ScanSnapshot(bytes.NewBuffer(content), &prefix, DefaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewBuffer(content), &prefix, defaultOpts())
 	if err != nil {
 		t.Fatalf("failed to parse input: %v", err)
 	}
@@ -578,12 +578,12 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 		t.Fatalf("Unexpected panic output:\n%#v", got)
 	}
 	compareString(t, "exit status 2\n", string(suffix))
-	if !s.GuessPaths() {
+	if !s.guessPaths() {
 		t.Error("expected success")
 	}
 
-	if err := Augment(s.Goroutines); err != nil {
-		t.Errorf("Augment() returned %v", err)
+	if err := s.augment(); err != nil {
+		t.Errorf("augment() returned %v", err)
 	}
 	got := s.Goroutines[0].Signature.Stack
 	zapPointers(t, &want, &got)
@@ -712,12 +712,13 @@ func TestAugmentErr(t *testing.T) {
 			if l == 0 {
 				l = 1
 			}
-			g := []*Goroutine{
-				{Signature: Signature{Stack: Stack{Calls: []Call{
-					{LocalSrcPath: filepath.Join(root, line.src), Args: line.args, Line: l},
-				}}}},
-			}
-			compareErr(t, line.err, Augment(g))
+			s := Snapshot{
+				Goroutines: []*Goroutine{
+					{Signature: Signature{Stack: Stack{Calls: []Call{
+						{LocalSrcPath: filepath.Join(root, line.src), Args: line.args, Line: l},
+					}}}},
+				}}
+			compareErr(t, line.err, s.augment())
 		})
 	}
 }

@@ -59,23 +59,21 @@ func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	c, err := snapshot(maxmem)
-	if err != nil {
-		http.Error(w, "failed to process the snapshot, try a larger maxmem value", http.StatusInternalServerError)
-		return
-	}
-	augment := 1
+	opts := stack.DefaultOpts()
 	if s := req.FormValue("augment"); s != "" {
 		v, err := strconv.Atoi(s)
 		if err != nil || v < 0 || v > 1 {
 			http.Error(w, "invalid augment value", http.StatusBadRequest)
 			return
 		}
-		augment = v
+		if v == 0 {
+			opts.AnalyzeSources = false
+		}
 	}
-	if augment == 1 {
-		// Should we give feedback to the user that source parsing failed? How?
-		_ = stack.Augment(c.Goroutines)
+	c, err := snapshot(maxmem, opts)
+	if err != nil {
+		http.Error(w, "failed to process the snapshot, try a larger maxmem value", http.StatusInternalServerError)
+		return
 	}
 
 	var s stack.Similarity
@@ -100,7 +98,7 @@ func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
 
 // snapshot returns a Context based on the snapshot of the stacks of the
 // current process.
-func snapshot(maxmem int) (*stack.Snapshot, error) {
+func snapshot(maxmem int, opts *stack.Opts) (*stack.Snapshot, error) {
 	// We don't know how big the buffer needs to be to collect all the
 	// goroutines. Start with 1 MB and try a few times, doubling each time. Give
 	// up and use a truncated trace if maxmem is not enough.
@@ -123,11 +121,7 @@ func snapshot(maxmem int) (*stack.Snapshot, error) {
 		}
 		buf = make([]byte, l)
 	}
-	s, _, err := stack.ScanSnapshot(bytes.NewReader(buf), ioutil.Discard, stack.DefaultOpts())
-	if s != nil {
-		// It'd be better to be able to run this without touching disk. How?
-		_ = s.GuessPaths()
-	}
+	s, _, err := stack.ScanSnapshot(bytes.NewReader(buf), ioutil.Discard, opts)
 	// That's expected.
 	if err == io.EOF {
 		err = nil

@@ -96,20 +96,10 @@ func writeGoroutinesToConsole(out io.Writer, p *Palette, goroutines []*stack.Gor
 	return nil
 }
 
-func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, parse, rebase bool, html string, filter, match *regexp.Regexp, c *stack.Snapshot, first bool) error {
-	if rebase {
-		if !c.GuessPaths() {
-			log.Printf("GuessPaths() did not succeed")
-		}
-		log.Printf("GOROOT=%s", c.RemoteGOROOT)
-		log.Printf("GOPATH=%s", c.RemoteGOPATHs)
-	}
+func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, html string, filter, match *regexp.Regexp, c *stack.Snapshot, first bool) error {
+	log.Printf("GOROOT=%s", c.RemoteGOROOT)
+	log.Printf("GOPATH=%s", c.RemoteGOPATHs)
 	needsEnv := len(c.Goroutines) == 1 && showBanner()
-	if parse {
-		if err := stack.Augment(c.Goroutines); err != nil {
-			log.Printf("Augment() returned %v", err)
-		}
-	}
 	// Bucketing should only be done if no data race was detected.
 	if c.Goroutines[0].RaceAddr == 0 {
 		buckets := stack.Aggregate(c.Goroutines, s)
@@ -145,11 +135,19 @@ func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, 
 //
 // If html is used, a stack trace is written to this file instead.
 func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, parse, rebase bool, html string, filter, match *regexp.Regexp) error {
+	opts := stack.DefaultOpts()
+	if !rebase {
+		opts.GuessPaths = false
+		opts.AnalyzeSources = false
+	}
+	if !parse {
+		opts.AnalyzeSources = false
+	}
 	for first := true; ; first = false {
-		c, suffix, err := stack.ScanSnapshot(in, out, stack.DefaultOpts())
+		c, suffix, err := stack.ScanSnapshot(in, out, opts)
 		if c != nil {
 			// Process it even if an error occurred.
-			if err1 := processInner(out, p, s, pf, parse, rebase, html, filter, match, c, first); err == nil {
+			if err1 := processInner(out, p, s, pf, html, filter, match, c, first); err == nil {
 				err = err1
 			}
 		}

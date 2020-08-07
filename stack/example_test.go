@@ -8,33 +8,44 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/maruel/panicparse/v2/stack"
 )
 
-const crash = `panic: oh no!
-
-goroutine 1 [running]:
-panic(0x0, 0x0)
-	/home/user/src/golang/src/runtime/panic.go:464 +0x3e6
-main.crash2(0x7fe50b49d028, 0xc82000a1e0)
-	/home/user/go/src/github.com/maruel/panicparse/cmd/pp/main.go:45 +0x23
-main.main()
-	/home/user/go/src/github.com/maruel/panicparse/cmd/pp/main.go:50 +0xa6
-Extraneous output.
-`
-
 func Example() {
-	// Optional: Check for GOTRACEBACK being set, in particular if there is only
-	// one goroutine returned.
-	in := bytes.NewBufferString(crash)
-	s, suffix, err := stack.ScanSnapshot(in, os.Stdout, stack.DefaultOpts())
-	// io.EOF is returned when the whole stream was read, otherwise there could
-	// still be input data left.
+	source := `package main
+
+	func main() {
+		c := crashy{}
+		go c.die(42.)
+		select {}
+	}
+
+	type crashy struct {}
+
+	func (c crashy) die(f float64) {
+		panic(int(f))
+	}`
+
+	// Skipped error handling to make the example shorter.
+	root, _ := ioutil.TempDir("", "stack")
+	defer os.RemoveAll(root)
+	p := filepath.Join(root, "main.go")
+	ioutil.WriteFile(p, []byte(source), 0600)
+	c := exec.Command("go", "run", "-gcflags", "-l", p)
+	// This is important, otherwise only the panicking goroutine will be printed.
+	c.Env = append(os.Environ(), "GOTRACEBACK=1")
+	raw, _ := c.CombinedOutput()
+	stream := bytes.NewReader(raw)
+
+	s, suffix, err := stack.ScanSnapshot(stream, os.Stdout, stack.DefaultOpts())
 	if err != nil && err != io.EOF {
-		return
+		log.Fatal(err)
 	}
 
 	// Find out similar goroutine traces and group them into buckets.
@@ -81,21 +92,23 @@ func Example() {
 			io.WriteString(os.Stdout, "    (...)\n")
 		}
 	}
+
 	// If there was any remaining data in the pipe, dump it now.
 	if len(suffix) != 0 {
 		os.Stdout.Write(suffix)
 	}
 	if err == nil {
-		io.Copy(os.Stdout, in)
+		io.Copy(os.Stdout, stream)
 	}
+
 	// Output:
-	// panic: oh no!
+	// panic: 42
 	//
-	// 1: running
-	//          panic.go:464 panic(0, 0)
-	//     main main.go:45   crash2(0x7fe50b49d028, 0xc82000a1e0)
-	//     main main.go:50   main()
-	// Extraneous output.
+	// 1: running [Created by main.main @ main.go:5]
+	//     main main.go:12 crashy.die(42)
+	// 1: select (no cases)
+	//     main main.go:6  main()
+	// exit status 2
 }
 
 func Example_stream() {
@@ -113,7 +126,7 @@ func Example_stream() {
 			if len(suffix) != 0 {
 				w.Write(suffix)
 			}
-			return
+			log.Fatal(err)
 		}
 		// Prepend the suffix that was read to the rest of the input stream to
 		// catch the next snapshot signature:

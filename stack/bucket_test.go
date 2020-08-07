@@ -30,7 +30,7 @@ func TestAggregateNotAggressive(t *testing.T) {
 		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
-	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, DefaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, defaultOpts())
 	if err != io.EOF {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestAggregateExactMatching(t *testing.T) {
 		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:74 +0xeb",
 		"",
 	}
-	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, DefaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, defaultOpts())
 	if err != io.EOF {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestAggregateAggressive(t *testing.T) {
 		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
-	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, DefaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, defaultOpts())
 	if err != io.EOF {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestAggregateAggressive(t *testing.T) {
 
 func BenchmarkAggregate(b *testing.B) {
 	b.ReportAllocs()
-	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, DefaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, defaultOpts())
 	if err != io.EOF {
 		b.Fatal(err)
 	}

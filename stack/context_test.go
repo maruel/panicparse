@@ -1130,7 +1130,7 @@ func TestScanSnapshotSynthetic(t *testing.T) {
 			t.Parallel()
 			prefix := bytes.Buffer{}
 			r := bytes.NewBufferString(strings.Join(line.in, "\n"))
-			s, suffix, err := ScanSnapshot(r, &prefix, DefaultOpts())
+			s, suffix, err := ScanSnapshot(r, &prefix, defaultOpts())
 			compareErr(t, line.err, err)
 			if line.want == nil {
 				if s != nil {
@@ -1163,9 +1163,9 @@ func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 
 	// First stack:
 	prefix := bytes.Buffer{}
-	s, suffix, err := ScanSnapshot(&in, &prefix, DefaultOpts())
+	s, suffix, err := ScanSnapshot(&in, &prefix, defaultOpts())
 	compareErr(t, nil, err)
-	if !s.GuessPaths() {
+	if !s.guessPaths() {
 		t.Error("expected success")
 	}
 	want := []*Goroutine{
@@ -1192,9 +1192,9 @@ func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 
 	prefix.Reset()
 	r := io.MultiReader(bytes.NewReader(suffix), &in)
-	s, suffix, err = ScanSnapshot(r, &prefix, DefaultOpts())
+	s, suffix, err = ScanSnapshot(r, &prefix, defaultOpts())
 	compareErr(t, nil, err)
-	if !s.GuessPaths() {
+	if !s.guessPaths() {
 		t.Error("expected success")
 	}
 	want = []*Goroutine{
@@ -1336,9 +1336,9 @@ func TestGomoduleComplex(t *testing.T) {
 		t.Error("expected failure")
 	}
 	prefix := bytes.Buffer{}
-	s, suffix, err := ScanSnapshot(bytes.NewReader(out), &prefix, DefaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewReader(out), &prefix, defaultOpts())
 	compareErr(t, io.EOF, err)
-	if !s.GuessPaths() {
+	if !s.guessPaths() {
 		t.Error("expected success")
 	}
 	if s == nil {
@@ -1476,7 +1476,7 @@ func TestGoRun(t *testing.T) {
 		t.Fatal("expected failure")
 	}
 	prefix := bytes.Buffer{}
-	s, suffix, err := ScanSnapshot(bytes.NewReader(out), &prefix, DefaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewReader(out), &prefix, defaultOpts())
 	compareErr(t, nil, err)
 	compareString(t, "panic: 42\n\n", prefix.String())
 	compareString(t, "exit status 2\n", string(suffix))
@@ -1519,7 +1519,7 @@ func TestGoRun(t *testing.T) {
 	}
 	similarGoroutines(t, want, s.Goroutines)
 
-	if !s.GuessPaths() {
+	if !s.guessPaths() {
 		t.Error("expected success")
 	}
 	want[0].Stack.Calls[0].LocalSrcPath = p
@@ -1568,14 +1568,14 @@ func TestPanic(t *testing.T) {
 		t.Run(cmd, func(t *testing.T) {
 			t.Parallel()
 			prefix := bytes.Buffer{}
-			s, suffix, err := ScanSnapshot(bytes.NewReader(data), &prefix, DefaultOpts())
+			s, suffix, err := ScanSnapshot(bytes.NewReader(data), &prefix, defaultOpts())
 			if err != nil && err != io.EOF {
 				t.Fatal(err)
 			}
 			if s == nil {
 				t.Fatal("context is nil")
 			}
-			if !s.GuessPaths() {
+			if !s.guessPaths() {
 				t.Fatal("expected GuessPaths to work")
 			}
 			if f := custom[cmd]; f != nil {
@@ -1845,7 +1845,7 @@ func testPanicUTF8(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 func TestPanicweb(t *testing.T) {
 	t.Parallel()
 	prefix := bytes.Buffer{}
-	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.PanicwebOutput()), &prefix, DefaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.PanicwebOutput()), &prefix, defaultOpts())
 	if err != io.EOF {
 		t.Fatal(err)
 	}
@@ -1857,7 +1857,7 @@ func TestPanicweb(t *testing.T) {
 	if s.RemoteGOROOT != "" {
 		t.Fatalf("unexpected RemoteGOROOT: %q", s.RemoteGOROOT)
 	}
-	if !s.GuessPaths() {
+	if !s.guessPaths() {
 		t.Error("expected success")
 	}
 	if s.RemoteGOROOT != strings.Replace(runtime.GOROOT(), "\\", "/", -1) {
@@ -1942,7 +1942,7 @@ func TestTrimLeftSpace(t *testing.T) {
 func BenchmarkScanSnapshot_Guess(b *testing.B) {
 	b.ReportAllocs()
 	data := internaltest.StaticPanicwebOutput()
-	opts := DefaultOpts()
+	opts := defaultOpts()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s, _, err := ScanSnapshot(bytes.NewReader(data), ioutil.Discard, opts)
@@ -1958,7 +1958,7 @@ func BenchmarkScanSnapshot_Guess(b *testing.B) {
 func BenchmarkScanSnapshot_NoGuess(b *testing.B) {
 	b.ReportAllocs()
 	data := internaltest.StaticPanicwebOutput()
-	opts := DefaultOpts()
+	opts := defaultOpts()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s, _, err := ScanSnapshot(bytes.NewReader(data), ioutil.Discard, opts)
@@ -1983,7 +1983,7 @@ func BenchmarkScanSnapshot_Passthru(b *testing.B) {
 	prefix := bytes.Buffer{}
 	prefix.Grow(len(buf))
 	r := bytes.NewReader(buf)
-	opts := DefaultOpts()
+	opts := defaultOpts()
 	b.ResetTimer()
 	s, suffix, err := ScanSnapshot(r, &prefix, opts)
 	if err != io.EOF {
@@ -2243,6 +2243,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 }
 
 //
+
+func defaultOpts() *Opts {
+	o := DefaultOpts()
+	o.GuessPaths = false
+	o.AnalyzeSources = false
+	return o
+}
 
 // getPanicParseDir returns the path to the root directory of panicparse
 // package, using "/" as path separator.

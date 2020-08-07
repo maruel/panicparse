@@ -18,30 +18,10 @@ import (
 	"strings"
 )
 
-// Augment processes source files to improve calls to be more descriptive.
-//
-// It modifies goroutines in place. It requires calling GuessPaths() to work
-// properly.
-//
-// Returns the last error that occurred while processing files.
-func Augment(goroutines []*Goroutine) error {
-	c := cache{
-		files:  map[string][]byte{},
-		parsed: map[string]*parsedFile{},
-	}
-	var err error
-	for _, g := range goroutines {
-		if err1 := c.augmentGoroutine(g); err1 != nil {
-			err = err1
-		}
-	}
-	return err
-}
-
 // Private stuff.
 
-// cache is a cache of sources on the file system.
-type cache struct {
+// cacheAST is a cache of parsed Go sources.
+type cacheAST struct {
 	files  map[string][]byte
 	parsed map[string]*parsedFile
 }
@@ -50,14 +30,14 @@ type cache struct {
 // descriptive.
 //
 // It modifies the routine.
-func (c *cache) augmentGoroutine(g *Goroutine) error {
+func (c *cacheAST) augmentGoroutine(g *Goroutine) error {
 	var err error
 	for i, call := range g.Stack.Calls {
 		// Only load the AST if there's an argument to process.
 		if len(call.Args.Values) == 0 {
 			continue
 		}
-		if err1 := c.load(g.Stack.Calls[i].LocalSrcPath); err1 != nil {
+		if err1 := c.loadFile(g.Stack.Calls[i].LocalSrcPath); err1 != nil {
 			//log.Printf("%s", err)
 			err = err1
 		}
@@ -75,8 +55,8 @@ func (c *cache) augmentGoroutine(g *Goroutine) error {
 	return err
 }
 
-// load loads a source file and parses the AST tree.
-func (c *cache) load(fileName string) error {
+// loadFile loads a Go source file and parses the AST tree.
+func (c *cacheAST) loadFile(fileName string) error {
 	if fileName == "" {
 		return nil
 	}
@@ -123,6 +103,7 @@ func lineToByteOffsets(src []byte) []int {
 	return offsets
 }
 
+// parsedFile is a processed Go source file.
 type parsedFile struct {
 	lineToByteOffset []int
 	parsed           *ast.File

@@ -34,6 +34,28 @@ type Opts struct {
 	// unset.
 	LocalGOPATHs []string
 
+	// NameArguments tells panicparse to find the recurring pointer values and
+	// give them pseudo 'names'.
+	//
+	// Since the algorithm is O(n²), this can be worth disabling on live servers.
+	NameArguments bool
+
+	// GuessPaths tells panicparse to guess local RemoteGOROOT and GOPATH for
+	// what was found in the snapshot.
+	//
+	// Initializes in Snapshot the following members: RemoteGOROOT,
+	// RemoteGOPATHs, LocalGomoduleRoot and GomodImportPath.
+	//
+	// This is done by scanning the local disk, so be warned of performance
+	// impact.
+	GuessPaths bool
+
+	// AnalyzeSources tells panicparse to processes source files to improve calls
+	// to be more descriptive.
+	//
+	// Requires GuessPaths to be true.
+	AnalyzeSources bool
+
 	// Disallow initialization with unnamed parameters.
 	_ struct{}
 }
@@ -45,12 +67,18 @@ func DefaultOpts() *Opts {
 		p = strings.Replace(p, pathSeparator, "/", -1)
 	}
 	return &Opts{
-		LocalGOROOT:  p,
-		LocalGOPATHs: getGOPATHs(),
+		LocalGOROOT:    p,
+		LocalGOPATHs:   getGOPATHs(),
+		NameArguments:  true,
+		GuessPaths:     true,
+		AnalyzeSources: true,
 	}
 }
 
 func (o *Opts) isValid() bool {
+	if !o.GuessPaths && o.AnalyzeSources {
+		return false
+	}
 	if strings.Contains(o.LocalGOROOT, "\\") {
 		return false
 	}
@@ -74,7 +102,7 @@ type Snapshot struct {
 	// LocalGOPATHs is copied from Opts.
 	LocalGOPATHs []string
 
-	// The following members are initialized by GuessPaths.
+	// The following members are initialized when Opts.GuessPaths is true.
 
 	// RemoteGOROOT is the GOROOT as detected in the traceback, not the on the
 	// host.
@@ -165,20 +193,21 @@ func ScanSnapshot(in io.Reader, prefix io.Writer, opts *Opts) (*Snapshot, []byte
 		}
 	}
 	if s.Goroutines != nil {
-		nameArguments(s.Goroutines)
+		if opts.NameArguments {
+			nameArguments(s.Goroutines)
+		}
+		if opts.GuessPaths {
+			_ = s.guessPaths()
+		}
+		if opts.AnalyzeSources {
+			_ = s.augment()
+		}
 		return s.Snapshot, suffix, err
 	}
 	return nil, suffix, err
 }
 
-// GuessPaths guesses local RemoteGOROOT and GOPATH for what was found in the
-// snapshot.
-//
-// Initializes RemoteGOROOT, RemoteGOPATHs, LocalGomoduleRoot and
-// GomodImportPath.
-//
-// This is done by scanning the local disk, so be warned of performance impact.
-func (s *Snapshot) GuessPaths() bool {
+func (s *Snapshot) guessPaths() bool {
 	b := s.findRoots() == 0
 	for _, r := range s.Goroutines {
 		// Note that this is important to call it even if
@@ -186,6 +215,26 @@ func (s *Snapshot) GuessPaths() bool {
 		b = r.updateLocations(s.RemoteGOROOT, s.LocalGOROOT, s.LocalGomods, s.RemoteGOPATHs) && b
 	}
 	return b
+}
+
+// augment processes source files to improve calls to be more descriptive.
+//
+// It modifies goroutines in place. It requires calling guessPaths() to work
+// properly.
+//
+// Returns the last error that occurred while processing files.
+func (s *Snapshot) augment() error {
+	c := cacheAST{
+		files:  map[string][]byte{},
+		parsed: map[string]*parsedFile{},
+	}
+	var err error
+	for _, g := range s.Goroutines {
+		if err1 := c.augmentGoroutine(g); err1 != nil {
+			err = err1
+		}
+	}
+	return err
 }
 
 // Private stuff.
