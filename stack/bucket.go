@@ -88,7 +88,16 @@ func (b *Bucket) less(r *Bucket) bool {
 	if b.First || r.First {
 		return b.First
 	}
-	return b.Signature.less(&r.Signature)
+	if b.Signature.less(&r.Signature) {
+		return true
+	}
+	if r.Signature.less(&b.Signature) {
+		return false
+	}
+	if len(r.IDs) > len(b.IDs) {
+		return true
+	}
+	return false
 }
 
 //

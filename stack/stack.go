@@ -454,27 +454,39 @@ func (s *Stack) merge(r *Stack) *Stack {
 // bottom.
 func (s *Stack) less(r *Stack) bool {
 	lStdlib := 0
-	lPrivate := 0
+	lMain := 0
+	lOther := 0
 	for _, c := range s.Calls {
 		if c.IsStdlib {
 			lStdlib++
+		} else if c.Func.IsPkgMain {
+			lMain++
 		} else {
-			lPrivate++
+			lOther++
 		}
 	}
 	rStdlib := 0
-	rPrivate := 0
+	rMain := 0
+	rOther := 0
 	for _, s := range r.Calls {
 		if s.IsStdlib {
 			rStdlib++
+		} else if s.Func.IsPkgMain {
+			rMain++
 		} else {
-			rPrivate++
+			rOther++
 		}
 	}
-	if lPrivate > rPrivate {
+	if lMain > rMain {
 		return true
 	}
-	if lPrivate < rPrivate {
+	if lMain < rMain {
+		return false
+	}
+	if lOther > rOther {
+		return true
+	}
+	if lOther < rOther {
 		return false
 	}
 	if lStdlib > rStdlib {
@@ -490,22 +502,22 @@ func (s *Stack) less(r *Stack) bool {
 			return true
 		}
 		if s.Calls[x].Func.Complete > r.Calls[x].Func.Complete {
-			return true
+			return false
 		}
 		if s.Calls[x].DirSrc < r.Calls[x].DirSrc {
 			return true
 		}
 		if s.Calls[x].DirSrc > r.Calls[x].DirSrc {
-			return true
+			return false
 		}
 		if s.Calls[x].Line < r.Calls[x].Line {
 			return true
 		}
 		if s.Calls[x].Line > r.Calls[x].Line {
-			// ??
-			return true
+			return false
 		}
 	}
+	// Stacks are the same.
 	return false
 }
 
