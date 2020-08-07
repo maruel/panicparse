@@ -32,7 +32,7 @@ import (
 // It is a direct replacement for "/debug/pprof/goroutine?debug=2" handler in
 // net/http/pprof.
 //
-// augment: (default: 0) When set to 1, panicparse tries to find the sources on
+// augment: (default: 1) When set to 1, panicparse tries to find the sources on
 // disk to improve the display of arguments based on type information. This is
 // slower and should be avoided on high utilization server.
 //
@@ -61,14 +61,18 @@ func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "failed to process the snapshot, try a larger maxmem value", http.StatusInternalServerError)
 		return
 	}
+	augment := 1
 	if s := req.FormValue("augment"); s != "" {
-		if v, err := strconv.Atoi(s); v == 1 {
-			// Should we give feedback to the user that source parsing failed? How?
-			_ = stack.Augment(c.Goroutines)
-		} else if err != nil || v != 0 {
+		v, err := strconv.Atoi(s)
+		if err != nil || v < 0 || v > 1 {
 			http.Error(w, "invalid augment value", http.StatusBadRequest)
 			return
 		}
+		augment = v
+	}
+	if augment == 1 {
+		// Should we give feedback to the user that source parsing failed? How?
+		_ = stack.Augment(c.Goroutines)
 	}
 
 	var s stack.Similarity

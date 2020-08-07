@@ -24,7 +24,7 @@ func ExampleSnapshotHandler() {
 
 func ExampleSnapshotHandler_complex() {
 	// This example does a few things:
-	// - Enables "augment" by default, can be disabled manually with "?augment=0".
+	// - Diables "augment" by default, can be enabled manually with "?augment=1".
 	// - Forces the "maxmem" value to reduce memory pressure in worst case.
 	// - Serializes handler to one at a time.
 	// - Throttles requests to once per second.
@@ -63,9 +63,9 @@ func ExampleSnapshotHandler_complex() {
 
 		// Must be called before touching req.Form.
 		req.ParseForm()
-		// Enable source scanning by default.
+		// Disables source scanning by default since it's heavy.
 		if req.FormValue("augment") == "" {
-			req.Form.Set("augment", "1")
+			req.Form.Set("augment", "0")
 		}
 		// Reduces maximum memory usage to 32MiB (from 64MiB) for the goroutines
 		// snapshot.
