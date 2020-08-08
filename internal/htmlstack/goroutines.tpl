@@ -138,25 +138,6 @@
     font-weight: 700;
     color: #600;
   }
-  .topright {
-    float: right;
-  }
-  .button {
-    background-color: white;
-    border: 2px solid #4CAF50;
-    color: black;
-    margin: 0.3em;
-    padding: 0.6em 1.0em;
-    transition-duration: 0.4s;
-  }
-  .button:hover {
-    background-color: #4CAF50;
-    color: white;
-    box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
-  }
-  #augment {
-    display: none;
-  }
   #content {
     width: 100%;
   }
@@ -204,31 +185,7 @@
   .Routine {
   }
 </style>
-<script>
-function getParamByName(name) {
-  let query = window.location.search.substring(1);
-  let vars = query.split("&");
-  for (let i=0; i<vars.length; i++) {
-    let pair = vars[i].split("=");
-    if (pair[0] == name) {
-      return pair[1];
-    }
-  }
-}
-function ready() {
-  if (getParamByName("augment") === undefined) {
-    document.getElementById("augment").style.display = "inline";
-  }
-}
-{{- if .Live -}}
-document.addEventListener("DOMContentLoaded", ready);
-{{- end -}}}
-</script>
 <div id="content">
-  <div class="topright">
-    {{- /* Only shown when augment query parameter is not specified */ -}}
-    <a class=button id=augment href="?augment=1">Analyse sources</a>
-  </div>
   {{- if .Buckets -}}
     {{- range $i, $e := .Buckets -}}
       {{$l := len $e.IDs}}
@@ -272,9 +229,6 @@ document.addEventListener("DOMContentLoaded", ready);
     <li>GOROOT: {{.GOROOT}}</li>
     <li>GOPATH: {{.GOPATH}}</li>
     <li>GOMAXPROCS: {{.GOMAXPROCS}}</li>
-    {{- if .NeedsEnv -}}
-      <li>To see all goroutines, visit <a
-      href=https://github.com/maruel/panicparse#gotraceback>github.com/maruel/panicparse</a></li>
-    {{- end -}}
   </ul>
+  {{- .Footer -}}
 </div>

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
@@ -96,6 +97,13 @@ func writeGoroutinesToConsole(out io.Writer, p *Palette, goroutines []*stack.Gor
 	return nil
 }
 
+func getHTMLFooter(needsEnv bool) template.HTML {
+	if needsEnv {
+		return "To see all goroutines, visit <a href=https://github.com/maruel/panicparse#gotraceback>github.com/maruel/panicparse</a>"
+	}
+	return ""
+}
+
 func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, html string, filter, match *regexp.Regexp, c *stack.Snapshot, first bool) error {
 	log.Printf("GOROOT=%s", c.RemoteGOROOT)
 	log.Printf("GOPATH=%s", c.RemoteGOPATHs)
@@ -110,7 +118,7 @@ func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, 
 		if err != nil {
 			return err
 		}
-		err = htmlstack.WriteBuckets(f, buckets, needsEnv, false)
+		err = htmlstack.WriteBuckets(f, buckets, getHTMLFooter(needsEnv))
 		if err2 := f.Close(); err == nil {
 			err = err2
 		}
@@ -124,7 +132,7 @@ func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, 
 	if err != nil {
 		return err
 	}
-	err = htmlstack.WriteGoroutines(f, c.Goroutines, needsEnv, false)
+	err = htmlstack.WriteGoroutines(f, c.Goroutines, getHTMLFooter(needsEnv))
 	if err2 := f.Close(); err == nil {
 		err = err2
 	}

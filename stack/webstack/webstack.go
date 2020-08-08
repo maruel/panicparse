@@ -93,7 +93,7 @@ func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	buckets := stack.Aggregate(c.Goroutines, s)
-	_ = htmlstack.WriteBuckets(w, buckets, false, true)
+	_ = htmlstack.WriteBuckets(w, buckets, "")
 }
 
 // snapshot returns a Context based on the snapshot of the stacks of the

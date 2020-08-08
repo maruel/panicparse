@@ -22,7 +22,9 @@ import (
 )
 
 // WriteBuckets writes buckets as HTML to the writer.
-func WriteBuckets(w io.Writer, buckets []*stack.Bucket, needsEnv, live bool) error {
+//
+// footer adds custom HTML at the bottom of the page.
+func WriteBuckets(w io.Writer, buckets []*stack.Bucket, footer template.HTML) error {
 	m := template.FuncMap{
 		"bucketClass":  func(bucket *stack.Bucket) template.HTML { return "Routine" },
 		"funcClass":    funcClass,
@@ -46,19 +48,21 @@ func WriteBuckets(w io.Writer, buckets []*stack.Bucket, needsEnv, live bool) err
 	data := map[string]interface{}{
 		"Buckets":    buckets,
 		"Favicon":    favicon,
+		"Footer":     footer,
 		"GOMAXPROCS": runtime.GOMAXPROCS(0),
 		"GOPATH":     os.Getenv("GOPATH"),
 		"GOROOT":     runtime.GOROOT(),
-		"Live":       live,
-		"NeedsEnv":   needsEnv,
 		"Now":        time.Now().Truncate(time.Second),
 		"Version":    runtime.Version(),
 	}
 	return t.Execute(w, data)
 }
 
-// WriteGoroutines writes a race as HTML to the writer.
-func WriteGoroutines(w io.Writer, goroutines []*stack.Goroutine, needsEnv, live bool) error {
+// WriteGoroutines writes goroutines as HTML to the writer. It is generally
+// used when a race condition was detected.
+//
+// footer adds custom HTML at the bottom of the page.
+func WriteGoroutines(w io.Writer, goroutines []*stack.Goroutine, footer template.HTML) error {
 	m := template.FuncMap{
 		"bucketClass":  func(bucket *stack.Bucket) template.HTML { return "Routine" },
 		"funcClass":    funcClass,
@@ -82,11 +86,10 @@ func WriteGoroutines(w io.Writer, goroutines []*stack.Goroutine, needsEnv, live 
 	data := map[string]interface{}{
 		"Routines":   goroutines,
 		"Favicon":    favicon,
+		"Footer":     footer,
 		"GOMAXPROCS": runtime.GOMAXPROCS(0),
 		"GOPATH":     os.Getenv("GOPATH"),
 		"GOROOT":     runtime.GOROOT(),
-		"Live":       live,
-		"NeedsEnv":   needsEnv,
 		"Now":        time.Now().Truncate(time.Second),
 		"Version":    runtime.Version(),
 	}
