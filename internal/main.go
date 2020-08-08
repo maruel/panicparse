@@ -59,13 +59,14 @@ var defaultPalette = Palette{
 	Arguments:          resetFG,
 }
 
-func writeBucketsToConsole(out io.Writer, p *Palette, b []*stack.Bucket, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
+func writeBucketsToConsole(out io.Writer, p *Palette, a *stack.Aggregated, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
 	if needsEnv {
 		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#gotraceback\n\n")
 	}
-	srcLen, pkgLen := calcBucketsLengths(b, pf)
-	for _, e := range b {
-		header := p.BucketHeader(e, pf, len(b) > 1)
+	srcLen, pkgLen := calcBucketsLengths(a, pf)
+	multi := len(a.Buckets) > 1
+	for _, e := range a.Buckets {
+		header := p.BucketHeader(e, pf, multi)
 		if filter != nil && filter.MatchString(header) {
 			continue
 		}
@@ -78,13 +79,14 @@ func writeBucketsToConsole(out io.Writer, p *Palette, b []*stack.Bucket, pf path
 	return nil
 }
 
-func writeGoroutinesToConsole(out io.Writer, p *Palette, goroutines []*stack.Goroutine, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
+func writeGoroutinesToConsole(out io.Writer, p *Palette, s *stack.Snapshot, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
 	if needsEnv {
 		_, _ = io.WriteString(out, "\nTo see all goroutines, visit https://github.com/maruel/panicparse#gotraceback\n\n")
 	}
-	srcLen, pkgLen := calcGoroutinesLengths(goroutines, pf)
-	for _, e := range goroutines {
-		header := p.GoroutineHeader(e, pf, len(goroutines) > 1)
+	srcLen, pkgLen := calcGoroutinesLengths(s, pf)
+	multi := len(s.Goroutines) > 1
+	for _, e := range s.Goroutines {
+		header := p.GoroutineHeader(e, pf, multi)
 		if filter != nil && filter.MatchString(header) {
 			continue
 		}
@@ -110,15 +112,15 @@ func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, 
 	needsEnv := len(c.Goroutines) == 1 && showBanner()
 	// Bucketing should only be done if no data race was detected.
 	if c.Goroutines[0].RaceAddr == 0 {
-		b := c.Aggregate(s).Buckets
+		a := c.Aggregate(s)
 		if html == "" {
-			return writeBucketsToConsole(out, p, b, pf, needsEnv, filter, match)
+			return writeBucketsToConsole(out, p, a, pf, needsEnv, filter, match)
 		}
 		f, err := os.Create(html)
 		if err != nil {
 			return err
 		}
-		err = htmlstack.WriteBuckets(f, b, getHTMLFooter(needsEnv))
+		err = htmlstack.WriteBuckets(f, a, getHTMLFooter(needsEnv))
 		if err2 := f.Close(); err == nil {
 			err = err2
 		}
@@ -126,13 +128,13 @@ func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, 
 	}
 	// It's a data race.
 	if html == "" {
-		return writeGoroutinesToConsole(out, p, c.Goroutines, pf, needsEnv, filter, match)
+		return writeGoroutinesToConsole(out, p, c, pf, needsEnv, filter, match)
 	}
 	f, err := os.Create(html)
 	if err != nil {
 		return err
 	}
-	err = htmlstack.WriteGoroutines(f, c.Goroutines, getHTMLFooter(needsEnv))
+	err = htmlstack.WriteGoroutines(f, c, getHTMLFooter(needsEnv))
 	if err2 := f.Close(); err == nil {
 		err = err2
 	}

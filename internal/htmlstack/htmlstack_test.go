@@ -36,7 +36,9 @@ func TestWriteBuckets2Buckets(t *testing.T) {
 func TestWriteBuckets1Bucket(t *testing.T) {
 	// Exercise a condition when there's only one bucket.
 	buf := bytes.Buffer{}
-	if err := WriteBuckets(&buf, getBuckets()[:1], ""); err != nil {
+	a := getBuckets()
+	a.Buckets = a.Buckets[:1]
+	if err := WriteBuckets(&buf, a, ""); err != nil {
 		t.Fatal(err)
 	}
 	// We expect this to be fairly static across Go versions. We want to know if
@@ -49,7 +51,9 @@ func TestWriteBuckets1Bucket(t *testing.T) {
 
 func TestWriteBuckets(t *testing.T) {
 	buf := bytes.Buffer{}
-	if err := WriteBuckets(&buf, getBuckets()[:1], ""); err != nil {
+	a := getBuckets()
+	a.Buckets = a.Buckets[:1]
+	if err := WriteBuckets(&buf, a, ""); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), "foo-bar") {
@@ -59,7 +63,9 @@ func TestWriteBuckets(t *testing.T) {
 
 func TestWriteBucketsFooter(t *testing.T) {
 	buf := bytes.Buffer{}
-	if err := WriteBuckets(&buf, getBuckets()[:1], "foo-bar"); err != nil {
+	a := getBuckets()
+	a.Buckets = a.Buckets[:1]
+	if err := WriteBuckets(&buf, getBuckets(), "foo-bar"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "foo-bar") {
@@ -233,7 +239,7 @@ func TestWriteGoroutinesRace(t *testing.T) {
 	if s.Goroutines[0].RaceAddr == 0 {
 		t.Fatal("expected a race")
 	}
-	if err := WriteGoroutines(ioutil.Discard, s.Goroutines, ""); err != nil {
+	if err := WriteGoroutines(ioutil.Discard, s, ""); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -247,10 +253,10 @@ func BenchmarkWriteBuckets(b *testing.B) {
 	if s == nil {
 		b.Fatal("missing context")
 	}
-	buckets := s.Aggregate(stack.AnyPointer).Buckets
+	a := s.Aggregate(stack.AnyPointer)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := WriteBuckets(ioutil.Discard, buckets, ""); err != nil {
+		if err := WriteBuckets(ioutil.Discard, a, ""); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -308,56 +314,65 @@ func loadGoroutines() ([]byte, error) {
 }
 
 // getBuckets returns a slice for testing.
-func getBuckets() []*stack.Bucket {
-	return []*stack.Bucket{
-		{
-			Signature: stack.Signature{
-				State: "chan receive",
-				Stack: stack.Stack{
-					Calls: []stack.Call{
-						newCall(
-							"main.func·001",
-							stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
-							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							72),
-						{
-							Func:          newFunc("sliceInternal"),
-							Args:          stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
-							RemoteSrcPath: "/golang/src/sort/slices.go",
-							Line:          72,
-							Location:      stack.Stdlib,
-						},
-						{
-							Func:          newFunc("Slice"),
-							Args:          stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
-							RemoteSrcPath: "/golang/src/sort/slices.go",
-							Line:          72,
-							Location:      stack.Stdlib,
-						},
-						newCall(
-							"DoStuff",
-							stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
-							"/gopath/src/foo/bar.go",
-							72),
-						newCall(
-							"doStuffInternal",
-							stack.Args{
-								Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}},
-								Elided: true,
+func getBuckets() *stack.Aggregated {
+	return &stack.Aggregated{
+		Snapshot: &stack.Snapshot{
+			LocalGOROOT:   runtime.GOROOT(),
+			LocalGOPATHs:  []string{"/gopath"},
+			RemoteGOROOT:  "/golang",
+			RemoteGOPATHs: map[string]string{"/gopath": "/gopath"},
+			LocalGomods:   map[string]string{"/tmp": "example.com/foo"},
+		},
+		Buckets: []*stack.Bucket{
+			{
+				Signature: stack.Signature{
+					State: "chan receive",
+					Stack: stack.Stack{
+						Calls: []stack.Call{
+							newCall(
+								"main.func·001",
+								stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
+								"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+								72),
+							{
+								Func:          newFunc("sliceInternal"),
+								Args:          stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
+								RemoteSrcPath: "/golang/src/sort/slices.go",
+								Line:          72,
+								Location:      stack.Stdlib,
 							},
-							"/gopath/src/foo/bar.go",
-							72),
+							{
+								Func:          newFunc("Slice"),
+								Args:          stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
+								RemoteSrcPath: "/golang/src/sort/slices.go",
+								Line:          72,
+								Location:      stack.Stdlib,
+							},
+							newCall(
+								"DoStuff",
+								stack.Args{Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}}},
+								"/gopath/src/foo/bar.go",
+								72),
+							newCall(
+								"doStuffInternal",
+								stack.Args{
+									Values: []stack.Arg{{Value: 0x11000000}, {Value: 2}},
+									Elided: true,
+								},
+								"/gopath/src/foo/bar.go",
+								72),
+						},
 					},
 				},
+				IDs:   []int{1, 2},
+				First: true,
 			},
-			IDs:   []int{1, 2},
-			First: true,
-		},
-		{
-			IDs: []int{3},
-			Signature: stack.Signature{
-				State: "running",
-				Stack: stack.Stack{Elided: true},
+			{
+				IDs: []int{3},
+				Signature: stack.Signature{
+					State: "running",
+					Stack: stack.Stack{Elided: true},
+				},
 			},
 		},
 	}

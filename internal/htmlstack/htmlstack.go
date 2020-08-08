@@ -12,7 +12,6 @@ import (
 	"io"
 	"log"
 	"net/url"
-	"os"
 	"regexp"
 	"runtime"
 	"strings"
@@ -24,7 +23,7 @@ import (
 // WriteBuckets writes buckets as HTML to the writer.
 //
 // footer adds custom HTML at the bottom of the page.
-func WriteBuckets(w io.Writer, buckets []*stack.Bucket, footer template.HTML) error {
+func WriteBuckets(w io.Writer, a *stack.Aggregated, footer template.HTML) error {
 	m := template.FuncMap{
 		"bucketClass":  func(bucket *stack.Bucket) template.HTML { return "Routine" },
 		"funcClass":    funcClass,
@@ -37,22 +36,20 @@ func WriteBuckets(w io.Writer, buckets []*stack.Bucket, footer template.HTML) er
 		// accessible inside inner templates.
 		"isDebug": isDebug,
 	}
-	if len(buckets) > 1 {
+	if len(a.Buckets) > 1 {
 		m["bucketClass"] = bucketClass
 	}
 	t, err := template.New("t").Funcs(m).Parse(indexHTML)
 	if err != nil {
 		return err
 	}
-	// TODO(maruel): Pass data from stack.Snapshot for GOROOT and GOPATH.
 	data := map[string]interface{}{
-		"Buckets":    buckets,
+		"Aggregated": a,
 		"Favicon":    favicon,
 		"Footer":     footer,
 		"GOMAXPROCS": runtime.GOMAXPROCS(0),
-		"GOPATH":     os.Getenv("GOPATH"),
-		"GOROOT":     runtime.GOROOT(),
 		"Now":        time.Now().Truncate(time.Second),
+		"Snapshot":   a.Snapshot,
 		"Version":    runtime.Version(),
 	}
 	return t.Execute(w, data)
@@ -62,7 +59,7 @@ func WriteBuckets(w io.Writer, buckets []*stack.Bucket, footer template.HTML) er
 // used when a race condition was detected.
 //
 // footer adds custom HTML at the bottom of the page.
-func WriteGoroutines(w io.Writer, goroutines []*stack.Goroutine, footer template.HTML) error {
+func WriteGoroutines(w io.Writer, s *stack.Snapshot, footer template.HTML) error {
 	m := template.FuncMap{
 		"bucketClass":  func(bucket *stack.Bucket) template.HTML { return "Routine" },
 		"funcClass":    funcClass,
@@ -75,22 +72,19 @@ func WriteGoroutines(w io.Writer, goroutines []*stack.Goroutine, footer template
 		// accessible inside inner templates.
 		"isDebug": isDebug,
 	}
-	if len(goroutines) > 1 {
+	if len(s.Goroutines) > 1 {
 		m["routineClass"] = routineClass
 	}
 	t, err := template.New("t").Funcs(m).Parse(indexHTML)
 	if err != nil {
 		return err
 	}
-	// TODO(maruel): Pass data from stack.Snapshot for GOROOT and GOPATH.
 	data := map[string]interface{}{
-		"Routines":   goroutines,
 		"Favicon":    favicon,
 		"Footer":     footer,
 		"GOMAXPROCS": runtime.GOMAXPROCS(0),
-		"GOPATH":     os.Getenv("GOPATH"),
-		"GOROOT":     runtime.GOROOT(),
 		"Now":        time.Now().Truncate(time.Second),
+		"Snapshot":   s,
 		"Version":    runtime.Version(),
 	}
 	return t.Execute(w, data)

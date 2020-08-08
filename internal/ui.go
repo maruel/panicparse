@@ -72,10 +72,10 @@ func (pf pathFormat) createdByString(s *stack.Signature) string {
 
 // calcBucketsLengths returns the maximum length of the source lines and
 // package names.
-func calcBucketsLengths(b []*stack.Bucket, pf pathFormat) (int, int) {
+func calcBucketsLengths(a *stack.Aggregated, pf pathFormat) (int, int) {
 	srcLen := 0
 	pkgLen := 0
-	for _, e := range b {
+	for _, e := range a.Buckets {
 		for _, line := range e.Signature.Stack.Calls {
 			if l := len(pf.formatCall(&line)); l > srcLen {
 				srcLen = l
@@ -90,10 +90,10 @@ func calcBucketsLengths(b []*stack.Bucket, pf pathFormat) (int, int) {
 
 // calcGoroutinesLengths returns the maximum length of the source lines and
 // package names.
-func calcGoroutinesLengths(goroutines []*stack.Goroutine, pf pathFormat) (int, int) {
+func calcGoroutinesLengths(s *stack.Snapshot, pf pathFormat) (int, int) {
 	srcLen := 0
 	pkgLen := 0
-	for _, e := range goroutines {
+	for _, e := range s.Goroutines {
 		for _, line := range e.Signature.Stack.Calls {
 			if l := len(pf.formatCall(&line)); l > srcLen {
 				srcLen = l

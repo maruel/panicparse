@@ -1,5 +1,18 @@
 <!DOCTYPE html>
 
+{{- /* Join a list */ -}}
+{{- define "Join" -}}
+  {{- if . -}}
+    {{- $l := len . -}}
+    {{- $last := minus $l 1 -}}
+    {{- range $i, $e := . -}}
+      {{- $e -}}
+      {{- $isNotLast := ne $i $last -}}
+      {{- if $isNotLast}}, {{end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
 {{- /* Accepts a Args */ -}}
 {{- define "RenderArgs" -}}
   <span class="args"><span>
@@ -186,8 +199,8 @@
   }
 </style>
 <div id="content">
-  {{- if .Buckets -}}
-    {{- range $i, $e := .Buckets -}}
+  {{- if .Aggregated -}}
+    {{- range $i, $e := .Aggregated.Buckets -}}
       {{$l := len $e.IDs}}
       <h1>Signature #{{$i}}: <span class="{{bucketClass $e}}">{{$l}} routine{{if ne 1 $l}}s{{end}}: <span class="state">{{$e.State}}</span>
       {{- if $e.SleepMax -}}
@@ -203,7 +216,7 @@
       {{template "RenderCalls" $e.Signature.Stack}}
     {{- end -}}
   {{- else -}}
-    {{- range $i, $e := .Routines -}}
+    {{- range $i, $e := .Snapshot.Goroutines -}}
       <h1>Routine {{$e.ID}}: <span class="{{routineClass $e}}">: <span class="state">{{$e.State}}</span>
       {{- if $e.SleepMax -}}
         {{- if ne $e.SleepMin $e.SleepMax}} <span class="sleep">[{{$e.SleepMin}}~{{$e.SleepMax}} mins]</span>
@@ -226,8 +239,22 @@
   Created on {{.Now.String}}:
   <ul>
     <li>{{.Version}}</li>
-    <li>GOROOT: {{.GOROOT}}</li>
-    <li>GOPATH: {{.GOPATH}}</li>
+    {{- if and .Snapshot.LocalGOROOT (ne .Snapshot.RemoteGOROOT .Snapshot.LocalGOROOT) -}}
+      <li>GOROOT (remote): {{.Snapshot.RemoteGOROOT}}</li>
+      <li>GOROOT (local): {{.Snapshot.LocalGOROOT}}</li>
+    {{- else -}}
+      <li>GOROOT: {{.Snapshot.RemoteGOROOT}}</li>
+    {{- end -}}
+    <li>GOPATH: {{template "Join" .Snapshot.LocalGOPATHs}}</li>
+    {{- if .Snapshot.LocalGomods -}}
+      <li>go modules (local):
+        <ul>
+        {{- range $path, $import := .Snapshot.LocalGomods -}}
+          <li>{{$path}}: {{$import}}</li>
+        {{- end -}}
+        </ul>
+      </li>
+    {{- end -}}
     <li>GOMAXPROCS: {{.GOMAXPROCS}}</li>
   </ul>
   {{- .Footer -}}

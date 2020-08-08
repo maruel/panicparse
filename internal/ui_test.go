@@ -30,36 +30,38 @@ var testPalette = &Palette{
 
 func TestCalcBucketsLengths(t *testing.T) {
 	t.Parallel()
-	b := []*stack.Bucket{
-		{
-			Signature: stack.Signature{
-				Stack: stack.Stack{
-					Calls: []stack.Call{
-						newCallLocal("main.func·001", stack.Args{}, "/home/user/go/src/foo/baz.go", 123),
+	a := stack.Aggregated{
+		Buckets: []*stack.Bucket{
+			{
+				Signature: stack.Signature{
+					Stack: stack.Stack{
+						Calls: []stack.Call{
+							newCallLocal("main.func·001", stack.Args{}, "/home/user/go/src/foo/baz.go", 123),
+						},
 					},
 				},
+				IDs:   []int{},
+				First: true,
 			},
-			IDs:   []int{},
-			First: true,
 		},
 	}
-	srcLen, pkgLen := calcBucketsLengths(b, fullPath)
+	srcLen, pkgLen := calcBucketsLengths(&a, fullPath)
 	// When printing, it prints the remote path, not the transposed local path.
-	compareString(t, "/home/user/go/src/foo/baz.go:123", fullPath.formatCall(&b[0].Signature.Stack.Calls[0]))
+	compareString(t, "/home/user/go/src/foo/baz.go:123", fullPath.formatCall(&a.Buckets[0].Signature.Stack.Calls[0]))
 	compareInt(t, len("/home/user/go/src/foo/baz.go:123"), srcLen)
-	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.ImportPath)
+	compareString(t, "main", a.Buckets[0].Signature.Stack.Calls[0].Func.ImportPath)
 	compareInt(t, len("main"), pkgLen)
 
-	srcLen, pkgLen = calcBucketsLengths(b, basePath)
-	compareString(t, "baz.go:123", basePath.formatCall(&b[0].Signature.Stack.Calls[0]))
+	srcLen, pkgLen = calcBucketsLengths(&a, basePath)
+	compareString(t, "baz.go:123", basePath.formatCall(&a.Buckets[0].Signature.Stack.Calls[0]))
 	compareInt(t, len("baz.go:123"), srcLen)
-	compareString(t, "main", b[0].Signature.Stack.Calls[0].Func.ImportPath)
+	compareString(t, "main", a.Buckets[0].Signature.Stack.Calls[0].Func.ImportPath)
 	compareInt(t, len("main"), pkgLen)
 }
 
 func TestBucketHeader(t *testing.T) {
 	t.Parallel()
-	b := &stack.Bucket{
+	b := stack.Bucket{
 		Signature: stack.Signature{
 			State: "chan receive",
 			CreatedBy: stack.Stack{
@@ -74,14 +76,14 @@ func TestBucketHeader(t *testing.T) {
 		First: true,
 	}
 	// When printing, it prints the remote path, not the transposed local path.
-	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /home/user/go/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, fullPath, true))
-	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /home/user/go/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, fullPath, false))
-	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, relPath, true))
-	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(b, relPath, false))
-	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, basePath, true))
-	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(b, basePath, false))
+	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /home/user/go/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(&b, fullPath, true))
+	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /home/user/go/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(&b, fullPath, false))
+	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(&b, relPath, true))
+	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(&b, relPath, false))
+	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(&b, basePath, true))
+	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(&b, basePath, false))
 
-	b = &stack.Bucket{
+	b = stack.Bucket{
 		Signature: stack.Signature{
 			State:    "b0rked",
 			SleepMax: 6,
@@ -91,7 +93,7 @@ func TestBucketHeader(t *testing.T) {
 		IDs:   []int{},
 		First: true,
 	}
-	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", testPalette.BucketHeader(b, basePath, false))
+	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", testPalette.BucketHeader(&b, basePath, false))
 }
 
 func TestStackLines(t *testing.T) {
