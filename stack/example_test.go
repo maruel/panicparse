@@ -17,7 +17,8 @@ import (
 	"github.com/maruel/panicparse/v2/stack"
 )
 
-func Example() {
+// Runs a crashing program and converts it to a dense text format like pp does.
+func Example_text() {
 	source := `package main
 
 	func main() {
@@ -111,6 +112,7 @@ func Example() {
 	// exit status 2
 }
 
+// Process multiple consecutive goroutine snapshots.
 func Example_stream() {
 	// Stream of stack traces:
 	var r io.Reader
@@ -131,5 +133,17 @@ func Example_stream() {
 		// Prepend the suffix that was read to the rest of the input stream to
 		// catch the next snapshot signature:
 		r = io.MultiReader(bytes.NewReader(suffix), r)
+	}
+}
+
+// Converts a stack trace from os.Stdin into HTML on os.Stdout, discarding
+// everything else.
+func Example_hTML() {
+	s, _, err := stack.ScanSnapshot(os.Stdin, ioutil.Discard, stack.DefaultOpts())
+	if err != nil && err != io.EOF {
+		log.Fatal(err)
+	}
+	if s != nil {
+		s.Aggregate(stack.AnyValue).ToHTML(os.Stdout, "")
 	}
 }

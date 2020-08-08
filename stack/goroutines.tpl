@@ -39,15 +39,18 @@
 {{- end -}}
 
 {{- /* Accepts a Call */ -}}
-{{- define "RenderCall" -}}
-  <span class="call"><a href="{{srcURL .}}">{{.SrcName}}:{{.Line}}</a> <span class="{{funcClass .}}">
-  <a href="{{pkgURL .}}">{{.Func.DirName}}.{{.Func.Name}}</a></span>({{template "RenderArgs" .Args}})</span>
-  {{- if isDebug -}}
-  <br>SrcPath: {{.SrcPath}}
-  <br>LocalSrcPath: {{.LocalSrcPath}}
-  <br>Func: {{.Func.Complete}}
-  <br>Location: {{.Location}}
-  {{- end -}}
+{{- define "RenderCreatedBy" -}}
+  <span class="call hastooltip"><span class="tooltip">
+    {{- if and .LocalSrcPath (ne .RemoteSrcPath .LocalSrcPath) -}}
+    RemoteSrcPath: {{.RemoteSrcPath}}
+    <br>LocalSrcPath: {{.LocalSrcPath}}
+    {{- else -}}
+    SrcPath: {{.RemoteSrcPath}}
+    {{- end -}}
+    <br>Func: {{.Func.Complete}}
+    <br>Location: {{.Location}}
+    </span><a href="{{srcURL .}}">{{.SrcName}}:{{.Line}}</a> <span class="{{funcClass .}}">
+    <a href="{{pkgURL .}}">{{.Func.DirName}}.{{.Func.Name}}</a></span>()</span>
 {{- end -}}
 
 {{- /* Accepts a Stack */ -}}
@@ -59,7 +62,17 @@
         <td>
           <a href="{{pkgURL $e}}">{{$e.Func.DirName}}</a>
         </td>
-        <td>
+        <td class="hastooltip">
+          <span class="tooltip">
+            {{- if and $e.LocalSrcPath (ne $e.RemoteSrcPath $e.LocalSrcPath) -}}
+            RemoteSrcPath: {{$e.RemoteSrcPath}}
+            <br>LocalSrcPath: {{$e.LocalSrcPath}}
+            {{- else -}}
+            SrcPath: {{$e.RemoteSrcPath}}
+            {{- end -}}
+            <br>Func: {{$e.Func.Complete}}
+            <br>Location: {{$e.Location}}
+          </span>
           <a href="{{srcURL $e}}">{{$e.SrcName}}:{{$e.Line}}</a>
         </td>
         <td>
@@ -72,6 +85,8 @@
 {{- end -}}
 
 <meta charset="UTF-8">
+<meta name="author" content="Marc-Antoine Ruel" >
+<meta name="generator" content="https://github.com/maruel/panicparse" >
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PanicParse</title>
 <link rel="shortcut icon" type="image/gif" href="data:image/gif;base64,{{.Favicon}}"/>
@@ -121,8 +136,11 @@
   table.stack {
     margin: 0.6em;
   }
+  table.stack tr:nth-child(odd) {
+    background-color: #F0F0F0;
+  }
   table.stack tr:hover {
-    background-color: #DDD;
+    background-color: #DDD !important;
   }
   table.stack td {
     font-family: monospace;
@@ -153,6 +171,23 @@
   }
   #content {
     width: 100%;
+  }
+  .hastooltip:hover .tooltip {
+    background: #fffAF0;
+    border: 1px solid #DCA;
+    border-radius: 6px;
+    box-shadow: 5px 5px 8px #CCC;
+    color: #111;
+    display: inline;
+    position: absolute;
+  }
+  .tooltip {
+    display: none;
+    line-height: 16px;
+    margin-left: 1rem;
+    margin-top: 2.5rem;
+    padding: 1rem;
+    z-index: 10;
   }
 
   {{- /* Highlights based on stack.Location value.
@@ -192,17 +227,12 @@
   .FuncStdlib {
     color: #006000;
   }
-  {{- /* Highlight on first routine (if any) */ -}}
-  .RoutineFirst {
-  }
-  .Routine {
-  }
 </style>
 <div id="content">
   {{- if .Aggregated -}}
     {{- range $i, $e := .Aggregated.Buckets -}}
       {{$l := len $e.IDs}}
-      <h1>Signature #{{$i}}: <span class="{{bucketClass $e}}">{{$l}} routine{{if ne 1 $l}}s{{end}}: <span class="state">{{$e.State}}</span>
+      <h1>Signature #{{$i}}: {{$l}} routine{{if ne 1 $l}}s{{end}}: <span class="state">{{$e.State}}</span>
       {{- if $e.SleepMax -}}
         {{- if ne $e.SleepMin $e.SleepMax}} <span class="sleep">[{{$e.SleepMin}}~{{$e.SleepMax}} mins]</span>
         {{- else}} <span class="sleep">[{{$e.SleepMax}} mins]</span>
@@ -211,13 +241,13 @@
       </h1>
       {{if $e.Locked}} <span class="locked">[locked]</span>
       {{- end -}}
-      {{- if $e.CreatedBy.Calls}} <span class="created">Created by: {{template "RenderCall" index $e.CreatedBy.Calls 0}}</span>
+      {{- if $e.CreatedBy.Calls}} <span class="created">Created by: {{template "RenderCreatedBy" index $e.CreatedBy.Calls 0}}</span>
       {{- end -}}
       {{template "RenderCalls" $e.Signature.Stack}}
     {{- end -}}
   {{- else -}}
     {{- range $i, $e := .Snapshot.Goroutines -}}
-      <h1>Routine {{$e.ID}}: <span class="{{routineClass $e}}">: <span class="state">{{$e.State}}</span>
+      <h1>Routine {{$e.ID}}: <span class="state">{{$e.State}}</span>
       {{- if $e.SleepMax -}}
         {{- if ne $e.SleepMin $e.SleepMax}} <span class="sleep">[{{$e.SleepMin}}~{{$e.SleepMax}} mins]</span>
         {{- else}} <span class="sleep">[{{$e.SleepMax}} mins]</span>
@@ -228,7 +258,7 @@
       {{- end -}}
       {{if $e.RaceAddr}} <span class="race">Race {{if $e.RaceWrite}}write{{else}}read{{end}} @ {{$e.RaceAddr}}</span><br>
       {{- end -}}
-      {{- if $e.CreatedBy.Calls}} <span class="created">Created by: {{template "RenderCall" index $e.CreatedBy.Calls 0}}</span>
+      {{- if $e.CreatedBy.Calls}} <span class="created">Created by: {{template "RenderCreatedBy" index $e.CreatedBy.Calls 0}}</span>
       {{- end -}}
       {{template "RenderCalls" $e.Signature.Stack}}
     {{- end -}}

@@ -22,79 +22,47 @@ import (
 //
 // Use footer to add custom HTML at the bottom of the page.
 func (a *Aggregated) ToHTML(w io.Writer, footer template.HTML) error {
-	m := template.FuncMap{
-		"bucketClass":  func(bucket *Bucket) template.HTML { return "Routine" },
-		"funcClass":    funcClass,
-		"minus":        minus,
-		"pkgURL":       pkgURL,
-		"routineClass": func(bucket *Goroutine) template.HTML { return "Routine" },
-		"srcURL":       srcURL,
-		"symbol":       symbol,
-		// Needs to be a function and not a variable, otherwise it is not
-		// accessible inside inner templates.
-		"isDebug": isDebug,
-	}
-	if len(a.Buckets) > 1 {
-		m["bucketClass"] = bucketClass
-	}
-	t, err := template.New("t").Funcs(m).Parse(indexHTML)
-	if err != nil {
-		return err
-	}
 	data := map[string]interface{}{
 		"Aggregated": a,
-		"Favicon":    favicon,
 		"Footer":     footer,
-		"GOMAXPROCS": runtime.GOMAXPROCS(0),
-		"Now":        time.Now().Truncate(time.Second),
 		"Snapshot":   a.Snapshot,
-		"Version":    runtime.Version(),
 	}
-	return t.Execute(w, data)
+	return toHTML(w, data)
 }
 
 // ToHTML formats the snapshot as HTML to the writer.
 //
 // Use footer to add custom HTML at the bottom of the page.
 func (s *Snapshot) ToHTML(w io.Writer, footer template.HTML) error {
+	data := map[string]interface{}{
+		"Footer":   footer,
+		"Snapshot": s,
+	}
+	return toHTML(w, data)
+}
+
+// Private stuff.
+
+func toHTML(w io.Writer, data map[string]interface{}) error {
 	m := template.FuncMap{
-		"bucketClass":  func(bucket *Bucket) template.HTML { return "Routine" },
-		"funcClass":    funcClass,
-		"minus":        minus,
-		"pkgURL":       pkgURL,
-		"srcURL":       srcURL,
-		"symbol":       symbol,
-		"routineClass": func(bucket *Goroutine) template.HTML { return "Routine" },
-		// Needs to be a function and not a variable, otherwise it is not
-		// accessible inside inner templates.
-		"isDebug": isDebug,
+		"funcClass": funcClass,
+		"minus":     minus,
+		"pkgURL":    pkgURL,
+		"srcURL":    srcURL,
+		"symbol":    symbol,
 	}
-	if len(s.Goroutines) > 1 {
-		m["routineClass"] = routineClass
-	}
+	data["Favicon"] = favicon
+	data["GOMAXPROCS"] = runtime.GOMAXPROCS(0)
+	data["Now"] = time.Now().Truncate(time.Second)
+	data["Version"] = runtime.Version()
 	t, err := template.New("t").Funcs(m).Parse(indexHTML)
 	if err != nil {
 		return err
 	}
-	data := map[string]interface{}{
-		"Favicon":    favicon,
-		"Footer":     footer,
-		"GOMAXPROCS": runtime.GOMAXPROCS(0),
-		"Now":        time.Now().Truncate(time.Second),
-		"Snapshot":   s,
-		"Version":    runtime.Version(),
-	}
 	return t.Execute(w, data)
 }
 
-//
-
 var reMethodSymbol = regexp.MustCompile(`^\(\*?([^)]+)\)(\..+)$`)
-
-func isDebug() bool {
-	// Set to true to log more details in the web page.
-	return false
-}
 
 func funcClass(c *Call) template.HTML {
 	if c.Func.IsPkgMain {
@@ -260,18 +228,4 @@ func symbol(f *Func) template.URL {
 		s = reMethodSymbol.ReplaceAllString(s, "$1$2")
 	}
 	return template.URL(url.QueryEscape(s))
-}
-
-func bucketClass(bucket *Bucket) template.HTML {
-	if bucket.First {
-		return "RoutineFirst"
-	}
-	return "Routine"
-}
-
-func routineClass(bucket *Goroutine) template.HTML {
-	if bucket.First {
-		return "RoutineFirst"
-	}
-	return "Routine"
 }
