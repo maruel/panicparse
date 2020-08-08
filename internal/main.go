@@ -30,7 +30,6 @@ import (
 	"regexp"
 	"syscall"
 
-	"github.com/maruel/panicparse/v2/internal/htmlstack"
 	"github.com/maruel/panicparse/v2/stack"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
@@ -99,11 +98,24 @@ func writeGoroutinesToConsole(out io.Writer, p *Palette, s *stack.Snapshot, pf p
 	return nil
 }
 
-func getHTMLFooter(needsEnv bool) template.HTML {
-	if needsEnv {
-		return "To see all goroutines, visit <a href=https://github.com/maruel/panicparse#gotraceback>github.com/maruel/panicparse</a>"
+type toHTMLer interface {
+	ToHTML(io.Writer, template.HTML) error
+}
+
+func toHTML(h toHTMLer, p string, needsEnv bool) error {
+	f, err := os.Create(p)
+	if err != nil {
+		return err
 	}
-	return ""
+	var footer template.HTML
+	if needsEnv {
+		footer = "To see all goroutines, visit <a href=https://github.com/maruel/panicparse#gotraceback>github.com/maruel/panicparse</a>"
+	}
+	err = h.ToHTML(f, footer)
+	if err2 := f.Close(); err == nil {
+		err = err2
+	}
+	return err
 }
 
 func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, html string, filter, match *regexp.Regexp, c *stack.Snapshot, first bool) error {
@@ -116,29 +128,13 @@ func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, 
 		if html == "" {
 			return writeBucketsToConsole(out, p, a, pf, needsEnv, filter, match)
 		}
-		f, err := os.Create(html)
-		if err != nil {
-			return err
-		}
-		err = htmlstack.WriteBuckets(f, a, getHTMLFooter(needsEnv))
-		if err2 := f.Close(); err == nil {
-			err = err2
-		}
-		return err
+		return toHTML(a, html, needsEnv)
 	}
 	// It's a data race.
 	if html == "" {
 		return writeGoroutinesToConsole(out, p, c, pf, needsEnv, filter, match)
 	}
-	f, err := os.Create(html)
-	if err != nil {
-		return err
-	}
-	err = htmlstack.WriteGoroutines(f, c, getHTMLFooter(needsEnv))
-	if err2 := f.Close(); err == nil {
-		err = err2
-	}
-	return err
+	return toHTML(c, html, needsEnv)
 }
 
 // process copies stdin to stdout and processes any "panic: " line found.

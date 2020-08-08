@@ -4,7 +4,7 @@
 
 //go:generate go run regen.go
 
-package htmlstack
+package stack
 
 import (
 	"fmt"
@@ -16,20 +16,18 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/maruel/panicparse/v2/stack"
 )
 
-// WriteBuckets writes buckets as HTML to the writer.
+// ToHTML formats the aggregated buckets as HTML to the writer.
 //
-// footer adds custom HTML at the bottom of the page.
-func WriteBuckets(w io.Writer, a *stack.Aggregated, footer template.HTML) error {
+// Use footer to add custom HTML at the bottom of the page.
+func (a *Aggregated) ToHTML(w io.Writer, footer template.HTML) error {
 	m := template.FuncMap{
-		"bucketClass":  func(bucket *stack.Bucket) template.HTML { return "Routine" },
+		"bucketClass":  func(bucket *Bucket) template.HTML { return "Routine" },
 		"funcClass":    funcClass,
 		"minus":        minus,
 		"pkgURL":       pkgURL,
-		"routineClass": func(bucket *stack.Goroutine) template.HTML { return "Routine" },
+		"routineClass": func(bucket *Goroutine) template.HTML { return "Routine" },
 		"srcURL":       srcURL,
 		"symbol":       symbol,
 		// Needs to be a function and not a variable, otherwise it is not
@@ -55,19 +53,18 @@ func WriteBuckets(w io.Writer, a *stack.Aggregated, footer template.HTML) error 
 	return t.Execute(w, data)
 }
 
-// WriteGoroutines writes goroutines as HTML to the writer. It is generally
-// used when a race condition was detected.
+// ToHTML formats the snapshot as HTML to the writer.
 //
-// footer adds custom HTML at the bottom of the page.
-func WriteGoroutines(w io.Writer, s *stack.Snapshot, footer template.HTML) error {
+// Use footer to add custom HTML at the bottom of the page.
+func (s *Snapshot) ToHTML(w io.Writer, footer template.HTML) error {
 	m := template.FuncMap{
-		"bucketClass":  func(bucket *stack.Bucket) template.HTML { return "Routine" },
+		"bucketClass":  func(bucket *Bucket) template.HTML { return "Routine" },
 		"funcClass":    funcClass,
 		"minus":        minus,
 		"pkgURL":       pkgURL,
 		"srcURL":       srcURL,
 		"symbol":       symbol,
-		"routineClass": func(bucket *stack.Goroutine) template.HTML { return "Routine" },
+		"routineClass": func(bucket *Goroutine) template.HTML { return "Routine" },
 		// Needs to be a function and not a variable, otherwise it is not
 		// accessible inside inner templates.
 		"isDebug": isDebug,
@@ -99,7 +96,7 @@ func isDebug() bool {
 	return false
 }
 
-func funcClass(c *stack.Call) template.HTML {
+func funcClass(c *Call) template.HTML {
 	if c.Func.IsPkgMain {
 		return "FuncMain"
 	}
@@ -115,7 +112,7 @@ func minus(i, j int) int {
 }
 
 // pkgURL returns a link to the godoc for the call.
-func pkgURL(c *stack.Call) template.URL {
+func pkgURL(c *Call) template.URL {
 	imp := c.ImportPath
 	// Check for vendored code first.
 	if i := strings.Index(imp, "/vendor/"); i != -1 {
@@ -126,7 +123,7 @@ func pkgURL(c *stack.Call) template.URL {
 		return ""
 	}
 	url := template.URL("")
-	if c.Location == stack.Stdlib {
+	if c.Location == Stdlib {
 		// This always links to the latest release, past releases are not online.
 		// That's somewhat unfortunate.
 		url = "https://golang.org/pkg/"
@@ -150,7 +147,7 @@ func pkgURL(c *stack.Call) template.URL {
 // srcURL returns an URL to the sources.
 //
 // TODO(maruel): Support custom local godoc server as it serves files too.
-func srcURL(c *stack.Call) template.URL {
+func srcURL(c *Call) template.URL {
 	url, _ := getSrcBranchURL(c)
 	return template.URL(url)
 }
@@ -162,11 +159,11 @@ func escape(s string) template.URL {
 	return template.URL(u.EscapedPath())
 }
 
-// srcURLandTag returns a link to the source on the web and the tag name for
+// getSrcBranchURL returns a link to the source on the web and the tag name for
 // the package version, if possible.
-func getSrcBranchURL(c *stack.Call) (template.URL, template.URL) {
+func getSrcBranchURL(c *Call) (template.URL, template.URL) {
 	tag := ""
-	if c.Location == stack.Stdlib {
+	if c.Location == Stdlib {
 		// TODO(maruel): This is not strictly speaking correct. The remote could be
 		// running a different Go version from the current executable.
 		tag = url.QueryEscape(runtime.Version())
@@ -256,7 +253,7 @@ func splitTag(s string) (string, string, template.URL) {
 //
 // All of godoc/gddo, pkg.go.dev and golang.org/godoc use the same symbol
 // reference format.
-func symbol(f *stack.Func) template.URL {
+func symbol(f *Func) template.URL {
 	s := f.Name
 	if reMethodSymbol.MatchString(s) {
 		// Transform the method form.
@@ -265,14 +262,14 @@ func symbol(f *stack.Func) template.URL {
 	return template.URL(url.QueryEscape(s))
 }
 
-func bucketClass(bucket *stack.Bucket) template.HTML {
+func bucketClass(bucket *Bucket) template.HTML {
 	if bucket.First {
 		return "RoutineFirst"
 	}
 	return "Routine"
 }
 
-func routineClass(bucket *stack.Goroutine) template.HTML {
+func routineClass(bucket *Goroutine) template.HTML {
 	if bucket.First {
 		return "RoutineFirst"
 	}

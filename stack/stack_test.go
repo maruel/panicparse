@@ -305,15 +305,19 @@ func TestSignature_Less(t *testing.T) {
 var (
 	goroot     string
 	gopaths    map[string]string
+	gopath     string
 	gomods     map[string]string
 	isInGOPATH bool
 )
 
 func init() {
-	goroot = runtime.GOROOT()
+	goroot = strings.Replace(runtime.GOROOT(), "\\", "/", -1)
 	gopaths = map[string]string{}
-	for _, p := range getGOPATHs() {
+	for i, p := range getGOPATHs() {
 		gopaths[p] = p
+		if i == 0 {
+			gopath = p
+		}
 	}
 
 	// Assumes pwd == this directory.
