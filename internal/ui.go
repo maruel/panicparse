@@ -14,9 +14,6 @@ import (
 // Palette defines the color used.
 //
 // An empty object Palette{} can be used to disable coloring.
-//
-// TODO(maruel): Redo the color selection as part of
-// https://github.com/maruel/panicparse/issues/26
 type Palette struct {
 	EOLReset string
 

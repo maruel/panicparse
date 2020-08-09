@@ -66,11 +66,11 @@ var reMethodSymbol = regexp.MustCompile(`^\(\*?([^)]+)\)(\..+)$`)
 
 func funcClass(c *Call) template.HTML {
 	if c.Func.IsPkgMain {
-		return "FuncMain"
+		return "FuncMain Exported"
 	}
 	s := c.Location.String()
 	if c.Func.IsExported {
-		s += "Exported"
+		s += " Exported"
 	}
 	return template.HTML("Func" + s)
 }

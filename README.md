@@ -25,8 +25,6 @@ panicparse helps make sense of Go crash dumps:
      goroutines, much more readable than
      [net/http/pprof](https://golang.org/pkg/net/http/pprof).
    * &gt;50% more compact output than original stack dump yet more readable.
-   * Exported symbols are bold, private symbols are darker.
-   * Stdlib is green, main is yellow, rest is red.
    * Deduplicates redundant goroutine stacks. Useful for large server crashes.
    * Arguments as pointer IDs instead of raw pointer values.
    * Pushes stdlib-only stacks at the bottom to help focus on important code.

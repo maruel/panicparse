@@ -6,14 +6,6 @@
 //
 // It is mostly useful on servers will large number of identical goroutines,
 // making the crash dump harder to read than strictly necessary.
-//
-// Colors:
-//  - Magenta: first goroutine to be listed.
-//  - Yellow: main package.
-//  - Green: standard library.
-//  - Red: other packages.
-//
-// Bright colors are used for exported symbols.
 package main
 
 import (

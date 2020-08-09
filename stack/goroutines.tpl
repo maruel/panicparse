@@ -194,42 +194,27 @@
     margin-top: 5em;
   }
 
-  {{- /* Highlights based on stack.Location value.
-         TODO(maruel): Redo the color selection as part of
-         https://github.com/maruel/panicparse/issues/26
-      */ -}}
+  {{- /* Highlights based on stack.Location value. */ -}}
   .FuncMain {
-    color: #808000;
-  }
-  .FuncLocationUnknownExported {
-    color: #00B000;
+    color: #880;
   }
   .FuncLocationUnknown {
-    color: #00B000;
-  }
-  .FuncGoModExported {
-    color: #C00000;
+    color: #888;
   }
   .FuncGoMod {
-    color: #800000;
-  }
-  .FuncGOPATHExported {
-    color: #C00000;
+    color: #800;
   }
   .FuncGOPATH {
-    color: #800000;
-  }
-  .FuncGoPkgExported {
-    color: #C00000;
+    color: #109090;
   }
   .FuncGoPkg {
-    color: #800000;
-  }
-  .FuncStdlibExported {
-    color: #00B000;
+    color: #008;
   }
   .FuncStdlib {
-    color: #006000;
+    color: #080;
+  }
+  .Exported {
+    font-weight: 700;
   }
 </style>
 <div id="content">
@@ -309,9 +294,9 @@
     <td>
       Go module
       <span class="tooltip">Sources located inside a directory containing a
-      go.mod file but outside $GOPATH.</span>
+      <strong>go.mod</strong> file but outside $GOPATH.</span>
     </td>
-    <td class="FuncGoModExported">pkg.Foo()</td>
+    <td class="FuncGoMod Exported">pkg.Foo()</td>
     <td class="FuncGoMod">pkg.foo()</td>
   </tr>
   <tr class="call hastooltip">
@@ -320,16 +305,16 @@
       <span class="tooltip">Sources located inside the traditional $GOPATH/src
       directory.</span>
     </td>
-    <td class="FuncGOPATHExported">pkg.Foo()</td>
+    <td class="FuncGOPATH Exported">pkg.Foo()</td>
     <td class="FuncGOPATH">pkg.foo()</td>
   </tr>
   <tr class="call hastooltip">
     <td>
-      Go module dependency
+      $GOPATH/pkg/mod/...
       <span class="tooltip">Sources located inside the go module dependency
       cache under $GOPATH/pkg/mod. These files are unmodified third parties.</span>
     </td>
-    <td class="FuncGoPkgExported">pkg.Foo()</td>
+    <td class="FuncGoPkg Exported">pkg.Foo()</td>
     <td class="FuncGoPkg">pkg.foo()</td>
   </tr>
   <tr class="call hastooltip">
@@ -338,7 +323,7 @@
       <span class="tooltip">Sources from the Go standard library under
       $GOROOT/src/.</span>
     </td>
-    <td class="FuncStdlibExported">pkg.Foo()</td>
+    <td class="FuncStdlib Exported">pkg.Foo()</td>
     <td class="FuncStdlib">pkg.foo()</td>
   </tr>
   <tr class="call hastooltip">
@@ -347,7 +332,7 @@
       <span class="tooltip">Sources which location was not successfully
       determined.</span>
     </td>
-    <td class="FuncLocationUnknownExported">pkg.Foo()</td>
+    <td class="FuncLocationUnknown Exported">pkg.Foo()</td>
     <td class="FuncLocationUnknown">pkg.foo()</td>
   </tr>
 </table>
