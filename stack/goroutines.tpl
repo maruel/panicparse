@@ -50,7 +50,8 @@
     <br>Func: {{.Func.Complete}}
     <br>Location: {{.Location}}
     </span><a href="{{srcURL .}}">{{.SrcName}}:{{.Line}}</a> <span class="{{funcClass .}}">
-    <a href="{{pkgURL .}}">{{.Func.DirName}}.{{.Func.Name}}</a></span>()</span>
+    <a href="{{pkgURL .}}">{{.Func.DirName}}.{{.Func.Name}}</a></span>()
+  </span>
 {{- end -}}
 
 {{- /* Accepts a Stack */ -}}
@@ -105,15 +106,15 @@
   *, *:before, *:after {
     box-sizing: inherit;
   }
-  h1 {
-    font-size: 1.5em;
+  h1, h2 {
     margin-bottom: 0.2em;
-    margin-top: 0.5em;
+    margin-top: 0.8em;
+  }
+  h1 {
+    font-size: 1.4em;
   }
   h2 {
     font-size: 1.2em;
-    margin-bottom: 0.2em;
-    margin-top: 0.3em;
   }
   body {
     font-size: 1.6em;
@@ -133,16 +134,16 @@
   p {
     margin-bottom: 2em;
   }
-  table.stack {
+  table {
     margin: 0.6em;
   }
-  table.stack tr:nth-child(odd) {
+  table tr:nth-child(odd) {
     background-color: #F0F0F0;
   }
-  table.stack tr:hover {
+  table tr:hover {
     background-color: #DDD !important;
   }
-  table.stack td {
+  table td {
     font-family: monospace;
     padding: 0.2em 0.4em 0.2em;
   }
@@ -188,6 +189,9 @@
     margin-top: 2.5rem;
     padding: 1rem;
     z-index: 10;
+  }
+  .bottom-padding {
+    margin-top: 5em;
   }
 
   {{- /* Highlights based on stack.Location value.
@@ -264,28 +268,89 @@
     {{- end -}}
   {{- end -}}
 </div>
-<p>
-<div id="legend">
-  Created on {{.Now.String}}:
-  <ul>
-    <li>{{.Version}}</li>
-    {{- if and .Snapshot.LocalGOROOT (ne .Snapshot.RemoteGOROOT .Snapshot.LocalGOROOT) -}}
-      <li>GOROOT (remote): {{.Snapshot.RemoteGOROOT}}</li>
-      <li>GOROOT (local): {{.Snapshot.LocalGOROOT}}</li>
-    {{- else -}}
-      <li>GOROOT: {{.Snapshot.RemoteGOROOT}}</li>
-    {{- end -}}
-    <li>GOPATH: {{template "Join" .Snapshot.LocalGOPATHs}}</li>
-    {{- if .Snapshot.LocalGomods -}}
-      <li>go modules (local):
-        <ul>
-        {{- range $path, $import := .Snapshot.LocalGomods -}}
-          <li>{{$path}}: {{$import}}</li>
-        {{- end -}}
-        </ul>
-      </li>
-    {{- end -}}
-    <li>GOMAXPROCS: {{.GOMAXPROCS}}</li>
-  </ul>
-  {{- .Footer -}}
-</div>
+<h2>Metadata</h2>
+<ul>
+  <li>Created on {{.Now.String}}</li>
+  <li>{{.Version}}</li>
+  {{- if and .Snapshot.LocalGOROOT (ne .Snapshot.RemoteGOROOT .Snapshot.LocalGOROOT) -}}
+    <li>GOROOT (remote): {{.Snapshot.RemoteGOROOT}}</li>
+    <li>GOROOT (local): {{.Snapshot.LocalGOROOT}}</li>
+  {{- else -}}
+    <li>GOROOT: {{.Snapshot.RemoteGOROOT}}</li>
+  {{- end -}}
+  <li>GOPATH: {{template "Join" .Snapshot.LocalGOPATHs}}</li>
+  {{- if .Snapshot.LocalGomods -}}
+    <li>go modules (local):
+      <ul>
+      {{- range $path, $import := .Snapshot.LocalGomods -}}
+        <li>{{$path}}: {{$import}}</li>
+      {{- end -}}
+      </ul>
+    </li>
+  {{- end -}}
+  <li>GOMAXPROCS: {{.GOMAXPROCS}}</li>
+</ul>
+<h2>Legend</h2>
+<table class="legend">
+  <thead>
+    <th>Type</th>
+    <th>Exported</th>
+    <th>Private</th>
+  </thead>
+  <tr class="call hastooltip">
+    <td>
+      Package main
+      <span class="tooltip">Sources that are in the main package.</span>
+    </td>
+    <td class="FuncMain">main.Foo()</td>
+    <td class="FuncMain">main.foo()</td>
+  </tr>
+  <tr class="call hastooltip">
+    <td>
+      Go module
+      <span class="tooltip">Sources located inside a directory containing a
+      go.mod file but outside $GOPATH.</span>
+    </td>
+    <td class="FuncGoModExported">pkg.Foo()</td>
+    <td class="FuncGoMod">pkg.foo()</td>
+  </tr>
+  <tr class="call hastooltip">
+    <td>
+      $GOPATH/src/...
+      <span class="tooltip">Sources located inside the traditional $GOPATH/src
+      directory.</span>
+    </td>
+    <td class="FuncGOPATHExported">pkg.Foo()</td>
+    <td class="FuncGOPATH">pkg.foo()</td>
+  </tr>
+  <tr class="call hastooltip">
+    <td>
+      Go module dependency
+      <span class="tooltip">Sources located inside the go module dependency
+      cache under $GOPATH/pkg/mod. These files are unmodified third parties.</span>
+    </td>
+    <td class="FuncGoPkgExported">pkg.Foo()</td>
+    <td class="FuncGoPkg">pkg.foo()</td>
+  </tr>
+  <tr class="call hastooltip">
+    <td>
+      Standard library
+      <span class="tooltip">Sources from the Go standard library under
+      $GOROOT/src/.</span>
+    </td>
+    <td class="FuncStdlibExported">pkg.Foo()</td>
+    <td class="FuncStdlib">pkg.foo()</td>
+  </tr>
+  <tr class="call hastooltip">
+    <td>
+      Unknown source location
+      <span class="tooltip">Sources which location was not successfully
+      determined.</span>
+    </td>
+    <td class="FuncLocationUnknownExported">pkg.Foo()</td>
+    <td class="FuncLocationUnknown">pkg.foo()</td>
+  </tr>
+</table>
+{{- .Footer -}}
+{{- /* Add unnecessary bottom spacing so the last tooltip from the legend is visible. */ -}}
+<div class="bottom-padding"></div>
