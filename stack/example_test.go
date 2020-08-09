@@ -21,15 +21,20 @@ import (
 func Example_text() {
 	source := `package main
 
+	import "time"
+
 	func main() {
 		c := crashy{}
-		go c.die(42.)
+		go func() {
+			c.die(42.)
+		}()
 		select {}
 	}
 
-	type crashy struct {}
+	type crashy struct{}
 
 	func (c crashy) die(f float64) {
+		time.Sleep(time.Millisecond)
 		panic(int(f))
 	}`
 
@@ -105,10 +110,11 @@ func Example_text() {
 	// Output:
 	// panic: 42
 	//
-	// 1: running [Created by main.main @ main.go:5]
-	//     main main.go:12 crashy.die(42)
+	// 1: running [Created by main.main @ main.go:7]
+	//     main main.go:17 crashy.die(42)
+	//     main main.go:8  main.func1()
 	// 1: select (no cases)
-	//     main main.go:6  main()
+	//     main main.go:10 main()
 	// exit status 2
 }
 
