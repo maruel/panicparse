@@ -41,7 +41,7 @@ func TestProcess(t *testing.T) {
 			palette: testPalette,
 			simil:   stack.AnyPointer,
 			path:    basePath,
-			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:70 ImainL()A\n",
+			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:70 GmainR()A\n",
 		},
 		{
 			name:    "FullPath",
@@ -49,7 +49,7 @@ func TestProcess(t *testing.T) {
 			simil:   stack.AnyValue,
 			path:    fullPath,
 			// "/" is used even on Windows.
-			want: fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:70 ImainL()A\n", strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)),
+			want: fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:70 GmainR()A\n", strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)),
 		},
 		{
 			name:    "NoColor",
@@ -72,7 +72,7 @@ func TestProcess(t *testing.T) {
 			simil:   stack.AnyValue,
 			path:    basePath,
 			filter:  regexp.MustCompile(`notpresent`),
-			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:70 ImainL()A\n",
+			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:70 GmainR()A\n",
 		},
 	}
 	for i, line := range data {

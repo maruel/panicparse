@@ -14,18 +14,24 @@ import (
 )
 
 var testPalette = &Palette{
-	EOLReset:           "A",
-	RoutineFirst:       "B",
-	Routine:            "C",
-	CreatedBy:          "D",
-	Package:            "E",
-	SrcFile:            "F",
-	FuncStdLib:         "G",
-	FuncStdLibExported: "H",
-	FuncMain:           "I",
-	FuncOther:          "J",
-	FuncOtherExported:  "K",
-	Arguments:          "L",
+	EOLReset:                    "A",
+	RoutineFirst:                "B",
+	Routine:                     "C",
+	CreatedBy:                   "D",
+	Package:                     "E",
+	SrcFile:                     "F",
+	FuncMain:                    "G",
+	FuncLocationUnknown:         "H",
+	FuncLocationUnknownExported: "I",
+	FuncGoMod:                   "J",
+	FuncGoModExported:           "K",
+	FuncGOPATH:                  "L",
+	FuncGOPATHExported:          "M",
+	FuncGoPkg:                   "N",
+	FuncGoPkgExported:           "O",
+	FuncStdLib:                  "P",
+	FuncStdLibExported:          "Q",
+	Arguments:                   "R",
 }
 
 func TestCalcBucketsLengths(t *testing.T) {
@@ -147,19 +153,19 @@ func TestStackLines(t *testing.T) {
 	}
 	// When printing, it prints the remote path, not the transposed local path.
 	want := "" +
-		"    Eruntime    F/goroot/src/runtime/sys_linux_amd64.s:400 HEpollwaitL(4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
-		"    Eruntime    F/goroot/src/runtime/netpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
-		"    Emain       F/home/user/go/src/main.go:1472 IMainL(0xc208012000)A\n" +
-		"    Efoo        F/home/user/go/src/foo/bar.go:1575 KOtherExportedL()A\n" +
-		"    Efoo        F/home/user/go/src/foo/bar.go:10 JotherPrivateL()A\n" +
+		"    Eruntime    F/goroot/src/runtime/sys_linux_amd64.s:400 QEpollwaitR(4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
+		"    Eruntime    F/goroot/src/runtime/netpoll_epoll.go:68 PnetpollR(0x901b01, 0)A\n" +
+		"    Emain       F/home/user/go/src/main.go:1472 GMainR(0xc208012000)A\n" +
+		"    Efoo        F/home/user/go/src/foo/bar.go:1575 MOtherExportedR()A\n" +
+		"    Efoo        F/home/user/go/src/foo/bar.go:10 LotherPrivateR()A\n" +
 		"    (...)\n"
 	compareString(t, want, testPalette.StackLines(s, 10, 10, fullPath))
 	want = "" +
-		"    Eruntime    Fsys_linux_amd64.s:400 HEpollwaitL(4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
-		"    Eruntime    Fnetpoll_epoll.go:68 GnetpollL(0x901b01, 0)A\n" +
-		"    Emain       Fmain.go:1472 IMainL(0xc208012000)A\n" +
-		"    Efoo        Fbar.go:1575 KOtherExportedL()A\n" +
-		"    Efoo        Fbar.go:10  JotherPrivateL()A\n" +
+		"    Eruntime    Fsys_linux_amd64.s:400 QEpollwaitR(4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, 0, 0, 0, 0, 0, ...)A\n" +
+		"    Eruntime    Fnetpoll_epoll.go:68 PnetpollR(0x901b01, 0)A\n" +
+		"    Emain       Fmain.go:1472 GMainR(0xc208012000)A\n" +
+		"    Efoo        Fbar.go:1575 MOtherExportedR()A\n" +
+		"    Efoo        Fbar.go:10  LotherPrivateR()A\n" +
 		"    (...)\n"
 	compareString(t, want, testPalette.StackLines(s, 10, 10, basePath))
 }

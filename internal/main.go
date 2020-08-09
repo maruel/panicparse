@@ -44,18 +44,24 @@ const resetFG = ansi.DefaultFG + "\033[m"
 
 // defaultPalette is the default recommended palette.
 var defaultPalette = Palette{
-	EOLReset:           resetFG,
-	RoutineFirst:       ansi.ColorCode("magenta+b"),
-	CreatedBy:          ansi.LightBlack,
-	Race:               ansi.LightRed,
-	Package:            ansi.ColorCode("default+b"),
-	SrcFile:            resetFG,
-	FuncStdLib:         ansi.Green,
-	FuncStdLibExported: ansi.ColorCode("green+b"),
-	FuncMain:           ansi.ColorCode("yellow+b"),
-	FuncOther:          ansi.Red,
-	FuncOtherExported:  ansi.ColorCode("red+b"),
-	Arguments:          resetFG,
+	EOLReset:                    resetFG,
+	RoutineFirst:                ansi.ColorCode("magenta+b"),
+	CreatedBy:                   ansi.LightBlack,
+	Race:                        ansi.LightRed,
+	Package:                     ansi.ColorCode("default+b"),
+	SrcFile:                     resetFG,
+	FuncMain:                    ansi.ColorCode("yellow+b"),
+	FuncLocationUnknown:         ansi.Red,
+	FuncLocationUnknownExported: ansi.ColorCode("red+b"),
+	FuncGoMod:                   ansi.Red,
+	FuncGoModExported:           ansi.ColorCode("red+b"),
+	FuncGOPATH:                  ansi.Red,
+	FuncGOPATHExported:          ansi.ColorCode("red+b"),
+	FuncGoPkg:                   ansi.Red,
+	FuncGoPkgExported:           ansi.ColorCode("red+b"),
+	FuncStdLib:                  ansi.Green,
+	FuncStdLibExported:          ansi.ColorCode("green+b"),
+	Arguments:                   resetFG,
 }
 
 func writeBucketsToConsole(out io.Writer, p *Palette, a *stack.Aggregated, pf pathFormat, needsEnv bool, filter, match *regexp.Regexp) error {
@@ -200,6 +206,39 @@ func Main() error {
 	forceColor := flag.Bool("force-color", false, "Forcibly enable coloring when with stdout is redirected")
 	// HTML only.
 	html := flag.String("html", "", "Output an HTML file")
+
+	var out io.Writer = os.Stdout
+	p := &defaultPalette
+
+	flag.CommandLine.Usage = func() {
+		if *noColor && !*forceColor {
+			p = &Palette{}
+		} else {
+			out = colorable.NewColorableStdout()
+		}
+		fmt.Fprintf(out, "Usage of %s:\n", os.Args[0])
+		flag.CommandLine.PrintDefaults()
+		fmt.Fprintf(out, "\nLegend:\n")
+		fmt.Fprintf(out, "  Type             Exported    Private\n")
+		fmt.Fprintf(out, "  main             %smain.Foo()%s  %smain.foo()%s\n",
+			p.funcColor(stack.LocationUnknown, true, false), p.EOLReset,
+			p.funcColor(stack.LocationUnknown, true, true), p.EOLReset)
+		fmt.Fprintf(out, "  <unknown>        %spkg.Foo()%s   %spkg.foo()%s\n",
+			p.funcColor(stack.LocationUnknown, false, false), p.EOLReset,
+			p.funcColor(stack.LocationUnknown, false, true), p.EOLReset)
+		fmt.Fprintf(out, "  go.mod           %spkg.Foo()%s   %spkg.foo()%s\n",
+			p.funcColor(stack.GoMod, false, false), p.EOLReset,
+			p.funcColor(stack.GoMod, false, true), p.EOLReset)
+		fmt.Fprintf(out, "  $GOPATH/src      %spkg.Foo()%s   %spkg.foo()%s\n",
+			p.funcColor(stack.GOPATH, false, false), p.EOLReset,
+			p.funcColor(stack.GOPATH, false, true), p.EOLReset)
+		fmt.Fprintf(out, "  $GOPATH/pkg/mod  %spkg.Foo()%s   %spkg.foo()%s\n",
+			p.funcColor(stack.GoPkg, false, false), p.EOLReset,
+			p.funcColor(stack.GoPkg, false, true), p.EOLReset)
+		fmt.Fprintf(out, "  $GOROOT/src      %spkg.Foo()%s   %spkg.Foo()%s\n",
+			p.funcColor(stack.Stdlib, false, false), p.EOLReset,
+			p.funcColor(stack.Stdlib, false, true), p.EOLReset)
+	}
 	flag.Parse()
 
 	log.SetFlags(log.Lmicroseconds)
@@ -227,8 +266,6 @@ func Main() error {
 		s = stack.AnyValue
 	}
 
-	var out io.Writer = os.Stdout
-	p := &defaultPalette
 	if *html == "" {
 		if *noColor && !*forceColor {
 			p = &Palette{}

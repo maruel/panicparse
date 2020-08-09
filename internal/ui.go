@@ -27,14 +27,20 @@ type Palette struct {
 	Race         string
 
 	// Call line.
-	Package            string
-	SrcFile            string
-	FuncStdLib         string
-	FuncStdLibExported string
-	FuncMain           string
-	FuncOther          string
-	FuncOtherExported  string
-	Arguments          string
+	Package                     string
+	SrcFile                     string
+	FuncMain                    string
+	FuncLocationUnknown         string
+	FuncLocationUnknownExported string
+	FuncGoMod                   string
+	FuncGoModExported           string
+	FuncGOPATH                  string
+	FuncGOPATHExported          string
+	FuncGoPkg                   string
+	FuncGoPkgExported           string
+	FuncStdLib                  string
+	FuncStdLibExported          string
+	Arguments                   string
 }
 
 // pathFormat determines how much to show.
@@ -109,34 +115,41 @@ func calcGoroutinesLengths(s *stack.Snapshot, pf pathFormat) (int, int) {
 // functionColor returns the color to be used for the function name based on
 // the type of package the function is in.
 func (p *Palette) functionColor(c *stack.Call) string {
-	if c.Func.IsPkgMain {
+	return p.funcColor(c.Location, c.Func.IsPkgMain, c.Func.IsExported)
+}
+
+func (p *Palette) funcColor(l stack.Location, main, exported bool) string {
+	if main {
 		return p.FuncMain
 	}
-	switch c.Location {
+	switch l {
+	default:
+		fallthrough
 	case stack.LocationUnknown:
-		return p.FuncOther
+		if exported {
+			return p.FuncLocationUnknownExported
+		}
+		return p.FuncLocationUnknown
 	case stack.GoMod:
-		if c.Func.IsExported {
-			return p.FuncOtherExported
+		if exported {
+			return p.FuncGoModExported
 		}
-		return p.FuncOther
+		return p.FuncGoMod
 	case stack.GOPATH:
-		if c.Func.IsExported {
-			return p.FuncOtherExported
+		if exported {
+			return p.FuncGOPATHExported
 		}
-		return p.FuncOther
+		return p.FuncGOPATH
 	case stack.GoPkg:
-		if c.Func.IsExported {
-			return p.FuncOtherExported
+		if exported {
+			return p.FuncGoPkgExported
 		}
-		return p.FuncOther
+		return p.FuncGoPkg
 	case stack.Stdlib:
-		if c.Func.IsExported {
+		if exported {
 			return p.FuncStdLibExported
 		}
 		return p.FuncStdLib
-	default:
-		return p.FuncOther
 	}
 }
 
