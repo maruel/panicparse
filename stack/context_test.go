@@ -2205,7 +2205,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			rest := []Call{
 				newCallLocal("main.sysHang", Args{}, pathJoin(pwebDir, mainOS), 12),
 				newCallLocal(
-					"main.main.func2",
+					"main.main.func3",
 					Args{Values: []Arg{{Value: 0xc000140720, Name: "#135", IsPtr: true}}},
 					pathJoin(pwebDir, "main.go"),
 					65),

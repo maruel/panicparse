@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -29,6 +30,15 @@ import (
 	"github.com/maruel/panicparse/v2/stack/webstack"
 	"github.com/mattn/go-colorable"
 )
+
+var rootPage = []byte(`<!DOCTYPE html>
+<ul>
+	<li><a href="/panicparse">/panicparse</a></li>
+	<li><a href="/debug/pprof/goroutine?debug=2">/debug/pprof/goroutine?debug=2</a></li>
+	<li><a href="/url1">/url1</a></li>
+	<li><a href="/url2">/url2</a></li>
+</ul>
+`)
 
 func main() {
 	allowremote := flag.Bool("allowremote", false, "allows access from non-localhost; implies -wait")
@@ -91,10 +101,22 @@ func main() {
 	} else {
 		http.HandleFunc("/panicparse", webstack.SnapshotHandler)
 	}
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(rootPage)
+	})
 	go http.Serve(ln, http.DefaultServeMux)
 
 	// Start many clients.
-	url := "http://" + ln.Addr().String() + "/"
+	a := ln.Addr()
+	url := fmt.Sprintf("http://%s/", a)
+	if *allowremote {
+		if h, err := os.Hostname(); err == nil {
+			if t, ok := a.(*net.TCPAddr); ok {
+				url = fmt.Sprintf("http://%s:%d/", h, t.Port)
+			}
+		}
+	}
 	for i := 0; i < 10; i++ {
 		internal.GetAsync(url + "url1")
 	}
