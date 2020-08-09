@@ -129,7 +129,7 @@ func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, 
 	log.Printf("GOPATH=%s", c.RemoteGOPATHs)
 	needsEnv := len(c.Goroutines) == 1 && showBanner()
 	// Bucketing should only be done if no data race was detected.
-	if c.Goroutines[0].RaceAddr == 0 {
+	if !c.IsRace() {
 		a := c.Aggregate(s)
 		if html == "" {
 			return writeBucketsToConsole(out, p, a, pf, needsEnv, filter, match)

@@ -245,6 +245,9 @@ func TestSnapshot_ToHTML(t *testing.T) {
 	if s.Goroutines[0].RaceAddr == 0 {
 		t.Fatal("expected a race")
 	}
+	if !s.IsRace() {
+		t.Fatal("expected a race")
+	}
 	if err := s.ToHTML(ioutil.Discard, ""); err != nil {
 		t.Fatal(err)
 	}

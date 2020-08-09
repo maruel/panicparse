@@ -1344,6 +1344,9 @@ func TestGomoduleComplex(t *testing.T) {
 	if s == nil {
 		t.Fatal("expected snapshot")
 	}
+	if s.IsRace() {
+		t.Fatal("unexpected race")
+	}
 	compareString(t, "panic: 42\n\n", prefix.String())
 	compareString(t, "", string(suffix))
 	wantGOROOT := ""

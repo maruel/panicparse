@@ -207,6 +207,15 @@ func ScanSnapshot(in io.Reader, prefix io.Writer, opts *Opts) (*Snapshot, []byte
 	return nil, suffix, err
 }
 
+// IsRace returns true if a race detector stack trace was found.
+//
+// Otherwise, it is a normal goroutines snapshot.
+//
+// When a race condition was detected, it is preferable to not call Aggregate().
+func (s *Snapshot) IsRace() bool {
+	return s.Goroutines[0].RaceAddr != 0
+}
+
 func (s *Snapshot) guessPaths() bool {
 	b := s.findRoots() == 0
 	for _, r := range s.Goroutines {
