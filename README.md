@@ -4,10 +4,9 @@ Parses panic stack traces, densifies and deduplicates goroutines with similar
 stack traces. Helps debugging crashes and deadlocks in heavily parallelized
 process.
 
-[![GoDoc](https://godoc.org/github.com/maruel/panicparse/stack?status.svg)](https://pkg.go.dev/github.com/maruel/panicparse/stack)
-[![Go Report Card](https://goreportcard.com/badge/github.com/maruel/panicparse)](https://goreportcard.com/report/github.com/maruel/panicparse)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/maruel/panicparse/v2/stack)](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack)
+[![Go Report Card](https://goreportcard.com/badge/github.com/maruel/panicparse/v2)](https://goreportcard.com/report/github.com/maruel/panicparse/v2)
 [![Coverage Status](https://codecov.io/gh/maruel/panicparse/graph/badge.svg)](https://codecov.io/gh/maruel/panicparse)
-[![Build Status](https://travis-ci.org/maruel/panicparse.svg)](https://travis-ci.org/maruel/panicparse)
 
 
 panicparse helps make sense of Go crash dumps:
@@ -17,10 +16,13 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
+   * **New in v2.0.0!**: Full go module support.
+   * **New in v2.0.0!**: Race detector support.
+   * **New in v2.0.0!**: HTML export.
    * **New in v2.0.0!**: Completely refactored stack package for higher
      performance.
    * **New in v1.4.0!**:
-     [webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/stack/webstack#SnapshotHandler)
+     [webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack/webstack#SnapshotHandler)
      is a http handler that serves a very tight and swell snapshot of your
      goroutines, much more readable than
      [net/http/pprof](https://golang.org/pkg/net/http/pprof).
