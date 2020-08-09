@@ -194,7 +194,7 @@ func (p *Palette) GoroutineHeader(g *stack.Goroutine, pf pathFormat, multipleGor
 		if g.RaceWrite {
 			r = "write"
 		}
-		extra += fmt.Sprintf("%s%s Race %s @ %08x", p.EOLReset, p.Race, r, g.RaceAddr)
+		extra += fmt.Sprintf("%s%s Race %s @ 0x%08x", p.EOLReset, p.Race, r, g.RaceAddr)
 	}
 	return fmt.Sprintf(
 		"%s%d: %s%s%s\n",
