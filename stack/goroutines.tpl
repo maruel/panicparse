@@ -245,7 +245,7 @@
       </h1>
       {{if $e.Locked}} <span class="locked">[locked]</span>
       {{- end -}}
-      {{if $e.RaceAddr}} <span class="race">Race {{if $e.RaceWrite}}write{{else}}read{{end}} @ {{$e.RaceAddr}}</span><br>
+      {{if $e.RaceAddr}} <span class="race">Race {{if $e.RaceWrite}}write{{else}}read{{end}} @ {{printf "0x%08X" $e.RaceAddr}}</span><br>
       {{- end -}}
       {{- if $e.CreatedBy.Calls}} <span class="created">Created by: {{template "RenderCreatedBy" index $e.CreatedBy.Calls 0}}</span>
       {{- end -}}
