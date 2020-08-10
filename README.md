@@ -16,6 +16,8 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
+See [v2.0.0 blog post](https://maruel.ca/post/panicparse-2.0.0/).
+
    * **New in v2.0.0!**: Full go module support.
    * **New in v2.0.0!**: Race detector support.
    * **New in v2.0.0!**: HTML export.
