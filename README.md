@@ -16,7 +16,7 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
-See [v2.0.0 blog post](https://maruel.ca/post/panicparse-2.0.0/).
+See [v2.0.1 blog post](https://maruel.ca/post/panicparse-2.0.1/).
 
    * **New in v2.0.0!**: Full go module support.
    * **New in v2.0.0!**: Race detector support.
@@ -50,7 +50,7 @@ Ruel](https://github.com/maruel) and
 
 ## Installation
 
-    go get github.com/maruel/panicparse/cmd/pp
+    go get github.com/maruel/panicparse/v2/cmd/pp
 
 
 ## Usage
@@ -162,7 +162,7 @@ you may be running the _Perl PAR Packager_ instead of panicparse.
 You have two choices, either you put `$GOPATH/bin` at the beginning of `$PATH`
 or use long name `panicparse` with:
 
-    go get github.com/maruel/panicparse
+    go get github.com/maruel/panicparse/v2
 
 then using `panicparse` instead of `pp`:
 
