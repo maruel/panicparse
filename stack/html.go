@@ -134,7 +134,12 @@ func getSrcBranchURL(c *Call) (template.URL, template.URL) {
 	if c.Location == Stdlib {
 		// TODO(maruel): This is not strictly speaking correct. The remote could be
 		// running a different Go version from the current executable.
-		tag = url.QueryEscape(runtime.Version())
+		ver := runtime.Version()
+		const devel = "devel +"
+		if strings.HasPrefix(ver, devel) {
+			ver = ver[len(devel) : len(devel)+10]
+		}
+		tag = url.QueryEscape(ver)
 		return template.URL(fmt.Sprintf("https://github.com/golang/go/blob/%s/src/%s#L%d", tag, escape(c.RelSrcPath), c.Line)), template.URL(tag)
 	}
 	// TODO(maruel): Leverage Location.

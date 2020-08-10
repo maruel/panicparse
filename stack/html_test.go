@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"regexp"
 	"runtime"
 	"strings"
@@ -81,6 +82,11 @@ func TestGenerate(t *testing.T) {
 func TestGetSrcBranchURL(t *testing.T) {
 	t.Parallel()
 	ver := runtime.Version()
+	const prefix = "devel +"
+	if strings.HasPrefix(ver, prefix) {
+		ver = ver[len(prefix) : len(prefix)+10]
+	}
+	ver = url.QueryEscape(ver)
 	data := []struct {
 		name        string
 		c           Call
