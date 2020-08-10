@@ -211,12 +211,14 @@ func Main() error {
 	p := &defaultPalette
 
 	flag.CommandLine.Usage = func() {
+		out = os.Stderr
 		if *noColor && !*forceColor {
 			p = &Palette{}
 		} else {
-			out = colorable.NewColorableStdout()
+			out = colorable.NewColorableStderr()
 		}
 		fmt.Fprintf(out, "Usage of %s:\n", os.Args[0])
+		flag.CommandLine.SetOutput(out)
 		flag.CommandLine.PrintDefaults()
 		fmt.Fprintf(out, "\nLegend:\n")
 		fmt.Fprintf(out, "  Type             Exported    Private\n")
