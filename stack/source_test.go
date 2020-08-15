@@ -6,13 +6,13 @@ package stack
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -630,36 +630,35 @@ func TestAugmentErr(t *testing.T) {
 	createTree(t, root, tree)
 
 	type dataLine struct {
-		name string
-		src  string
-		line int
-		args Args
-		err  error
+		name  string
+		src   string
+		line  int
+		args  Args
+		errRe string
 	}
 	// Note: these tests assumes an OS running in English-US locale. That should
 	// eventually be fixed, maybe by using regexes?
-	msg := "The system cannot find the file specified."
+	msgRe := ".+"
 	if runtime.GOOS != "windows" {
-		msg = "no such file or directory"
+		msgRe = "no such file or directory"
 	}
 	data := []dataLine{
 		{
-			name: "assembly is skipped",
-			src:  "foo.asm",
-			args: Args{Values: []Arg{{}}},
-			err:  fmt.Errorf("cannot load non-go file %q", filepath.Join(root, "foo.asm")),
+			name:  "assembly is skipped",
+			src:   "foo.asm",
+			args:  Args{Values: []Arg{{}}},
+			errRe: regexp.QuoteMeta(fmt.Sprintf("cannot load non-go file %q", filepath.Join(root, "foo.asm"))),
 		},
 		{
 			name: "assembly is skipped (no arg)",
 			src:  "foo.asm",
-			err:  nil,
 		},
 		{
-			name: "invalid line number",
-			src:  "good.go",
-			line: 2,
-			args: Args{Values: []Arg{{}}},
-			err:  errors.New("line 2 is over line count of 1"),
+			name:  "invalid line number",
+			src:   "good.go",
+			line:  2,
+			args:  Args{Values: []Arg{{}}},
+			errRe: "line 2 is over line count of 1",
 		},
 		{
 			name: "invalid line number (no arg)",
@@ -667,10 +666,10 @@ func TestAugmentErr(t *testing.T) {
 			line: 2,
 		},
 		{
-			name: "missing file",
-			src:  "missing.go",
-			args: Args{Values: []Arg{{}}},
-			err:  fmt.Errorf("open %s: %s", filepath.Join(root, "missing.go"), msg),
+			name:  "missing file",
+			src:   "missing.go",
+			args:  Args{Values: []Arg{{}}},
+			errRe: regexp.QuoteMeta(fmt.Sprintf("open %s: ", filepath.Join(root, "missing.go"))) + msgRe,
 		},
 		{
 			name: "missing file (no arg)",
@@ -688,20 +687,20 @@ func TestAugmentErr(t *testing.T) {
 	if internaltest.GetGoMinorVersion() > 11 {
 		// The format changed between 1.9 and 1.12.
 		data = append(data, dataLine{
-			name: "invalid go code",
-			src:  "bad.go",
-			args: Args{Values: []Arg{{}}},
-			err:  fmt.Errorf("failed to parse %s:1:1: expected 'package', found bad", filepath.Join(root, "bad.go")),
+			name:  "invalid go code",
+			src:   "bad.go",
+			args:  Args{Values: []Arg{{}}},
+			errRe: regexp.QuoteMeta(fmt.Sprintf("failed to parse %s:1:1: expected 'package', found bad", filepath.Join(root, "bad.go"))),
 		})
 	}
 	if runtime.GOOS != "windows" {
 		// Chmod has no effect on Windows.
 		compareErr(t, nil, os.Chmod(filepath.Join(root, "no_access.go"), 0))
 		data = append(data, dataLine{
-			name: "no I/O access",
-			src:  "no_access.go",
-			args: Args{Values: []Arg{{}}},
-			err:  fmt.Errorf("open %s: permission denied", filepath.Join(root, "no_access.go")),
+			name:  "no I/O access",
+			src:   "no_access.go",
+			args:  Args{Values: []Arg{{}}},
+			errRe: regexp.QuoteMeta(fmt.Sprintf("open %s: permission denied", filepath.Join(root, "no_access.go"))),
 		})
 	}
 
@@ -718,7 +717,15 @@ func TestAugmentErr(t *testing.T) {
 						{LocalSrcPath: filepath.Join(root, line.src), Args: line.args, Line: l},
 					}}}},
 				}}
-			compareErr(t, line.err, s.augment())
+			if err := s.augment(); (line.errRe == "") != (err == nil) {
+				t.Fatalf("want: %q; got:  %q", line.errRe, err)
+			} else if err != nil {
+				if m, err2 := regexp.MatchString(line.errRe, err.Error()); err2 != nil {
+					t.Fatal(err2)
+				} else if !m {
+					t.Fatalf("want: %q; got: %q", line.errRe, err)
+				}
+			}
 		})
 	}
 }
@@ -787,15 +794,12 @@ func zapPointers(t *testing.T, want, got *Stack) {
 			if j >= len(want.Calls[i].Args.Values) {
 				break
 			}
-			if want.Calls[i].Args.Values[j].Value == pointer {
+			if want.Calls[i].Args.Values[j].IsPtr && got.Calls[i].Args.Values[j].IsPtr {
 				// Replace the pointer value.
-				if got.Calls[i].Args.Values[j].Value == 0 {
-					t.Fatalf("Call %d, value %d, expected pointer, got 0", i, j)
-				}
-				old := fmt.Sprintf("0x%x", got.Calls[i].Args.Values[j].Value)
-				got.Calls[i].Args.Values[j].Value = pointer
-				for k := range got.Calls[i].Args.Processed {
-					got.Calls[i].Args.Processed[k] = strings.Replace(got.Calls[i].Args.Processed[k], old, pointerStr, -1)
+				want.Calls[i].Args.Values[j].Value = got.Calls[i].Args.Values[j].Value
+				s := fmt.Sprintf("0x%x", got.Calls[i].Args.Values[j].Value)
+				for k := range want.Calls[i].Args.Processed {
+					want.Calls[i].Args.Processed[k] = strings.Replace(want.Calls[i].Args.Processed[k], pointerStr, s, -1)
 				}
 			}
 		}

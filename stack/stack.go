@@ -130,12 +130,13 @@ func (a *Arg) String() string {
 }
 
 const (
-	// Assumes all values are above 4MiB and positive are pointers; assuming that
-	// above half the memory is kernel memory.
+	// With go1.15 on Windows, the pointer floor can be below 1MiB (!)
+	// Assumes all values are above 512KiB and positive are pointers; assuming
+	// that above half the memory is kernel memory.
 	//
 	// This is not always true but this should be good enough to help
 	// implementing AnyPointer.
-	pointerFloor = 4 * 1024 * 1024
+	pointerFloor = 512 * 1024
 	// Assume the stack was generated with the same bitness (32 vs 64) than the
 	// code processing it.
 	pointerCeiling = uint64((^uint(0)) >> 1)
