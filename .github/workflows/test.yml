@@ -46,12 +46,10 @@ jobs:
         honnef.co/go/tools/cmd/staticcheck
     - name: 'go get necessary tools (ubuntu)'
       if: always() && matrix.os == 'ubuntu-latest'
-      # TODO(maruel): Use upstream google/addlicense once upstream is fixed to
-      # ignore generated files.
       run: >
         go get -u
         github.com/client9/misspell/cmd/misspell
-        github.com/maruel/addlicense
+        github.com/google/addlicense
 
       # Checkout and print debugging information.
     - uses: actions/checkout@v2
@@ -119,8 +117,8 @@ jobs:
     - name: 'Check: no executable was committed (ubuntu)'
       if: always() && matrix.os == 'ubuntu-latest'
       run: |
-        if find . -path ./.git -prune -o -type f -executable -print | grep -e . ; then
-          echo 'Do not commit executables'
+        if find . -path '*.sh' -prune -o -path ./.git -prune -o -type f -executable -print | grep -e . ; then
+          echo 'Do not commit executables beside shell scripts'
           false
         fi
     - name: 'Check: gofmt; code is well formatted (ubuntu)'
