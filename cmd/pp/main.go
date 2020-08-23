@@ -24,7 +24,7 @@ import (
 )
 
 func main() {
-	if err := internal.Main(); err != nil {
+	if err := internal.Main("/cmd/pp"); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed: %s\n", err)
 		os.Exit(1)
 	}

@@ -83,7 +83,7 @@ func TestProcessFilter(t *testing.T) {
 func TestMainFn(t *testing.T) {
 	t.Parallel()
 	// It doesn't do anything since stdin is closed.
-	if err := Main(); err != nil {
+	if err := Main(""); err != nil {
 		t.Fatal(err)
 	}
 }

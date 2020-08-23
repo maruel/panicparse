@@ -117,7 +117,7 @@ func showBanner() bool {
 // Main is implemented here so both 'pp' and 'panicparse' executables can be
 // compiled. This is to work around the Perl Package manager 'pp' that is
 // preinstalled on some OSes.
-func Main() error {
+func Main(rel string) error {
 	aggressive := flag.Bool("aggressive", false, "Aggressive deduplication including non pointers")
 	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
 	rebase := flag.Bool("rebase", true, "Guess GOROOT and GOPATH")
@@ -136,6 +136,10 @@ func Main() error {
 	log.SetFlags(log.Lmicroseconds)
 	if !*verboseFlag {
 		log.SetOutput(ioutil.Discard)
+	}
+
+	if os.Getenv("PANICPARSE_V1_NO_WARN") != "1" {
+		fmt.Fprintf(os.Stderr, "More features! Upgrade to panicparse v2 with: go get github.com/maruel/panicparse/v2%s\n", rel)
 	}
 
 	var err error
