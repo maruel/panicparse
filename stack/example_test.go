@@ -6,6 +6,7 @@ package stack_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/maruel/panicparse/v2/stack"
 )
@@ -152,4 +154,24 @@ func Example_hTML() {
 	if s != nil {
 		s.Aggregate(stack.AnyValue).ToHTML(os.Stdout, "")
 	}
+}
+
+// A sample parseStack function expects a stdlib stacktrace from runtime.Stack or debug.Stack and returns
+// the parsed stack object.
+func Example_simple() {
+	parseStack := func(rawStack []byte) stack.Stack {
+		s, _, err := stack.ScanSnapshot(bytes.NewReader(rawStack), ioutil.Discard, stack.DefaultOpts())
+		if err != nil && err != io.EOF {
+			panic(err)
+		}
+
+		if len(s.Goroutines) > 1 {
+			panic(errors.New("provided stacktrace had more than one goroutine"))
+		}
+
+		return s.Goroutines[0].Signature.Stack
+	}
+
+	parsedStack := parseStack(debug.Stack())
+	fmt.Printf("parsedStack: %#v", parsedStack)
 }
