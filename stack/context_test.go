@@ -1822,11 +1822,11 @@ func testPanicUTF8(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 							// This is important to note here the inconsistency in the Go
 							// runtime stack generator. The path is escaped, but symbols are
 							// not.
-							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic",
+							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/utf8.(*Strùct).Pànic",
 							Args{Values: []Arg{{Value: 0xc0000b2e48, IsPtr: true}}},
 							// See TestCallUTF8 in stack_test.go for exercising the methods on
 							// Call in this situation.
-							pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
+							pathJoin(ppDir, "internal", "utf8", "ùtf8.go"),
 							10),
 						newCallLocal("main.glob..func19", Args{}, pathJoin(ppDir, "main.go"), 322),
 						newCallLocal("main.main", Args{}, pathJoin(ppDir, "main.go"), 340),

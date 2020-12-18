@@ -37,7 +37,7 @@ import (
 
 	"github.com/maruel/panicparse/v2/cmd/panic/internal"
 	correct "github.com/maruel/panicparse/v2/cmd/panic/internal/incorrect"
-	"github.com/maruel/panicparse/v2/cmd/panic/internal/ùtf8"
+	ùtf8 "github.com/maruel/panicparse/v2/cmd/panic/internal/utf8"
 )
 
 func main() {
