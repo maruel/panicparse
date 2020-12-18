@@ -16,6 +16,9 @@ name: Run tests
 jobs:
   test_all:
     continue-on-error: true
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -28,7 +31,7 @@ jobs:
       with:
         go-version: "^1.15.0"
     - name: 'Cache: ~/go/pkg/mod'
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: "~/go/pkg/mod"
         # We want a key that helps with keeping the tools.
@@ -52,54 +55,33 @@ jobs:
         github.com/google/addlicense
 
       # Checkout and print debugging information.
+    - name: Turn off git core.autocrlf
+      run: git config --global core.autocrlf false
     - uses: actions/checkout@v2
-    - name: "Debug (posix)"
-      if: always() && matrix.os != 'windows-latest'
+    - name: 'go version'
+      run: go version
+    - name: 'go env'
+      run: go env
+    - name: "Debug"
       run: |
-        echo GOPATH = $GOPATH
-        echo GOROOT = $GOROOT
         echo HOME = $HOME
         echo GITHUB_WORKSPACE = $GITHUB_WORKSPACE
         echo PATH = $PATH
         echo ""
-        echo pwd = $(pwd)
-        echo $ ls -la
-        ls -la
-        echo ""
-        echo $ ls -la $HOME
-        ls -la $HOME
-        echo ""
-        echo $ ls -la $HOME/go
-        ls -la $HOME/go
-        echo ""
-        echo $ ls -la $HOME/go/bin
+        echo $ ls -l $HOME/go/bin
         ls -la $HOME/go/bin
-    - name: "Debug (windows)"
-      if: always() && matrix.os == 'windows-latest'
-      shell: cmd
-      run: |
-        echo GOPATH = %GOPATH%
-        echo GOROOT = %GOROOT%
-        echo USERPROFILE = %USERPROFILE%
-        echo GITHUB_WORKSPACE = %GITHUB_WORKSPACE%
-        echo PATH = %PATH%
-        echo cd = %CD%
-        dir /a
-        dir /a %USERPROFILE%
-        dir /a %USERPROFILE%\go
-        dir /a %USERPROFILE%\go\bin
 
       # Now run proper checks.
     - name: 'Check: go vet'
       if: always()
       run: go vet ./...
-    - name: 'Check: go vet shadow; shadowed variables (posix)'
-      if: always() && matrix.os != 'windows-latest'
-      run: go vet -vettool=$(which shadow) ./...
-    - name: 'Check: go vet shadow; shadowed variables (windows)'
-      if: always() && matrix.os == 'windows-latest'
-      shell: cmd
-      run: go vet -vettool=%USERPROFILE%/go/bin/shadow.exe ./...
+    - name: 'Check: go vet shadow; shadowed variables'
+      run: |
+        SHADOW_TOOL="$(which shadow)"
+        if [ -f "${SHADOW_TOOL}.exe" ]; then
+          SHADOW_TOOL="${SHADOW_TOOL}.exe"
+        fi
+        go vet -vettool=$SHADOW_TOOL ./...
     - name: 'Check: golint'
       if: always()
       run: golint -set_exit_status ./...
@@ -155,14 +137,8 @@ jobs:
         fi
 
       # Run tests last since it's potentially the slowest step.
-    - name: 'Check: go test -cover (posix)'
-      if: always() && matrix.os != 'windows-latest'
-      run: go test -timeout=40s -covermode=count -coverprofile=coverage.txt ./...
-    - name: 'Check: go test -cover (windows)'
-      if: always() && matrix.os == 'windows-latest'
-      # Powershell messes things up.
-      shell: cmd
-      run: go test -timeout=40s -covermode=count -coverprofile=coverage.txt ./...
+    - name: 'Check: go test -cover'
+      run: go test -timeout=40s -covermode=count -coverprofile coverage.txt ./...
       # Don't send code coverage if anything failed to reduce spam.
     - uses: codecov/codecov-action@v1
     - name: 'Cleanup'
@@ -170,12 +146,10 @@ jobs:
       # Don't run go test -race if anything failed, to speed up the results.
     - name: 'Check: go test -race'
       run: go test -timeout=40s -race ./...
-    - name: 'Check: go test -bench=.'
-      run: go test -timeout=40s -bench=. -benchtime=100ms -cpu=1 ./...
+    - name: 'Check: go test -bench .'
+      run: go test -timeout=40s -bench . -benchtime=100ms -cpu=1 ./...
 
-    - name: "Check: tree is clean (posix)"
-      # TODO(maruel): Find a way to enable this check on Windows.
-      if: matrix.os != 'windows-latest'
+    - name: "Check: tree is clean"
       run: |
         # Nothing should have changed in the tree up to that point and no
         # unsuspected file was created.
@@ -187,9 +161,7 @@ jobs:
           false
         fi
 
-    - name: "Check: go generate doesn't modify files (posix)"
-      # TODO(maruel): Find a way to enable this check on Windows.
-      if: matrix.os != 'windows-latest'
+    - name: "Check: go generate doesn't modify files"
       run: |
         go generate ./...
         # TODO(maruel): Due to https://github.com/golang/go/issues/40276, ignore
@@ -204,9 +176,7 @@ jobs:
           false
         fi
 
-    - name: "Check: go mod tidy doesn't modify files (posix)"
-      # TODO(maruel): Find a way to enable this check on Windows.
-      if: matrix.os != 'windows-latest'
+    - name: "Check: go mod tidy doesn't modify files"
       run: |
         go mod tidy
         TOUCHED=$(git status --porcelain --ignored)
@@ -216,8 +186,8 @@ jobs:
           false
         fi
 
-    - name: 'Send comments (posix)'
-      if: failure() && matrix.os != 'windows-latest' && github.event_name == 'pull_request'
+    - name: 'Send comments'
+      if: failure() && github.event_name == 'pull_request'
       run: |
         if [ -f _comments.txt ]; then
           URL=$(cat ${GITHUB_EVENT_PATH} | jq -r .pull_request.comments_url)
