@@ -30,29 +30,6 @@ jobs:
       # A version must be specified. Ask for the latest.
       with:
         go-version: "^1.15.0"
-    - name: 'Cache: ~/go/pkg/mod'
-      uses: actions/cache@v2
-      with:
-        path: "~/go/pkg/mod"
-        # We want a key that helps with keeping the tools.
-        key: "${{runner.os}}-gopkg-${{hashFiles('~/go/pkg/**/go.sum')}}"
-        restore-keys: "${{runner.os}}-gopkg-"
-
-      # Fetch the tools before checking out, so they don't modify go.mod/go.sum.
-    - name: 'go get necessary tools'
-      run: >
-        go get -u
-        github.com/gordonklaus/ineffassign
-        github.com/securego/gosec/cmd/gosec
-        golang.org/x/lint/golint
-        golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
-        honnef.co/go/tools/cmd/staticcheck
-    - name: 'go get necessary tools (ubuntu)'
-      if: always() && matrix.os == 'ubuntu-latest'
-      run: >
-        go get -u
-        github.com/client9/misspell/cmd/misspell
-        github.com/google/addlicense
 
       # Checkout and print debugging information.
     - name: Turn off git core.autocrlf
@@ -70,6 +47,30 @@ jobs:
         echo ""
         echo $ ls -l $HOME/go/bin
         ls -la $HOME/go/bin
+
+    - name: 'Cache: ~/go'
+      uses: actions/cache@v2
+      with:
+        path: ~/go
+        key: "${{runner.os}}-gopkg-${{hashFiles('go.sum', '.github/workflows/*.yml')}}"
+
+      # Fetch the tools before checking out, so they don't modify go.mod/go.sum.
+    - name: 'go get necessary tools'
+      run: >
+        cd ..;
+        go get -u -v
+        github.com/gordonklaus/ineffassign
+        github.com/securego/gosec/cmd/gosec
+        golang.org/x/lint/golint
+        golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
+        honnef.co/go/tools/cmd/staticcheck
+    - name: 'go get necessary tools (ubuntu)'
+      if: always() && matrix.os == 'ubuntu-latest'
+      run: >
+        cd ..;
+        go get -u -v
+        github.com/client9/misspell/cmd/misspell
+        github.com/google/addlicense
 
       # Now run proper checks.
     - name: 'Check: go vet'
