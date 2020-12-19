@@ -1571,8 +1571,8 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			pkgPrefix := ""
 			if !internaltest.IsUsingModules() {
 				t.Logf("Using vendored")
-				pColorable = "src/github.com/maruel/panicparse/vendor/github.com/mattn/go-colorable/noncolorable.go"
-				pkgPrefix = "github.com/maruel/panicparse/vendor/"
+				pColorable = "src/github.com/mattn/go-colorable/noncolorable.go"
+				pkgPrefix = ""
 			} else {
 				t.Logf("Using go module")
 			}
@@ -1636,17 +1636,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				mainOS = "main_windows.go"
 			}
 			usingModules := internaltest.IsUsingModules()
-			if !usingModules {
-				fn = "github.com/maruel/panicparse/vendor/" + fn
-			}
 			if b.Stack.Calls[1].Func.Raw != fn {
 				t.Fatalf("expected %q, got %q", fn, b.Stack.Calls[1].Func.Raw)
 			}
 			prefix := "golang.org/x/sys@v0.0.0-"
 			if !usingModules {
-				// Assert that there's no version by including the trailing / and that
-				// it's using the vendored version.
-				prefix = "github.com/maruel/panicparse/vendor/golang.org/x/sys/"
+				// Assert that there's no version by including the trailing /.
+				prefix = "golang.org/x/sys/"
 			}
 			if !strings.HasPrefix(b.Stack.Calls[1].RelSrcPath, prefix) {
 				t.Fatalf("expected %q, got %q", prefix, b.Stack.Calls[1].RelSrcPath)
