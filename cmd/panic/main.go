@@ -37,26 +37,19 @@ import (
 
 	"github.com/maruel/panicparse/cmd/panic/internal"
 	correct "github.com/maruel/panicparse/cmd/panic/internal/incorrect"
-	"github.com/maruel/panicparse/cmd/panic/internal/ùtf8"
+	ùtf8 "github.com/maruel/panicparse/cmd/panic/internal/utf8"
 )
 
 func main() {
 	if len(os.Args) == 2 {
-		n := os.Args[1]
-		if f, ok := types[n]; ok {
-			fmt.Printf("GOTRACEBACK=%s\n", os.Getenv("GOTRACEBACK"))
-			if n == "simple" {
-				// Since the map lookup creates another call stack entry, add a one-off
-				// "simple" panic style to test the very minimal case.
-				// types["simple"].f is never called.
-				panic("simple")
-			}
-			f.f()
-			os.Exit(3)
-		}
-		// Undocumented command to do a raw dump of the supported commands. This is
-		// used by unit tests in ../../stack.
-		if n == "dump_commands" {
+		switch n := os.Args[1]; n {
+		case "-h", "-help", "--help", "help":
+			usage()
+			os.Exit(0)
+
+		case "dump_commands":
+			// Undocumented command to do a raw dump of the supported commands. This
+			// is used by unit tests in ../../stack.
 			items := make([]string, 0, len(types))
 			for n := range types {
 				items = append(items, n)
@@ -66,11 +59,25 @@ func main() {
 				fmt.Printf("%s\n", n)
 			}
 			os.Exit(0)
+
+		default:
+			if f, ok := types[n]; ok {
+				fmt.Printf("GOTRACEBACK=%s\n", os.Getenv("GOTRACEBACK"))
+				if n == "simple" {
+					// Since the map lookup creates another call stack entry, add a
+					// one-off "simple" panic style to test the very minimal case.
+					// types["simple"].f is never called.
+					panic("simple")
+				}
+				f.f()
+				os.Exit(3)
+			}
+			fmt.Fprintf(stdErr, "unknown panic style %q\n", n)
+			os.Exit(1)
 		}
-		fmt.Fprintf(stdErr, "unknown panic style %q\n", n)
-		os.Exit(1)
 	}
 	usage()
+	os.Exit(1)
 }
 
 // Mocked in test.
@@ -111,7 +118,7 @@ func panicRaceDisabled(name string) {
 
 func rerunWithFastCrash() {
 	if os.Getenv("GORACE") != "log_path=stderr halt_on_error=1" {
-		os.Setenv("GORACE", "log_path=stderr halt_on_error=1")
+		_ = os.Setenv("GORACE", "log_path=stderr halt_on_error=1")
 		c := exec.Command(os.Args[0], os.Args[1:]...)
 		c.Stderr = os.Stderr
 		if err, ok := c.Run().(*exec.ExitError); ok {
@@ -413,7 +420,7 @@ Set GOTRACEBACK before running this tool to see how it affects the panic output.
 
 Select the way to panic:
 `
-	io.WriteString(stdErr, t)
+	_, _ = io.WriteString(stdErr, t)
 	names := make([]string, 0, len(types))
 	m := 0
 	for n := range types {
@@ -426,7 +433,6 @@ Select the way to panic:
 	for _, n := range names {
 		fmt.Fprintf(stdErr, "- %-*s  %s\n", m, n, types[n].desc)
 	}
-	os.Exit(2)
 }
 
 //

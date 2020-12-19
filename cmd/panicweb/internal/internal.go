@@ -27,7 +27,7 @@ func GetAsync(url string) {
 		if err != nil {
 			log.Fatalf("failed to read: %v", err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		log.Fatal("the goal is to not complete this request")
 	}()
 }
@@ -39,7 +39,7 @@ func URL1Handler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Length", "100000")
 	w.WriteHeader(200)
 	b := [4096]byte{}
-	w.Write(b[:])
+	_, _ = w.Write(b[:])
 	<-Unblock
 }
 
@@ -50,6 +50,6 @@ func URL2Handler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Length", "100000")
 	w.WriteHeader(200)
 	b := [4096]byte{}
-	w.Write(b[:])
+	_, _ = w.Write(b[:])
 	<-Unblock
 }

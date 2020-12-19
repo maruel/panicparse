@@ -6,14 +6,6 @@
 //
 // It is mostly useful on servers will large number of identical goroutines,
 // making the crash dump harder to read than strictly necessary.
-//
-// Colors:
-//  - Magenta: first goroutine to be listed.
-//  - Yellow: main package.
-//  - Green: standard library.
-//  - Red: other packages.
-//
-// Bright colors are used for exported symbols.
 package main
 
 import (
@@ -24,7 +16,7 @@ import (
 )
 
 func main() {
-	if err := internal.Main(""); err != nil {
+	if err := internal.Main(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed: %s\n", err)
 		os.Exit(1)
 	}

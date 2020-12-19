@@ -1339,11 +1339,11 @@ func testPanicUTF8(t *testing.T, c *Context, b *bytes.Buffer, ppDir string) {
 							// This is important to note here the inconsistency in the Go
 							// runtime stack generator. The path is escaped, but symbols are
 							// not.
-							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/%c3%b9tf8.(*Strùct).Pànic",
+							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/utf8.(*Strùct).Pànic",
 							Args{Values: []Arg{{Value: 0xc0000b2e48}}},
 							// See TestCallUTF8 in stack_test.go for exercising the methods on
 							// Call in this situation.
-							pathJoin(ppDir, "internal", "ùtf8", "ùtf8.go"),
+							pathJoin(ppDir, "internal", "utf8", "ùtf8.go"),
 							10),
 						newCallLocal("main.glob..func19", Args{}, pathJoin(ppDir, "main.go"), 322),
 						newCallLocal("main.main", Args{}, pathJoin(ppDir, "main.go"), 340),
@@ -1567,7 +1567,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			localgopath := getGOPATHs()[0]
 			// If not using Go modules, the path is different as the vendored version
 			// is used instead.
-			pColorable := "pkg/mod/github.com/mattn/go-colorable@v0.1.6/noncolorable.go"
+			pColorable := "pkg/mod/github.com/mattn/go-colorable@v0.1.7/noncolorable.go"
 			pkgPrefix := ""
 			if !internaltest.IsUsingModules() {
 				t.Logf("Using vendored")
@@ -1658,7 +1658,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			rest := []Call{
 				newCallLocal("main.sysHang", Args{}, pathJoin(pwebDir, mainOS), 12),
 				newCallLocal(
-					"main.main.func2",
+					"main.main.func3",
 					Args{Values: []Arg{{Value: 0xc000140720, Name: "#135"}}},
 					pathJoin(pwebDir, "main.go"),
 					65),
