@@ -185,6 +185,165 @@ func TestAggregateAggressive(t *testing.T) {
 	compareString(t, "", string(suffix))
 }
 
+func TestAggregateDeadlockPanic(t *testing.T) {
+	t.Parallel()
+	// Test for crash found at https://github.com/maruel/panicparse/issues/56.
+	data := []string{
+		"panic: deadlock detected at fmut",
+		"",
+		"goroutine 11 [select, 55 minutes]:",
+		"foo.Bar()",
+		"  foo/foo.go:467 +0x2b8",
+		"foo.baz(0x3)",
+		"  foo/foo.go:643 +0x69",
+		"created by main",
+		"  foo/foo.go:631 +0x4b",
+		"",
+		"goroutine 52 [select, 55 minutes]:",
+		"foo.Bar()",
+		"  foo/foo.go:467 +0x2b8",
+		"created by bozo",
+		"  foo/foo.go:420 +0x33",
+		"",
+		"goroutine 55 [select, 55 minutes]:",
+		"foo.Bar()",
+		"  foo/foo.go:467 +0x2b8",
+		"foo.baz(0x1)",
+		"  foo/foo.go:643 +0x69",
+		"created by main",
+		"  foo/foo.go:631 +0x4b",
+	}
+	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, defaultOpts())
+	if err != io.EOF {
+		t.Fatal(err)
+	}
+	if s == nil {
+		t.Fatal("expected snapshot")
+	}
+	want := []*Bucket{
+		{
+			Signature: Signature{
+				State: "select",
+				CreatedBy: Stack{Calls: []Call{
+					{
+						Func:          Func{Complete: "main", Name: "main"},
+						RemoteSrcPath: "foo/foo.go",
+						Line:          631,
+						SrcName:       "foo.go",
+					},
+				}},
+				SleepMin: 55,
+				SleepMax: 55,
+				Stack: Stack{
+					Calls: []Call{
+						{
+							Func: Func{
+								Complete:   "foo.Bar",
+								ImportPath: "foo",
+								DirName:    "foo",
+								Name:       "Bar",
+								IsExported: true,
+							},
+							RemoteSrcPath: "foo/foo.go",
+							Line:          467,
+							SrcName:       "foo.go",
+							ImportPath:    "foo",
+						},
+						{
+							Func:          Func{Complete: "foo.baz", ImportPath: "foo", DirName: "foo", Name: "baz"},
+							Args:          Args{Values: []Arg{{Value: 3}}},
+							RemoteSrcPath: "foo/foo.go",
+							Line:          643,
+							SrcName:       "foo.go",
+							ImportPath:    "foo",
+						},
+					},
+				},
+			},
+			IDs:   []int{11},
+			First: true,
+		},
+		{
+			Signature: Signature{
+				State: "select",
+				CreatedBy: Stack{Calls: []Call{
+					{
+						Func:          Func{Complete: "main", Name: "main"},
+						RemoteSrcPath: "foo/foo.go",
+						Line:          631,
+						SrcName:       "foo.go",
+					},
+				}},
+				SleepMin: 55,
+				SleepMax: 55,
+				Stack: Stack{
+					Calls: []Call{
+						{
+							Func: Func{
+								Complete:   "foo.Bar",
+								ImportPath: "foo",
+								DirName:    "foo",
+								Name:       "Bar",
+								IsExported: true,
+							},
+							RemoteSrcPath: "foo/foo.go",
+							Line:          467,
+							SrcName:       "foo.go",
+							ImportPath:    "foo",
+						},
+						{
+							Func:          Func{Complete: "foo.baz", ImportPath: "foo", DirName: "foo", Name: "baz"},
+							Args:          Args{Values: []Arg{{Value: 1}}},
+							RemoteSrcPath: "foo/foo.go",
+							Line:          643,
+							SrcName:       "foo.go",
+							ImportPath:    "foo",
+						},
+					},
+				},
+			},
+			IDs: []int{55},
+		},
+		{
+			Signature: Signature{
+				State: "select",
+				CreatedBy: Stack{
+					Calls: []Call{
+						{
+							Func:          Func{Complete: "bozo", Name: "bozo"},
+							RemoteSrcPath: "foo/foo.go",
+							Line:          420,
+							SrcName:       "foo.go",
+						},
+					},
+				},
+				SleepMin: 55,
+				SleepMax: 55,
+				Stack: Stack{
+					Calls: []Call{
+						{
+							Func: Func{
+								Complete:   "foo.Bar",
+								ImportPath: "foo",
+								DirName:    "foo",
+								Name:       "Bar",
+								IsExported: true,
+							},
+							RemoteSrcPath: "foo/foo.go",
+							Line:          467,
+							SrcName:       "foo.go",
+							ImportPath:    "foo",
+						},
+					},
+				},
+			},
+			IDs: []int{52},
+		},
+	}
+	compareBuckets(t, want, s.Aggregate(AnyPointer).Buckets)
+	compareString(t, "", string(suffix))
+}
+
 func BenchmarkAggregate(b *testing.B) {
 	b.ReportAllocs()
 	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, defaultOpts())
