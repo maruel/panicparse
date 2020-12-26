@@ -291,11 +291,16 @@ func TestSignature_Less(t *testing.T) {
 	t.Parallel()
 	s1 := getSignature()
 	s2 := getSignature()
-	if s1.less(s2) {
+	if s1.less(s2) || s2.less(s1) {
 		t.Fatal("less")
 	}
 	s2.State = "foo"
-	if !s1.less(s2) {
+	if !s1.less(s2) || s2.less(s1) {
+		t.Fatal("not less")
+	}
+	s2 = getSignature()
+	s2.Stack.Calls = s2.Stack.Calls[:1]
+	if !s1.less(s2) || s2.less(s1) {
 		t.Fatal("not less")
 	}
 }

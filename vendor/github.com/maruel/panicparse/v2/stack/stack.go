@@ -505,13 +505,13 @@ func (s *Stack) less(r *Stack) bool {
 			rMain++
 		}
 	}
+	if lMain > rMain {
+		return true
+	}
+	if lMain < rMain {
+		return false
+	}
 	for i := 1; i < int(lastLocation); i++ {
-		if lMain > rMain {
-			return true
-		}
-		if lMain < rMain {
-			return false
-		}
 		if lLoc[i] > rLoc[i] {
 			return true
 		}
@@ -519,8 +519,15 @@ func (s *Stack) less(r *Stack) bool {
 			return false
 		}
 	}
+	// Check unknown code type last.
+	if lLoc[LocationUnknown] > rLoc[LocationUnknown] {
+		return true
+	}
+	if lLoc[LocationUnknown] < rLoc[LocationUnknown] {
+		return false
+	}
 
-	// Stack lengths are the same.
+	// Stack lengths are the same and they are mostly of the same kind of location.
 	for x := range s.Calls {
 		if s.Calls[x].Func.Complete < r.Calls[x].Func.Complete {
 			return true
