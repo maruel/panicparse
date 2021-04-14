@@ -88,11 +88,10 @@ have this shortcut, so use the long form:
     go test -v 2>&1 | pp
 
 
-**Fish**: It uses [^ for stderr
-redirection](http://fishshell.com/docs/current/tutorial.html#tut_pipes_and_redirections)
-so the shortcut is `^|`:
+**Fish**: `&|` redirects stderr and stdout. It's an alias for `2>&1 |` 
+([fish piping](https://fishshell.com/docs/current/index.html#piping)):
 
-    go test -v ^|pp
+    go test -v &| pp
 
 
 **PowerShell**: [It has broken `2>&1` redirection](https://connect.microsoft.com/PowerShell/feedback/details/765551/in-powershell-v3-you-cant-redirect-stderr-to-stdout-without-generating-error-records). The workaround is to shell out to cmd.exe. :(
