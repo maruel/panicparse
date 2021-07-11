@@ -89,6 +89,10 @@ func panicint(i int) {
 	panic(i)
 }
 
+func panicfloat64(f float64) {
+	panic(f)
+}
+
 func panicstr(a string) {
 	panic(a)
 }
@@ -161,6 +165,11 @@ func panicRace() {
 		panicDoRaceRead(&i)
 	}()
 	time.Sleep(time.Minute)
+}
+
+//go:noinline
+func panicChanStruct(x chan struct{}) {
+	panic("test")
 }
 
 /* TODO(maruel): This is not detected!
@@ -236,6 +245,20 @@ var types = map[string]struct {
 			}()
 			<-c
 			panic(42)
+		},
+	},
+
+	"chan_struct": {
+		"panic with an empty chan struct{} as a parameter",
+		func() {
+			panicChanStruct(nil)
+		},
+	},
+
+	"float": {
+		"panic(4.2)",
+		func() {
+			panicfloat64(4.2)
 		},
 	},
 
