@@ -5,7 +5,6 @@ stack traces. Helps debugging crashes and deadlocks in heavily parallelized
 process.
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/maruel/panicparse/v2/stack)](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack)
-[![Go Report Card](https://goreportcard.com/badge/github.com/maruel/panicparse/v2)](https://goreportcard.com/report/github.com/maruel/panicparse/v2)
 [![Coverage Status](https://codecov.io/gh/maruel/panicparse/graph/badge.svg)](https://codecov.io/gh/maruel/panicparse)
 
 
