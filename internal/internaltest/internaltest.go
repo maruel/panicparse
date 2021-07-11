@@ -148,7 +148,7 @@ var (
 // Ignores the revision (go1.<minor>.<revision>).
 func GetGoMinorVersion() int {
 	ver := runtime.Version()
-	if strings.HasPrefix(ver, "devel +") {
+	if strings.HasPrefix(ver, "devel ") {
 		return 0
 	}
 	if !strings.HasPrefix(ver, "go1.") {
