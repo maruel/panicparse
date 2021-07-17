@@ -442,6 +442,8 @@ parsed.
 
 Set GOTRACEBACK before running this tool to see how it affects the panic output.
 
+Built with: ` + runtime.Version() + `
+
 Select the way to panic:
 `
 	_, _ = io.WriteString(stdErr, t)
