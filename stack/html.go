@@ -160,7 +160,7 @@ func getSrcBranchURL(c *Call) (template.URL, template.URL) {
 			}
 			log.Printf("problematic github.com URL: %q", rel)
 		case "golang.org":
-			// https://github.com/golang/build/blob/master/repos/repos.go lists all
+			// https://github.com/golang/build/blob/HEAD/repos/repos.go lists all
 			// the golang.org/x/<foo> packages.
 			if parts := strings.SplitN(rest, "/", 3); len(parts) == 3 && parts[0] == "x" {
 				// parts is: "x", <project@version>, <path inside the repo>.
@@ -205,14 +205,15 @@ func splitHost(s string) (string, string) {
 var reVersion = regexp.MustCompile(`v\d+\.\d+\.\d+\-\d+\-([a-f0-9]+)`)
 
 func splitTag(s string) (string, string, template.URL) {
-	// Default to branch master for non-versionned dependencies. It's not
+	// Default to branch master for non-versioned dependencies. It's not
 	// optimal but it's better than nothing?
+	// TODO(maruel): Replace with HEAD.
 	i := strings.IndexByte(s, '@')
 	if i == -1 {
 		// No tag was found.
 		return s, "master", "master"
 	}
-	// We got a versionned go module.
+	// We got a versioned go module.
 	tag := s[i+1:]
 	srcTag := tag
 	if m := reVersion.FindStringSubmatch(tag); len(m) != 0 {

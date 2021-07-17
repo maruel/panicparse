@@ -302,7 +302,7 @@ var (
 	reFunc = regexp.MustCompile(`^(.+)\((.*)\)$`)
 
 	// Race:
-	// See https://github.com/llvm/llvm-project/blob/master/compiler-rt/lib/tsan/rtl/tsan_report.cpp
+	// See https://github.com/llvm/llvm-project/blob/HEAD/compiler-rt/lib/tsan/rtl/tsan_report.cpp
 	// for the code generating these messages. Please note only the block in
 	//   #else  // #if !SANITIZER_GO
 	// is used.

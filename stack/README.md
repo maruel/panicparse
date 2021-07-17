@@ -9,7 +9,7 @@ as GIF.
 ## Source
 
 It can be found online at
-https://github.com/googlefonts/noto-emoji/blob/master/png/128/emoji_u1f4a3.png
+https://github.com/googlefonts/noto-emoji/blob/HEAD/png/128/emoji_u1f4a3.png
 
 ## License
 
