@@ -22,8 +22,8 @@ import (
 // SnapshotHandler implements http.HandlerFunc to returns a panicparse HTML
 // format for a snapshot of the current goroutines.
 //
-// For best results, compile the executable with inlining disabled with
-// -gcflags '-l'.
+// For best results, compile the executable with optimization (-N) and inlining
+// (-l) disabled with -gcflags '-N -l'.
 //
 // Arguments are passed as form values. If you want to change the default,
 // override the form values in a wrapper as shown in the example.

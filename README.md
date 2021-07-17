@@ -115,15 +115,18 @@ To dump to a file then parse, pass the file path of a stack trace
 ### Disable inlining
 
 Starting with go1.11, the toolchain starts to inline more often. This causes
-traces to be less informative. You can use the following to help diagnosing
-issues:
+traces to be less informative. Starting with go1.17, optimization also interfere
+with traces. You can use the following to help diagnosing issues:
 
-    go install -gcflags '-l' path/to/foo
+    go install -gcflags '-N -l' path/to/foo
     foo |& pp
 
 or
 
-    go test -gcflags '-l' ./... |& pp
+    go test -gcflags '-N -l' ./... |& pp
+
+
+Run `go tool compile -help` to get the full list of valid values for -gcflags.
 
 
 ### GOTRACEBACK

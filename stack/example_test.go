@@ -45,7 +45,8 @@ func Example_text() {
 	defer os.RemoveAll(root)
 	p := filepath.Join(root, "main.go")
 	ioutil.WriteFile(p, []byte(source), 0600)
-	c := exec.Command("go", "run", "-gcflags", "-l", p)
+	// Disable both optimization (-N) and inlining (-l).
+	c := exec.Command("go", "run", "-gcflags", "-N -l", p)
 	// This is important, otherwise only the panicking goroutine will be printed.
 	c.Env = append(os.Environ(), "GOTRACEBACK=1")
 	raw, _ := c.CombinedOutput()

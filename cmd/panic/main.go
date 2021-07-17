@@ -15,8 +15,9 @@
 //   go install -race github.com/maruel/panicparse/v2/cmd/panic
 //   panic race |& pp
 //
-// To use with inlining disabled, build with -gcflags '-l' like:
-//   go install -gcflags '-l' github.com/maruel/panicparse/v2/cmd/panic
+// To use with optimization (-N) and inlining (-l) disabled, build with
+// -gcflags '-N -l' like:
+//   go install -gcflags '-N -l' github.com/maruel/panicparse/v2/cmd/panic
 package main
 
 // To add a new panic stack signature, add it to types type below, keeping the

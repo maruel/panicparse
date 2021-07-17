@@ -200,12 +200,12 @@ var errNoRace = errors.New("platform does not support -race")
 
 // Compile compiles sources into an executable.
 func Compile(in, exe, cwd string, disableInlining, race bool) error {
-	// Disable inlining otherwise the inlining varies between local execution and
-	// remote execution. This can be observed as Elided being true without any
-	// argument.
+	// Disable optimization (-N) and inlining (-l) otherwise the inlining varies
+	// between local execution and remote execution. This can be observed as
+	// Elided being true without any argument.
 	args := []string{"build", "-o", exe}
 	if disableInlining {
-		args = append(args, "-gcflags", "-l")
+		args = append(args, "-gcflags", "-N -l")
 	}
 	if race {
 		args = append(args, "-race")
