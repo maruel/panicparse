@@ -281,8 +281,8 @@ func Main() error {
 	case 0:
 		in = os.Stdin
 		// Explicitly silence SIGQUIT, as it is useful to gather the stack dump
-		// from the piped command..
-		signals := make(chan os.Signal)
+		// from the piped command.
+		signals := make(chan os.Signal, 1)
 		go func() {
 			for {
 				<-signals
