@@ -263,6 +263,7 @@ var (
 	writeCap   = []byte("Write")
 	writeLow   = []byte("write")
 	threeDots  = []byte("...")
+	underscore = []byte("_")
 )
 
 // These are effectively constants.
@@ -800,7 +801,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 	}
 }
 
-// parseFunc only return an error if also returning a Call.
+// parseFunc only return an error if it also returns true.
 //
 // Uses reFunc.
 func parseFunc(c *Call, line []byte) (bool, error) {
@@ -811,30 +812,70 @@ func parseFunc(c *Call, line []byte) (bool, error) {
 		// It is also done in c.init() but do it here in case of a corrupted trace
 		// for the file section.
 		c.ImportPath = c.Func.ImportPath
-		for _, a := range bytes.Split(match[2], commaSpace) {
-			if bytes.Equal(a, threeDots) {
-				c.Args.Elided = true
-				continue
-			}
-			if len(a) == 0 {
-				// Remaining values were dropped.
-				break
-			}
-			v, err := strconv.ParseUint(string(a), 0, 64)
-			if err != nil {
-				return true, fmt.Errorf("failed to parse int on line: %q", bytes.TrimSpace(line))
-			}
-			// Increase performance by always allocating 4 values minimally.
-			if c.Args.Values == nil {
-				c.Args.Values = make([]Arg, 0, 4)
-			}
-			// Assume the stack was generated with the same bitness (32 vs 64) than
-			// the code processing it.
-			c.Args.Values = append(c.Args.Values, Arg{Value: v, IsPtr: v > pointerFloor && v < pointerCeiling})
+
+		args, err := parseArgs(match[2])
+		if err != nil {
+			return true, fmt.Errorf("%s on line: %q", err, bytes.TrimSpace(line))
 		}
+		c.Args = args
 		return true, nil
 	}
 	return false, nil
+}
+
+// parseArgs parses a collection of comma-separated arguments into an Args
+// struct.
+func parseArgs(line []byte) (Args, error) {
+	const maxDepth = 6 // 5 from traceback.go, +1 for top level
+	var stack [maxDepth]*Args
+	var args Args
+	depth := 0
+	stack[depth] = &args
+	for _, s := range bytes.Split(line, commaSpace) {
+		opened, a, closed := trimCurlyBrackets(s)
+		for i := 0; i < opened; i++ {
+			cur := stack[depth]
+			cur.Values = append(cur.Values, Arg{})
+			next := &cur.Values[len(cur.Values)-1]
+			next.IsAggregate = true
+			depth++
+			if depth >= maxDepth {
+				return Args{}, fmt.Errorf("nested aggregate-typed arguments exceeded depth limit")
+			}
+			stack[depth] = &next.Fields
+		}
+		if len(a) > 0 {
+			cur := stack[depth]
+			switch {
+			case bytes.Equal(a, threeDots):
+				cur.Elided = true
+			case bytes.Equal(a, underscore):
+				arg := Arg{IsOffsetTooLarge: true}
+				cur.Values = append(cur.Values, arg)
+			default:
+				// TODO(nvanbenschoten): avoid this allocation.
+				v, err := strconv.ParseUint(string(a), 0, 64)
+				if err != nil {
+					return Args{}, fmt.Errorf("failed to parse int")
+				}
+				// Assume the stack was generated with the same bitness (32 vs 64) as
+				// the code processing it.
+				arg := Arg{Value: v, IsPtr: v > pointerFloor && v < pointerCeiling}
+				cur.Values = append(cur.Values, arg)
+			}
+		}
+		for i := 0; i < closed; i++ {
+			stack[depth] = nil
+			depth--
+			if depth < 0 {
+				return Args{}, fmt.Errorf("unmatched closing curly bracket")
+			}
+		}
+	}
+	if depth != 0 {
+		return Args{}, fmt.Errorf("unmatched opening curly bracket")
+	}
+	return args, nil
 }
 
 // parseFile only return an error if also processing a Call.
@@ -1123,4 +1164,23 @@ func trimLeftSpace(s []byte) []byte {
 		}
 	}
 	return nil
+}
+
+// trimCurlyBrackets is the faster equivalent of
+// bytes.TrimRight(bytes.TrimLeft(s, "{"), "}"). The function
+// also returns the number of curly brackets trimmed from the
+// left and the right.
+func trimCurlyBrackets(s []byte) (int, []byte, int) {
+	i, j := 0, len(s)
+	for ; i < j; i++ {
+		if s[i] != '{' {
+			break
+		}
+	}
+	for ; i < j; j-- {
+		if s[j-1] != '}' {
+			break
+		}
+	}
+	return i, s[i:j], len(s) - j
 }
