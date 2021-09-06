@@ -2,8 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-// +build go1.1
-// +build !go1.13
+//go:build go1.1 && !go1.13
+// +build go1.1,!go1.13
 
 package internaltest
 
