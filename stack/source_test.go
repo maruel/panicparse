@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math/bits"
 	"os"
 	"os/exec"
 	"path"
@@ -34,7 +35,15 @@ func TestAugment(t *testing.T) {
 		return c
 	}
 
-	data := []struct {
+	// For test case "negative int32".
+	negInt := uint64(4294967173)
+	negPtr := false
+	if bits.UintSize == 64 {
+		negInt = 828928688005
+		negPtr = true
+	}
+
+	type testCase struct {
 		name  string
 		input string
 		// Starting with go1.11, inlining is enabled. The stack trace may (it
@@ -43,9 +52,10 @@ func TestAugment(t *testing.T) {
 		// argument, while there was no argument listed before.
 		mayBeInlined bool
 		want         Stack
-	}{
+	}
+	data := []testCase{
 		{
-			"Local function doesn't interfere",
+			"local function doesn't interfere",
 			`func main() {
 				f("yo")
 			}
@@ -56,15 +66,25 @@ func TestAugment(t *testing.T) {
 				_ = a(3)
 				panic("ooh")
 			}`,
-			false,
+			// The function became inlinable in go 1.17.
+			combinedAggregateArgs,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 2}},
-							Processed: []string{"string(0x2fffffff, len=2)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 2}},
+								}}},
+								Processed: []string{"string(0x2fffffff, len=2)"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 2}},
+								Processed: []string{"string(0x2fffffff, len=2)"},
+							},
+						),
 						"/root/main.go",
 						10),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -107,11 +127,19 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}},
-							// TODO(maruel): Handle.
-							Processed: []string{"<unknown>(0x2fffffff)", "<unknown>(0x1)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}},
+								}}},
+								Processed: []string{"<unknown>{0x2fffffff, 0x1, 0x1}"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}},
+								Processed: []string{"<unknown>(0x2fffffff)", "<unknown>(0x1)"},
+							},
+						),
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -131,10 +159,19 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}},
-							Processed: []string{"[]interface{}(0x2fffffff len=5 cap=7)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}},
+								}}},
+								Processed: []string{"[]interface{}(0x2fffffff len=5 cap=7)"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}},
+								Processed: []string{"[]interface{}(0x2fffffff len=5 cap=7)"},
+							},
+						),
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -154,10 +191,19 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}},
-							Processed: []string{"[]int(0x2fffffff len=5 cap=7)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}},
+								}}},
+								Processed: []string{"[]int(0x2fffffff len=5 cap=7)"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 5}, {Value: 7}},
+								Processed: []string{"[]int(0x2fffffff len=5 cap=7)"},
+							},
+						),
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -177,10 +223,19 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}},
-							Processed: []string{"[]interface{}(0x2fffffff len=1 cap=1)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}},
+								}}},
+								Processed: []string{"[]interface{}(0x2fffffff len=1 cap=1)"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 1}, {Value: 1}},
+								Processed: []string{"[]interface{}(0x2fffffff len=1 cap=1)"},
+							},
+						),
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -294,7 +349,11 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.S.f",
-						Args{},
+						ifCombinedAggregateArgs(
+							Args{Values: []Arg{{IsAggregate: true, Fields: Args{}}}},
+							// else
+							Args{},
+						),
 						"/root/main.go",
 						8),
 					newCallSrc("main.main", Args{}, "/root/main.go", 4),
@@ -339,10 +398,19 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 3}},
-							Processed: []string{"string(0x2fffffff, len=3)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 3}},
+								}}},
+								Processed: []string{"string(0x2fffffff, len=3)"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 3}},
+								Processed: []string{"string(0x2fffffff, len=3)"},
+							},
+						),
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -362,10 +430,22 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 3}, {Value: 42}},
-							Processed: []string{"string(0x2fffffff, len=3)", "42"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 3}},
+									}},
+									{Value: 42},
+								},
+								Processed: []string{"string(0x2fffffff, len=3)", "42"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: 3}, {Value: 42}},
+								Processed: []string{"string(0x2fffffff, len=3)", "42"},
+							},
+						),
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -410,10 +490,19 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
-							Processed: []string{"error(0x2fffffff)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
+								}}},
+								Processed: []string{"error{0x2fffffff, 0x2fffffff}"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
+								Processed: []string{"error(0x2fffffff)"},
+							},
+						),
 						"/root/main.go",
 						7),
 					newCallSrc("main.main", Args{}, "/root/main.go", 4),
@@ -434,10 +523,19 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
-							Processed: []string{"error(0x2fffffff)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 3}},
+								}}},
+								Processed: []string{"error{0x2fffffff, 0x3}"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}, {Value: pointer, IsPtr: true}},
+								Processed: []string{"error(0x2fffffff)"},
+							},
+						),
 						"/root/main.go",
 						7),
 					newCallSrc("main.main", Args{}, "/root/main.go", 4),
@@ -518,11 +616,11 @@ func TestAugment(t *testing.T) {
 			},
 		},
 		{
-			"negative int",
+			"negative int32",
 			`func main() {
 				f(-123)
 			}
-			func f(v int64) {
+			func f(v int32) {
 				panic("ooh")
 			}`,
 			true,
@@ -531,7 +629,7 @@ func TestAugment(t *testing.T) {
 					newCallSrc(
 						"main.f",
 						Args{
-							Values:    []Arg{{Value: 18446744073709551493}},
+							Values:    []Arg{{Value: negInt, IsPtr: negPtr}},
 							Processed: []string{"-123"},
 						},
 						"/root/main.go",
@@ -543,9 +641,9 @@ func TestAugment(t *testing.T) {
 		{
 			"array",
 			`func main() {
-				f(1, [3]byte{2, 3, 4}, 5)
+				f([3]byte{2, 3, 4})
 			}
-			func f(v int, v2 [3]byte, v3 byte) {
+			func f(v2 [3]byte) {
 				panic("ooh")
 			}`,
 			true,
@@ -553,10 +651,219 @@ func TestAugment(t *testing.T) {
 				Calls: []Call{
 					newCallSrc(
 						"main.f",
-						Args{
-							Values:    []Arg{{Value: 1}, {Value: pointer, IsPtr: true}},
-							Processed: []string{"1", "[3]byte(0x2fffffff)"},
-						},
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{{Value: 2}, {Value: 3}, {Value: 4}},
+									}},
+								},
+								Processed: []string{"[3]byte{0x2, 0x3, 0x4}"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: pointer, IsPtr: true}},
+								Processed: []string{"[3]byte(0x2fffffff)"},
+							},
+						),
+						"/root/main.go",
+						6),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
+				},
+			},
+		},
+		{
+			"deeply nested aggregate type",
+			`func main() {
+				f(a{b{c{d{13}}}})
+			}
+			func f(v a) {
+				panic("ooh")
+			}
+			type a struct{ b }
+			type b struct{ c }
+			type c struct{ d }
+			type d struct{ i int }`,
+			true,
+			Stack{
+				Calls: []Call{
+					newCallSrc(
+						"main.f",
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{IsAggregate: true, Fields: Args{
+										Values: []Arg{{IsAggregate: true, Fields: Args{
+											Values: []Arg{{IsAggregate: true, Fields: Args{
+												Values: []Arg{{Value: 13}},
+											}}},
+										}}},
+									}}},
+								}}},
+								Processed: []string{"a{0xd}"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: 13}},
+								Processed: []string{"a(0xd)"},
+							},
+						),
+						"/root/main.go",
+						6),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
+				},
+			},
+		},
+		{
+			"deeply nested aggregate type with elision",
+			`func main() {
+				f(a{b{c{d{e{13}}}}})
+			}
+			func f(v a) {
+				panic("ooh")
+			}
+			type a struct{ b }
+			type b struct{ c }
+			type c struct{ d }
+			type d struct{ e }
+			type e struct{ i int }`,
+			true,
+			Stack{
+				Calls: []Call{
+					newCallSrc(
+						"main.f",
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{IsAggregate: true, Fields: Args{
+										Values: []Arg{{IsAggregate: true, Fields: Args{
+											Values: []Arg{{IsAggregate: true, Fields: Args{
+												Values: []Arg{{IsAggregate: true, Fields: Args{
+													Elided: true,
+												}}},
+											}}},
+										}}},
+									}}},
+								}}},
+							},
+							// else
+							Args{
+								Values:    []Arg{{Value: 13}},
+								Processed: []string{"a(0xd)"},
+							},
+						),
+						"/root/main.go",
+						6),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
+				},
+			},
+		},
+		{
+			"argument offsets partially too large",
+			`func main() {
+				f(a{b{c{d{e{}}}}}, 13, []int{14, 15})
+			}
+			func f(v a, i int, s []int) {
+				panic("ooh")
+			}
+			type a struct{ b }
+			type b struct{ c }
+			type c struct{ d }
+			type d struct{ e }
+			type e struct{ i [27]int }`,
+			true,
+			Stack{
+				Calls: []Call{
+					newCallSrc(
+						"main.f",
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{{IsAggregate: true, Fields: Args{
+											Values: []Arg{{IsAggregate: true, Fields: Args{
+												Values: []Arg{{IsAggregate: true, Fields: Args{
+													Values: []Arg{{IsAggregate: true, Fields: Args{
+														Elided: true,
+													}}},
+												}}},
+											}}},
+										}}},
+									}},
+									{Value: 13},
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{
+											{Value: pointer, IsPtr: true},
+											{Value: 2},
+											{IsOffsetTooLarge: true},
+										},
+									}},
+								},
+								Processed: []string{"a{}", "13", "[]int(0x2fffffff len=2 cap=_)"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}},
+								Processed: []string{"a(0x0)", "0", "[]int(0x0 len=0 cap=0)", "0x0", "0x0", "0x0", "0x0"},
+								Elided:    true,
+							},
+						),
+						"/root/main.go",
+						6),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
+				},
+			},
+		},
+		{
+			"argument offsets entirely too large",
+			`func main() {
+				f(a{b{c{d{e{}}}}}, 13, []int{14, 15})
+			}
+			func f(v a, i int, s []int) {
+				panic("ooh")
+			}
+			type a struct{ b }
+			type b struct{ c }
+			type c struct{ d }
+			type d struct{ e }
+			type e struct{ i [30]int }`,
+			true,
+			Stack{
+				Calls: []Call{
+					newCallSrc(
+						"main.f",
+						ifCombinedAggregateArgs(
+							Args{
+								Values: []Arg{
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{{IsAggregate: true, Fields: Args{
+											Values: []Arg{{IsAggregate: true, Fields: Args{
+												Values: []Arg{{IsAggregate: true, Fields: Args{
+													Values: []Arg{{IsAggregate: true, Fields: Args{
+														Elided: true,
+													}}},
+												}}},
+											}}},
+										}}},
+									}},
+									{IsOffsetTooLarge: true},
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{
+											{IsOffsetTooLarge: true},
+											{IsOffsetTooLarge: true},
+											{IsOffsetTooLarge: true},
+										},
+									}},
+								},
+								Processed: []string{"a{}", "_", "[]int(_ len=_ cap=_)"},
+							},
+							// else
+							Args{
+								Values:    []Arg{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}},
+								Processed: []string{"a(0x0)", "0", "[]int(0x0 len=0 cap=0)", "0x0", "0x0", "0x0", "0x0"},
+								Elided:    true,
+							},
+						),
 						"/root/main.go",
 						6),
 					newCallSrc("main.main", Args{}, "/root/main.go", 3),
@@ -565,9 +872,531 @@ func TestAugment(t *testing.T) {
 		},
 	}
 
-	skipUnder32Bit := map[string]struct{}{
-		"float64":      {},
-		"negative int": {},
+	// The following subtests are adapted from TestTracebackArgs in
+	// src/runtime/traceback_test.go in the Go runtime. Because many
+	// of them are very unstable across different pre1.17 go compiler
+	// versions, we only include them for 1.17 and up.
+	if combinedAggregateArgs {
+		data = append(data,
+			testCase{
+				"testTracebackArgs1",
+				`func main() {
+					testTracebackArgs1(1, 2, 3, 4, 5)
+				}
+				func testTracebackArgs1(a, b, c, d, e int) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs1",
+							Args{
+								Values: []Arg{
+									{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5},
+								},
+								Processed: []string{"1", "2", "3", "4", "5"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs2",
+				`func main() {
+					testTracebackArgs2(false, struct {
+						a, b, c int
+						x       [2]int
+					}{1, 2, 3, [2]int{4, 5}}, [0]int{}, [3]byte{6, 7, 8})
+				}
+				func testTracebackArgs2(a bool, b struct {
+					a, b, c int
+					x       [2]int
+				}, _ [0]int, d [3]byte) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs2",
+							Args{
+								Values: []Arg{
+									{Value: 0},
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{
+											{Value: 1},
+											{Value: 2},
+											{Value: 3},
+											{IsAggregate: true, Fields: Args{
+												Values: []Arg{
+													{Value: 4},
+													{Value: 5},
+												},
+											}},
+										},
+									}},
+									{IsAggregate: true},
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{
+											{Value: 6},
+											{Value: 7},
+											{Value: 8},
+										},
+									}},
+								},
+								Processed: []string{"false", "<unknown>{0x1, 0x2, 0x3, 0x4, 0x5}", "[0]int{}", "[3]byte{0x6, 0x7, 0x8}"},
+							},
+							"/root/main.go",
+							12),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs3",
+				`func main() {
+					testTracebackArgs3([3]byte{1, 2, 3}, 4, 5, 6, [3]byte{7, 8, 9})
+				}
+				func testTracebackArgs3(x [3]byte, a, b, c int, y [3]byte) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs3",
+							Args{
+								Values: []Arg{
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{
+											{Value: 1},
+											{Value: 2},
+											{Value: 3},
+										},
+									}},
+									{Value: 4},
+									{Value: 5},
+									{Value: 6},
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{
+											{Value: 7},
+											{Value: 8},
+											{Value: 9},
+										},
+									}},
+								},
+								Processed: []string{"[3]byte{0x1, 0x2, 0x3}", "4", "5", "6", "[3]byte{0x7, 0x8, 0x9}"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs4",
+				`func main() {
+					testTracebackArgs4(true, [1][1][1][1][1][1][1][1][1][1]int{})
+				}
+				func testTracebackArgs4(a bool, x [1][1][1][1][1][1][1][1][1][1]int) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs4",
+							Args{
+								Values: []Arg{
+									{Value: 1},
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{{IsAggregate: true, Fields: Args{
+											Values: []Arg{{IsAggregate: true, Fields: Args{
+												Values: []Arg{{IsAggregate: true, Fields: Args{
+													Values: []Arg{{IsAggregate: true, Fields: Args{
+														Elided: true,
+													}}},
+												}}},
+											}}},
+										}}},
+									}},
+								},
+								Processed: []string{"true"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs5",
+				`func main() {
+					z := [0]int{}
+					testTracebackArgs5(false, struct {
+						x int
+						y [0]int
+						z [2][0]int
+					}{1, z, [2][0]int{}}, z, z, z, z, z, z, z, z, z, z, z, z)
+				}
+				func testTracebackArgs5(a bool, x struct {
+					x int
+					y [0]int
+					z [2][0]int
+				}, _, _, _, _, _, _, _, _, _, _, _, _ [0]int) {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs5",
+							Args{
+								Values: []Arg{
+									{Value: 0},
+									{IsAggregate: true, Fields: Args{
+										Values: []Arg{
+											{Value: 1},
+											{IsAggregate: true},
+											{IsAggregate: true, Fields: Args{
+												Values: []Arg{
+													{IsAggregate: true}, {IsAggregate: true},
+												},
+											}},
+										},
+									}},
+									{IsAggregate: true}, {IsAggregate: true},
+									{IsAggregate: true}, {IsAggregate: true},
+									{IsAggregate: true},
+								},
+								Processed: []string{"false", "<unknown>{0x1}"},
+								Elided:    true,
+							},
+							"/root/main.go",
+							15),
+						newCallSrc("main.main", Args{}, "/root/main.go", 4),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs6a",
+				`func main() {
+					testTracebackArgs6a(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+				}
+				func testTracebackArgs6a(a, b, c, d, e, f, g, h, i, j int) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs6a",
+							Args{
+								Values: []Arg{
+									{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5},
+									{Value: 6}, {Value: 7}, {Value: 8}, {Value: 9}, {Value: 10},
+								},
+								Processed: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs6b",
+				`func main() {
+					testTracebackArgs6b(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+				}
+				func testTracebackArgs6b(a, b, c, d, e, f, g, h, i, j, k int) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs6b",
+							Args{
+								Values: []Arg{
+									{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5},
+									{Value: 6}, {Value: 7}, {Value: 8}, {Value: 9}, {Value: 10},
+								},
+								Processed: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+								Elided:    true,
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs7a",
+				`func main() {
+					testTracebackArgs7a([10]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+				}
+				func testTracebackArgs7a(a [10]int) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs7a",
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{
+										{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5},
+										{Value: 6}, {Value: 7}, {Value: 8}, {Value: 9}, {Value: 10},
+									},
+								}}},
+								Processed: []string{"[10]int{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa}"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs7b",
+				`func main() {
+					testTracebackArgs7b([11]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11})
+				}
+				func testTracebackArgs7b(a [11]int) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs7b",
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{
+										{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5},
+										{Value: 6}, {Value: 7}, {Value: 8}, {Value: 9}, {Value: 10},
+									},
+									Elided: true,
+								}}},
+								Processed: []string{"[11]int{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, ...}"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs7c",
+				`func main() {
+					testTracebackArgs7c([10]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, 11)
+				}
+				func testTracebackArgs7c(a [10]int, b int) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs7c",
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{
+										{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5},
+										{Value: 6}, {Value: 7}, {Value: 8}, {Value: 9}, {Value: 10},
+									},
+								}}},
+								Processed: []string{"[10]int{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa}"},
+								Elided:    true,
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs7d",
+				`func main() {
+					testTracebackArgs7d([11]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, 12)
+				}
+				func testTracebackArgs7d(a [11]int, b int) int {
+					panic("ooh")
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs7d",
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{
+										{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4}, {Value: 5},
+										{Value: 6}, {Value: 7}, {Value: 8}, {Value: 9}, {Value: 10},
+									},
+									Elided: true,
+								}}},
+								Processed: []string{"[11]int{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, ...}"},
+								Elided:    true,
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs8a",
+				`func main() {
+					testTracebackArgs8a(testArgsType8a{1, 2, 3, 4, 5, 6, 7, 8, [2]int{9, 10}})
+				}
+				func testTracebackArgs8a(a testArgsType8a) int {
+					panic("ooh")
+				}
+				type testArgsType8a struct {
+					a, b, c, d, e, f, g, h int
+					i                      [2]int
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs8a",
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{
+										{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4},
+										{Value: 5}, {Value: 6}, {Value: 7}, {Value: 8},
+										{IsAggregate: true, Fields: Args{
+											Values: []Arg{{Value: 9}, {Value: 10}},
+										}},
+									},
+								}}},
+								Processed: []string{"testArgsType8a{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa}"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs8b",
+				`func main() {
+					testTracebackArgs8b(testArgsType8b{1, 2, 3, 4, 5, 6, 7, 8, [3]int{9, 10, 11}})
+				}
+				func testTracebackArgs8b(a testArgsType8b) int {
+					panic("ooh")
+				}
+				type testArgsType8b struct {
+					a, b, c, d, e, f, g, h int
+					i                      [3]int
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs8b",
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{
+										{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4},
+										{Value: 5}, {Value: 6}, {Value: 7}, {Value: 8},
+										{IsAggregate: true, Fields: Args{
+											Values: []Arg{{Value: 9}, {Value: 10}},
+											Elided: true,
+										}},
+									},
+								}}},
+								Processed: []string{"testArgsType8b{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa}"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs8c",
+				`func main() {
+					testTracebackArgs8c(testArgsType8c{1, 2, 3, 4, 5, 6, 7, 8, [2]int{9, 10}, 11})
+				}
+				func testTracebackArgs8c(a testArgsType8c) int {
+					panic("ooh")
+				}
+				type testArgsType8c struct {
+					a, b, c, d, e, f, g, h int
+					i                      [2]int
+					j                      int
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs8c",
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{
+										{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4},
+										{Value: 5}, {Value: 6}, {Value: 7}, {Value: 8},
+										{IsAggregate: true, Fields: Args{
+											Values: []Arg{{Value: 9}, {Value: 10}},
+										}},
+									},
+									Elided: true,
+								}}},
+								Processed: []string{"testArgsType8c{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, ...}"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+			testCase{
+				"testTracebackArgs8d",
+				`func main() {
+					testTracebackArgs8d(testArgsType8d{1, 2, 3, 4, 5, 6, 7, 8, [3]int{9, 10, 11}, 12})
+				}
+				func testTracebackArgs8d(a testArgsType8d) int {
+					panic("ooh")
+				}
+				type testArgsType8d struct {
+					a, b, c, d, e, f, g, h int
+					i                      [3]int
+					j                      int
+				}`,
+				true,
+				Stack{
+					Calls: []Call{
+						newCallSrc(
+							"main.testTracebackArgs8d",
+							Args{
+								Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{
+										{Value: 1}, {Value: 2}, {Value: 3}, {Value: 4},
+										{Value: 5}, {Value: 6}, {Value: 7}, {Value: 8},
+										{IsAggregate: true, Fields: Args{
+											Values: []Arg{{Value: 9}, {Value: 10}},
+											Elided: true,
+										}},
+									},
+									Elided: true,
+								}}},
+								Processed: []string{"testArgsType8d{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, ...}"},
+							},
+							"/root/main.go",
+							6),
+						newCallSrc("main.main", Args{}, "/root/main.go", 3),
+					},
+				},
+			},
+		)
 	}
 
 	for i, line := range data {
@@ -575,8 +1404,8 @@ func TestAugment(t *testing.T) {
 		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
-			if _, ok := skipUnder32Bit[line.name]; ok && !is64Bit {
-				t.Skipf("skipping %s test on 32 bits platform", line.name)
+			if line.name == "float64" && !is64Bit {
+				t.Skip("skipping float64 test on 32 bits platform")
 			}
 			// Marshal the code a bit to make it nicer. Inject 'package main'.
 			lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)
@@ -845,7 +1674,8 @@ func overrideEnv(env []string, key, value string) []string {
 func getCrash(t *testing.T, main string, disableInline bool) []byte {
 	args := []string{"run"}
 	if disableInline {
-		args = append(args, "-gcflags", "-l")
+		// Disable both optimization (-N) and inlining (-l).
+		args = append(args, "-gcflags", "-N -l")
 	}
 	cmd := exec.Command("go", append(args, main)...)
 	// Use the Go 1.4 compatible format.
@@ -857,7 +1687,7 @@ func getCrash(t *testing.T, main string, disableInline bool) []byte {
 	return out
 }
 
-// zapPointers zaps out pointers.
+// zapPointers zaps out pointers in got.
 func zapPointers(t *testing.T, want, got *Stack) {
 	helper(t)()
 	for i := range got.Calls {
@@ -868,18 +1698,28 @@ func zapPointers(t *testing.T, want, got *Stack) {
 			got.Calls = got.Calls[:len(want.Calls)]
 			break
 		}
-		for j := range got.Calls[i].Args.Values {
-			if j >= len(want.Calls[i].Args.Values) {
-				break
-			}
-			if want.Calls[i].Args.Values[j].IsPtr && got.Calls[i].Args.Values[j].IsPtr {
-				// Replace the pointer value.
-				want.Calls[i].Args.Values[j].Value = got.Calls[i].Args.Values[j].Value
-				s := fmt.Sprintf("0x%x", got.Calls[i].Args.Values[j].Value)
-				for k := range want.Calls[i].Args.Processed {
-					want.Calls[i].Args.Processed[k] = strings.Replace(want.Calls[i].Args.Processed[k], pointerStr, s, -1)
-				}
+		gotArgs := got.Calls[i].Args
+		ptrsToReplace := zapPointersInArgs(t, want.Calls[i].Args, gotArgs)
+		for _, ptr := range ptrsToReplace {
+			for k := range gotArgs.Processed {
+				gotArgs.Processed[k] = strings.Replace(gotArgs.Processed[k], ptr, pointerStr, -1)
 			}
 		}
 	}
+}
+
+func zapPointersInArgs(t *testing.T, want, got Args) (ptrs []string) {
+	for j := range got.Values {
+		if j >= len(want.Values) {
+			break
+		}
+		if want.Values[j].IsAggregate && got.Values[j].IsAggregate {
+			ptrs = append(ptrs, zapPointersInArgs(t, want.Values[j].Fields, got.Values[j].Fields)...)
+		} else if want.Values[j].IsPtr && got.Values[j].IsPtr {
+			// Record the existing pointer value and then replace.
+			ptrs = append(ptrs, fmt.Sprintf("0x%x", got.Values[j].Value))
+			got.Values[j].Value = want.Values[j].Value
+		}
+	}
+	return ptrs
 }

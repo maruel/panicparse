@@ -240,12 +240,32 @@ func TestArgs(t *testing.T) {
 			{Name: "foo"},
 			{},
 			{},
-			{},
-			{},
+			{IsOffsetTooLarge: true},
+			{IsAggregate: true},
+			{IsAggregate: true, Fields: Args{
+				Values: []Arg{{IsAggregate: true, Fields: Args{
+					Values: []Arg{{IsAggregate: true}},
+				}}},
+			}},
+			{IsAggregate: true, Fields: Args{
+				Values: []Arg{{Value: 0x1}, {Value: 0x7fff671c7118}},
+			}},
+			{IsAggregate: true, Fields: Args{
+				Values: []Arg{{IsAggregate: true, Fields: Args{
+					Values: []Arg{{Value: 0x5}}, Elided: true,
+				}}},
+			}},
+			{IsAggregate: true, Fields: Args{Elided: true}},
+			{IsAggregate: true, Fields: Args{
+				Values: []Arg{{IsAggregate: true, Fields: Args{
+					Values: []Arg{{IsOffsetTooLarge: true}, {IsOffsetTooLarge: true}},
+				}}},
+			}},
 		},
 		Elided: true,
 	}
-	compareString(t, "4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, foo, 0, 0, 0, 0, ...", a.String())
+	compareString(t, "4, 0x7fff671c7118, 0xffffffff00000080, 0, 0xffffffff0028c1be, foo, "+
+		"0, 0, _, {}, {{{}}}, {1, 0x7fff671c7118}, {{5, ...}}, {...}, {{_, _}}, ...", a.String())
 
 	a = Args{Processed: []string{"yo"}}
 	compareString(t, "yo", a.String())
@@ -470,6 +490,9 @@ func zapArgs(t *testing.T, a, b *Args) {
 		if a.Values[i].Value != 0 && b.Values[i].Value != 0 {
 			a.Values[i].Value = 42
 			b.Values[i].Value = 42
+		}
+		if a.Values[i].IsAggregate && b.Values[i].IsAggregate {
+			zapArgs(t, &a.Values[i].Fields, &b.Values[i].Fields)
 		}
 		if a.Values[i].Name != "" && b.Values[i].Name != "" {
 			a.Values[i].Name = "foo"

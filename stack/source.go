@@ -239,31 +239,45 @@ func extractArgumentsType(f *ast.FuncDecl) ([]string, bool) {
 
 // augmentCall walks the function and populate call accordingly.
 func augmentCall(call *Call, f *ast.FuncDecl) {
-	values := make([]uint64, len(call.Args.Values))
-	for i := range call.Args.Values {
-		values[i] = call.Args.Values[i].Value
-	}
-	index := 0
-	pop := func() uint64 {
-		if len(values) != 0 {
-			x := values[0]
-			values = values[1:]
-			index++
-			return x
+	flatArgs := make([]*Arg, 0, len(call.Args.Values))
+	call.Args.walk(func(arg *Arg) {
+		flatArgs = append(flatArgs, arg)
+	})
+
+	pop := func() *Arg {
+		if len(flatArgs) == 0 {
+			return nil
 		}
-		return 0
+		a := flatArgs[0]
+		flatArgs = flatArgs[1:]
+		return a
+	}
+	popFmt := func(fmtFn func(v uint64) string) string {
+		a := pop()
+		if a == nil {
+			return "<nil>"
+		}
+		if a.IsOffsetTooLarge {
+			return "_"
+		}
+		return fmtFn(a.Value)
 	}
 	popName := func() string {
-		n := call.Args.Values[index].Name
-		v := pop()
-		if len(n) == 0 {
-			return fmt.Sprintf("0x%x", v)
+		a := pop()
+		if a == nil {
+			return "<nil>"
 		}
-		return n
+		if len(a.Name) != 0 {
+			return a.Name
+		}
+		if a.IsOffsetTooLarge {
+			return "_"
+		}
+		return fmt.Sprintf("0x%x", a.Value)
 	}
 
 	types, extra := extractArgumentsType(f)
-	for i := 0; len(values) != 0; i++ {
+	for i := 0; len(flatArgs) != 0; i++ {
 		var t string
 		if i >= len(types) {
 			if !extra {
@@ -275,43 +289,88 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 		} else {
 			t = types[i]
 		}
+		var str string
 		switch t {
 		case "float32":
-			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%g", math.Float32frombits(uint32(pop()))))
+			str = popFmt(func(v uint64) string {
+				f := float64(math.Float32frombits(uint32(v)))
+				return strconv.FormatFloat(f, 'g', -1, 32)
+			})
 		case "float64":
-			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%g", math.Float64frombits(pop())))
-		case "uint", "uint8", "uint16", "uint32", "uint64":
-			call.Args.Processed = append(call.Args.Processed, strconv.FormatUint(pop(), 10))
-		// NOTE: we need a separate case per signed int type so that we can
-		// properly interpret negative integers.
+			str = popFmt(func(v uint64) string {
+				f := math.Float64frombits(v)
+				return strconv.FormatFloat(f, 'g', -1, 64)
+			})
 		case "int":
-			// Assume the stack was generated with the same bitness (32 vs 64)
-			// as the code processing it.
-			call.Args.Processed = append(call.Args.Processed, strconv.Itoa(int(pop())))
+			str = popFmt(func(v uint64) string {
+				return strconv.FormatInt(int64(int(v)), 10)
+			})
 		case "int8":
-			call.Args.Processed = append(call.Args.Processed, strconv.Itoa(int(int8(pop()))))
+			str = popFmt(func(v uint64) string {
+				return strconv.FormatInt(int64(int8(v)), 10)
+			})
 		case "int16":
-			call.Args.Processed = append(call.Args.Processed, strconv.Itoa(int(int16(pop()))))
+			str = popFmt(func(v uint64) string {
+				return strconv.FormatInt(int64(int16(v)), 10)
+			})
 		case "int32":
-			call.Args.Processed = append(call.Args.Processed, strconv.Itoa(int(int32(pop()))))
+			str = popFmt(func(v uint64) string {
+				return strconv.FormatInt(int64(int32(v)), 10)
+			})
 		case "int64":
-			call.Args.Processed = append(call.Args.Processed, strconv.FormatInt(int64(pop()), 10))
+			str = popFmt(func(v uint64) string {
+				return strconv.FormatInt(int64(v), 10)
+			})
+		case "uint", "uint8", "uint16", "uint32", "uint64":
+			str = popFmt(func(v uint64) string {
+				return strconv.FormatUint(v, 10)
+			})
+		case "bool":
+			str = popFmt(func(v uint64) string {
+				if v == 0 {
+					return "false"
+				}
+				return "true"
+			})
 		case "string":
-			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%s(%s, len=%d)", t, popName(), pop()))
+			name := popName()
+			lenStr := popFmt(func(v uint64) string {
+				return strconv.FormatUint(v, 10)
+			})
+			str = fmt.Sprintf("%s(%s, len=%s)", t, name, lenStr)
 		default:
 			if strings.HasPrefix(t, "*") {
-				call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%s(%s)", t, popName()))
+				str = fmt.Sprintf("%s(%s)", t, popName())
 			} else if strings.HasPrefix(t, "[]") {
-				call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%s(%s len=%d cap=%d)", t, popName(), pop(), pop()))
+				name := popName()
+				lenStr := popFmt(func(v uint64) string {
+					return strconv.FormatUint(v, 10)
+				})
+				capStr := popFmt(func(v uint64) string {
+					return strconv.FormatUint(v, 10)
+				})
+				str = fmt.Sprintf("%s(%s len=%s cap=%s)", t, name, lenStr, capStr)
 			} else {
-				// Assumes it's an interface. For now, discard the object value, which
-				// is probably not a good idea.
-				call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%s(%s)", t, popName()))
-				pop()
+				if i < len(call.Args.Values) && call.Args.Values[i].IsAggregate {
+					// If top-level argument is an aggregate-type, include each
+					// of its sub-arguments.
+					v := &call.Args.Values[i].Fields
+					var fields []string
+					v.walk(func(arg *Arg) {
+						fields = append(fields, popName())
+					})
+					if v.Elided {
+						fields = append(fields, "...")
+					}
+					str = fmt.Sprintf("%s{%s}", t, strings.Join(fields, ", "))
+				} else {
+					// Assumes it's an interface. For now, discard the object
+					// value, which is probably not a good idea.
+					str = fmt.Sprintf("%s(%s)", t, popName())
+					pop()
+				}
 			}
 		}
-		if len(values) == 0 && call.Args.Elided {
-			return
-		}
+		call.Args.Processed = append(call.Args.Processed, str)
 	}
 }

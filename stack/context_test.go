@@ -356,6 +356,140 @@ func TestScanSnapshotSynthetic(t *testing.T) {
 		},
 
 		{
+			name: "MaxNestingDepth",
+			in: []string{
+				"panic: reflect.Set: value of type",
+				"",
+				"goroutine 1 [running]:",
+				"github.com/maruel/panicparse/stack/stack.recurseType({{{{{...}}}}})",
+				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:9",
+				"",
+			},
+			prefix: "panic: reflect.Set: value of type\n\n",
+			err:    io.EOF,
+			want: []*Goroutine{
+				{
+					Signature: Signature{
+						State: "running",
+						Stack: Stack{
+							Calls: []Call{
+								newCall(
+									"github.com/maruel/panicparse/stack/stack.recurseType",
+									Args{
+										Values: []Arg{{IsAggregate: true, Fields: Args{
+											Values: []Arg{{IsAggregate: true, Fields: Args{
+												Values: []Arg{{IsAggregate: true, Fields: Args{
+													Values: []Arg{{IsAggregate: true, Fields: Args{
+														Values: []Arg{{IsAggregate: true, Fields: Args{
+															Elided: true,
+														}}},
+													}}},
+												}}},
+											}}},
+										}}},
+									},
+									"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+									9),
+							},
+						},
+					},
+					ID:    1,
+					First: true,
+				},
+			},
+		},
+
+		{
+			name: "MaxNestingDepthExceededErr",
+			in: []string{
+				"panic: reflect.Set: value of type",
+				"",
+				"goroutine 1 [running]:",
+				"github.com/maruel/panicparse/stack/stack.recurseType({{{{{{...}}}}}})",
+				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:9",
+				"",
+			},
+			prefix: "panic: reflect.Set: value of type\n\n",
+			suffix: "github.com/maruel/panicparse/stack/stack.recurseType({{{{{{...}}}}}})\n" +
+				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:9\n",
+			err: errors.New("nested aggregate-typed arguments exceeded depth limit on line: \"github.com/maruel/panicparse/stack/stack.recurseType({{{{{{...}}}}}})\""),
+			want: []*Goroutine{
+				{
+					Signature: Signature{
+						State: "running",
+						Stack: Stack{
+							Calls: []Call{
+								newCall("github.com/maruel/panicparse/stack/stack.recurseType", Args{}, "", 0),
+							},
+						},
+					},
+					ID:    1,
+					First: true,
+				},
+			},
+		},
+
+		{
+			name: "UnmatchedOpeningCurlyBracketErr",
+			in: []string{
+				"panic: reflect.Set: value of type",
+				"",
+				"goroutine 1 [running]:",
+				"github.com/maruel/panicparse/stack/stack.recurseType({{{{{...}}}})",
+				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:9",
+				"",
+			},
+			prefix: "panic: reflect.Set: value of type\n\n",
+			suffix: "github.com/maruel/panicparse/stack/stack.recurseType({{{{{...}}}})\n" +
+				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:9\n",
+			err: errors.New("unmatched opening curly bracket on line: \"github.com/maruel/panicparse/stack/stack.recurseType({{{{{...}}}})\""),
+			want: []*Goroutine{
+				{
+					Signature: Signature{
+						State: "running",
+						Stack: Stack{
+							Calls: []Call{
+								newCall("github.com/maruel/panicparse/stack/stack.recurseType", Args{}, "", 0),
+							},
+						},
+					},
+					ID:    1,
+					First: true,
+				},
+			},
+		},
+
+		{
+			name: "UnmatchedClosingCurlyBracketErr",
+			in: []string{
+				"panic: reflect.Set: value of type",
+				"",
+				"goroutine 1 [running]:",
+				"github.com/maruel/panicparse/stack/stack.recurseType({{{{...}}}}})",
+				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:9",
+				"",
+			},
+			prefix: "panic: reflect.Set: value of type\n\n",
+			suffix: "github.com/maruel/panicparse/stack/stack.recurseType({{{{...}}}}})\n" +
+				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:9\n",
+			err: errors.New("unmatched closing curly bracket on line: \"github.com/maruel/panicparse/stack/stack.recurseType({{{{...}}}}})\""),
+			want: []*Goroutine{
+				{
+					Signature: Signature{
+						State: "running",
+						Stack: Stack{
+							Calls: []Call{
+								newCall("github.com/maruel/panicparse/stack/stack.recurseType", Args{}, "", 0),
+							},
+						},
+					},
+					ID:    1,
+					First: true,
+				},
+			},
+		},
+
+		{
 			name: "InconsistentIndent",
 			in: []string{
 				"  goroutine 1 [running]:",
@@ -1789,7 +1923,13 @@ func testPanicStr(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 					Calls: []Call{
 						newCallLocal(
 							"main.panicstr",
-							Args{Values: []Arg{{Value: 0x123456, IsPtr: true}, {Value: 4}}},
+							ifCombinedAggregateArgs(
+								Args{Values: []Arg{{IsAggregate: true, Fields: Args{
+									Values: []Arg{{Value: 0x123456, IsPtr: true}, {Value: 4}},
+								}}}},
+								// else
+								Args{Values: []Arg{{Value: 0x123456, IsPtr: true}, {Value: 4}}},
+							),
 							pathJoin(ppDir, "main.go"),
 							50),
 						newCallLocal("main.glob..func19", Args{}, pathJoin(ppDir, "main.go"), 307),
@@ -1826,7 +1966,11 @@ func testPanicUTF8(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 							// runtime stack generator. The path is escaped, but symbols are
 							// not.
 							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/utf8.(*Strùct).Pànic",
-							Args{Values: []Arg{{Value: 0xc0000b2e48, IsPtr: true}}},
+							ifCombinedAggregateArgs(
+								Args{Values: []Arg{{Value: 1}}},
+								// else
+								Args{Values: []Arg{{Value: 0xc0000b2e48, IsPtr: true}}},
+							),
 							// See TestCallUTF8 in stack_test.go for exercising the methods on
 							// Call in this situation.
 							pathJoin(ppDir, "internal", "utf8", "ùtf8.go"),
@@ -1890,10 +2034,10 @@ func TestPanicweb(t *testing.T) {
 	if v := pstCount(types, pstMain); v != 1 {
 		t.Fatalf("found %d pstMain signatures", v)
 	}
-	if v := pstCount(types, pstURL1handler); v != 1 {
+	if v := pstCount(types, pstURL1handler); v != 1 && v != 2 {
 		t.Fatalf("found %d URL1Handler signatures", v)
 	}
-	if v := pstCount(types, pstURL2handler); v != 1 {
+	if v := pstCount(types, pstURL2handler); v != 1 && v != 2 {
 		t.Fatalf("found %d URL2Handler signatures", v)
 	}
 	if v := pstCount(types, pstClient); v == 0 {
@@ -1943,6 +2087,48 @@ func TestTrimLeftSpace(t *testing.T) {
 	t.Parallel()
 	if trimLeftSpace(nil) != nil {
 		t.Error("oops")
+	}
+}
+
+func TestTrimCurlyBrackets(t *testing.T) {
+	t.Parallel()
+	data := []struct {
+		input                  []byte
+		want                   []byte
+		wantOpened, wantClosed int
+	}{
+		{nil, nil, 0, 0},
+		{[]byte(""), []byte(""), 0, 0},
+		{[]byte("a"), []byte("a"), 0, 0},
+		{[]byte("{a"), []byte("a"), 1, 0},
+		{[]byte("{{a"), []byte("a"), 2, 0},
+		{[]byte("{{a}}"), []byte("a"), 2, 2},
+		{[]byte("{a}}"), []byte("a"), 1, 2},
+		{[]byte("a}}"), []byte("a"), 0, 2},
+		{[]byte("{}"), []byte(""), 1, 1},
+		{[]byte("{{}}"), []byte(""), 2, 2},
+		// Not expected in practice.
+		{[]byte("}{"), []byte("}{"), 0, 0},
+		{[]byte("{{}}a{{}}"), []byte("}}a{{"), 2, 2},
+	}
+	for i, line := range data {
+		line := line
+		t.Run(fmt.Sprintf("%d-%s", i, line.input), func(t *testing.T) {
+			gotOpened, got, gotClosed := trimCurlyBrackets(line.input)
+			if !bytes.Equal(line.want, got) {
+				t.Errorf("want %s, got %s", line.want, got)
+			}
+			equiv := bytes.TrimRight(bytes.TrimLeft(line.input, "{"), "}")
+			if !bytes.Equal(line.want, equiv) {
+				t.Errorf("want %s, got %s", line.want, got)
+			}
+			if line.wantOpened != gotOpened {
+				t.Errorf("want %d opening curly brackets, got %d", line.wantOpened, gotOpened)
+			}
+			if line.wantClosed != gotClosed {
+				t.Errorf("want %d closing curly brackets, got %d", line.wantClosed, gotClosed)
+			}
+		})
 	}
 }
 
@@ -2180,7 +2366,11 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				newCallLocal("main.sysHang", Args{}, pathJoin(pwebDir, mainOS), 12),
 				newCallLocal(
 					"main.main.func3",
-					Args{Values: []Arg{{Value: 0xc000140720, Name: "#135", IsPtr: true}}},
+					ifCombinedAggregateArgs(
+						Args{},
+						// else
+						Args{Values: []Arg{{Value: 0xc000140720, Name: "#135", IsPtr: true}}},
+					),
 					pathJoin(pwebDir, "main.go"),
 					65),
 			}
@@ -2249,4 +2439,14 @@ func createTree(t *testing.T, root string, tree map[string]string) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// ifCombinedAggregateArgs returns one of the two provided Args structs, based
+// on the go compiler version. For 1.17 and above, combined is returned. For pre
+// 1.17, separate is returned.
+func ifCombinedAggregateArgs(combined, separate Args) Args {
+	if combinedAggregateArgs {
+		return combined
+	}
+	return separate
 }

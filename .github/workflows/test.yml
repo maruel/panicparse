@@ -24,13 +24,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.16"]
+        gover: ["1.17"]
     runs-on: "${{matrix.os}}"
     name: "go${{matrix.gover}}.x on ${{matrix.os}}"
     steps:
     - uses: actions/setup-go@v2
       with:
-        go-version: "${{matrix.gover}}.8"
+        go-version: "${{matrix.gover}}"
 
       # Checkout and print debugging information.
     - name: Turn off git core.autocrlf

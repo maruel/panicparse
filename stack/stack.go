@@ -104,13 +104,28 @@ func (f *Func) String() string {
 
 // Arg is an argument on a Call.
 type Arg struct {
+	// IsAggregate is true if the argument is an aggregate type. If true, the
+	// argument does not contain a value itself, but contains a set of nested
+	// argument fields. If false, the argument contains a single scalar value.
+	IsAggregate bool
+
+	// The following are set if IsAggregate == false.
+
+	// Name is a pseudo name given to the argument.
+	Name string
 	// Value is the raw value as found in the stack trace
 	Value uint64
-	// Name is a pseudo name given to the argument
-	Name string
 	// IsPtr is true if we guess it's a pointer. It's only a guess, it can be
-	// easily be confused by a bitmask.
+	// easily confused by a bitmask.
 	IsPtr bool
+	// IsOffsetTooLarge is true if the argument's frame offset was too large,
+	// preventing the argument from being printed in the stack trace.
+	IsOffsetTooLarge bool
+
+	// The following are set if IsAggregate == true.
+
+	// Fields are the fields/elements of aggregate-typed arguments.
+	Fields Args
 
 	// Disallow initialization with unnamed parameters.
 	_ struct{}
@@ -122,6 +137,12 @@ const zeroToNine = "0123456789"
 func (a *Arg) String() string {
 	if a.Name != "" {
 		return a.Name
+	}
+	if a.IsOffsetTooLarge {
+		return "_"
+	}
+	if a.IsAggregate {
+		return "{" + a.Fields.String() + "}"
 	}
 	if a.Value < uint64(len(zeroToNine)) {
 		return zeroToNine[a.Value : a.Value+1]
@@ -142,14 +163,37 @@ const (
 	pointerCeiling = uint64((^uint(0)) >> 1)
 )
 
+// equal returns true only if both arguments are exactly equal.
+func (a *Arg) equal(r *Arg) bool {
+	return a.similar(r, ExactFlags)
+}
+
 // similar returns true if the two Arg are equal or almost but not quite equal.
 func (a *Arg) similar(r *Arg, similar Similarity) bool {
+	if a.IsAggregate != r.IsAggregate {
+		return false
+	}
+	if a.IsAggregate {
+		return a.Fields.similar(&r.Fields, similar)
+	}
 	switch similar {
 	case ExactFlags, ExactLines:
-		return *a == *r
+		if a.Name != r.Name {
+			return false
+		}
+		if a.IsOffsetTooLarge != r.IsOffsetTooLarge {
+			return false
+		}
+		if a.IsPtr != r.IsPtr {
+			return false
+		}
+		return a.Value == r.Value
 	case AnyValue:
 		return true
 	case AnyPointer:
+		if a.IsOffsetTooLarge != r.IsOffsetTooLarge {
+			return false
+		}
 		if a.IsPtr != r.IsPtr {
 			return false
 		}
@@ -196,7 +240,7 @@ func (a *Args) equal(r *Args) bool {
 		return false
 	}
 	for i, l := range a.Values {
-		if l != r.Values[i] {
+		if !l.equal(&r.Values[i]) {
 			return false
 		}
 	}
@@ -209,8 +253,8 @@ func (a *Args) similar(r *Args, similar Similarity) bool {
 	if a.Elided != r.Elided || len(a.Values) != len(r.Values) {
 		return false
 	}
-	for i := range a.Values {
-		if !a.Values[i].similar(&r.Values[i], similar) {
+	for i, l := range a.Values {
+		if !l.similar(&r.Values[i], similar) {
 			return false
 		}
 	}
@@ -224,7 +268,11 @@ func (a *Args) merge(r *Args) Args {
 		Elided: a.Elided,
 	}
 	for i, l := range a.Values {
-		if l != r.Values[i] {
+		rv := &r.Values[i]
+		if l.IsAggregate {
+			out.Values[i].IsAggregate = true
+			out.Values[i].Fields = l.Fields.merge(&rv.Fields)
+		} else if !l.equal(rv) {
 			out.Values[i].Name = "*"
 			out.Values[i].Value = l.Value
 			out.Values[i].IsPtr = l.IsPtr
@@ -233,6 +281,19 @@ func (a *Args) merge(r *Args) Args {
 		}
 	}
 	return out
+}
+
+// walk traverses all non-aggregate arguments in the Args struct, calling the
+// provided visitor function with each Arg.
+func (a *Args) walk(visitor func(arg *Arg)) {
+	for i := range a.Values {
+		arg := &a.Values[i]
+		if arg.IsAggregate {
+			arg.Fields.walk(visitor)
+		} else {
+			visitor(arg)
+		}
+	}
 }
 
 // Location is the source location, if determined.
@@ -736,17 +797,19 @@ func nameArguments(goroutines []*Goroutine) {
 	}
 	objects := map[uint64]object{}
 	// Enumerate all the arguments.
-	for i := range goroutines {
-		for j := range goroutines[i].Stack.Calls {
-			for k := range goroutines[i].Stack.Calls[j].Args.Values {
-				arg := goroutines[i].Stack.Calls[j].Args.Values[k]
-				if arg.IsPtr {
-					objects[arg.Value] = object{
-						args:      append(objects[arg.Value].args, &goroutines[i].Stack.Calls[j].Args.Values[k]),
-						inPrimary: objects[arg.Value].inPrimary || i == 0,
-					}
-				}
+	primary := true
+	visit := func(arg *Arg) {
+		if arg.IsPtr {
+			objects[arg.Value] = object{
+				args:      append(objects[arg.Value].args, arg),
+				inPrimary: objects[arg.Value].inPrimary || primary,
 			}
+		}
+	}
+	for i, g := range goroutines {
+		primary = i == 0
+		for _, c := range g.Stack.Calls {
+			c.Args.walk(visit)
 		}
 		// CreatedBy.Args is never set.
 	}
