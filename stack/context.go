@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unsafe"
 )
 
 // Opts represents options to process the snapshot.
@@ -668,7 +669,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 	case gotRaceHeader2:
 		if match := reRaceOperationHeader.FindSubmatch(trimmed); match != nil {
 			w := bytes.Equal(match[1], writeCap)
-			addr, err := strconv.ParseUint(string(match[2]), 0, 64)
+			addr, err := strconv.ParseUint(unsafeString(match[2]), 0, 64)
 			if err != nil {
 				return false, fmt.Errorf("failed to parse address on line: %q", bytes.TrimSpace(trimmed))
 			}
@@ -725,7 +726,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 		// Look for other previous race data operations.
 		if match := reRacePreviousOperationHeader.FindSubmatch(trimmed); match != nil {
 			w := bytes.Equal(match[1], writeLow)
-			addr, err := strconv.ParseUint(string(match[2]), 0, 64)
+			addr, err := strconv.ParseUint(unsafeString(match[2]), 0, 64)
 			if err != nil {
 				return false, fmt.Errorf("failed to parse address on line: %q", bytes.TrimSpace(trimmed))
 			}
@@ -853,8 +854,7 @@ func parseArgs(line []byte) (Args, error) {
 				arg := Arg{IsOffsetTooLarge: true}
 				cur.Values = append(cur.Values, arg)
 			default:
-				// TODO(nvanbenschoten): avoid this allocation.
-				v, err := strconv.ParseUint(string(a), 0, 64)
+				v, err := strconv.ParseUint(unsafeString(a), 0, 64)
 				if err != nil {
 					return Args{}, errors.New("failed to parse int")
 				}
@@ -1183,4 +1183,14 @@ func trimCurlyBrackets(s []byte) (int, []byte, int) {
 		}
 	}
 	return i, s[i:j], len(s) - j
+}
+
+// unsafeString performs an unsafe conversion from a []byte to a string. The
+// returned string will share the underlying memory with the []byte which thus
+// allows the string to be mutable through the []byte. We're careful to use
+// this method only in situations in which the []byte will not be modified.
+//
+// A workaround for the absence of https://github.com/golang/go/issues/2632.
+func unsafeString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }
