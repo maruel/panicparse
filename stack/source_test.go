@@ -501,6 +501,9 @@ func TestAugment(t *testing.T) {
 		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
+			if line.name == "float64" && !is64Bit {
+				t.Skip("skipping float64 test on 32 bits platform")
+			}
 			// Marshal the code a bit to make it nicer. Inject 'package main'.
 			lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)
 			for j := 2; j < len(lines); j++ {
@@ -752,6 +755,7 @@ func TestLineToByteOffsets(t *testing.T) {
 
 const pointer = uint64(0x2fffffff)
 const pointerStr = "0x2fffffff"
+const is64Bit = uint64(^uintptr(0)) == ^uint64(0)
 
 func overrideEnv(env []string, key, value string) []string {
 	prefix := key + "="

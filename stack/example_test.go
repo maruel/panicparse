@@ -5,9 +5,6 @@
 // Output is currently different on 32 bits so skip the examples for now. It's
 // a gross hack.
 
-//go:build !386 && !arm && !mips && !mipsle
-// +build !386,!arm,!mips,!mipsle
-
 package stack_test
 
 import (
@@ -41,7 +38,7 @@ func Example_text() {
 
 	type crashy struct{}
 
-	func (c crashy) die(f float64) {
+	func (c crashy) die(f float32) {
 		time.Sleep(time.Millisecond)
 		panic(int(f))
 	}`
