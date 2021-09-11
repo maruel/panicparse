@@ -1850,6 +1850,9 @@ func testPanicUTF8(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 // asleep".
 func TestPanicweb(t *testing.T) {
 	t.Parallel()
+	if runtime.GOARCH == "ppc64" || runtime.GOARCH == "ppc64le" {
+		t.Skip("https://github.com/maruel/panicparse/issues/66")
+	}
 	prefix := bytes.Buffer{}
 	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.PanicwebOutput()), &prefix, defaultOpts())
 	if err != io.EOF {
