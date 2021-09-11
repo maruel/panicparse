@@ -228,3 +228,22 @@ jobs:
     - name: 'Check: go test'
       working-directory: src/github.com/maruel/panicparse
       run: go test -timeout=40s ./...
+
+  test_32bits:
+    env:
+      GOARCH: 386
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        # Do not forget to bump every 6 months!
+        gover: ["1.16"]
+    runs-on: ubuntu-latest
+    name: "go${{matrix.gover}}.x on ubuntu-latest 32 bits (quick)"
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: "${{matrix.gover}}"
+    - uses: actions/checkout@v2
+    - name: 'Check: go test'
+      run: go test -timeout=40s ./...
