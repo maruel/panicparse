@@ -30,7 +30,7 @@ jobs:
     steps:
     - uses: actions/setup-go@v2
       with:
-        go-version: "^${{matrix.gover}}.0"
+        go-version: "${{matrix.gover}}.8"
 
       # Checkout and print debugging information.
     - name: Turn off git core.autocrlf
