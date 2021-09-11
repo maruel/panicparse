@@ -1561,7 +1561,10 @@ func TestPanic(t *testing.T) {
 	// Make sure all custom handlers are showing up in cmds.
 	for n := range custom {
 		if _, ok := cmds[n]; !ok {
-			t.Fatalf("untested mode: %q in:\n%v", n, cmds)
+			if n == "race" {
+				t.Skip("race is unsupported")
+			}
+			t.Fatalf("untested mode %q:\n%v", n, cmds[n])
 		}
 	}
 

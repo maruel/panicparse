@@ -241,6 +241,9 @@ func TestSymbol(t *testing.T) {
 func TestSnapshot_ToHTML(t *testing.T) {
 	t.Parallel()
 	data := internaltest.PanicOutputs()["race"]
+	if data == nil {
+		t.Skip("-race is unsupported on this platform")
+	}
 	s, _, err := ScanSnapshot(bytes.NewReader(data), ioutil.Discard, DefaultOpts())
 	if err != nil {
 		t.Fatal(err)
