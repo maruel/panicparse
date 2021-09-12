@@ -36,10 +36,6 @@ jobs:
     - name: Turn off git core.autocrlf
       run: git config --global core.autocrlf false
     - uses: actions/checkout@v2
-    - name: 'go version'
-      run: go version
-    - name: 'go env'
-      run: go env
     - name: "Debug"
       run: |
         echo HOME = $HOME
