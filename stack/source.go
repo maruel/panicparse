@@ -164,6 +164,10 @@ func name(n ast.Node) string {
 		return t.Sel.Name
 	case *ast.StarExpr:
 		return "*" + name(t.X)
+	case *ast.BasicLit:
+		return t.Value
+	case *ast.Ellipsis:
+		return "..."
 	default:
 		return "<unknown>"
 	}
@@ -173,6 +177,11 @@ func name(n ast.Node) string {
 func fieldToType(f *ast.Field) (string, bool) {
 	switch arg := f.Type.(type) {
 	case *ast.ArrayType:
+		if arg.Len != nil {
+			// Array.
+			return "[" + name(arg.Len) + "]" + name(arg.Elt), false
+		}
+		// Slice.
 		return "[]" + name(arg.Elt), false
 	case *ast.Ellipsis:
 		return name(arg.Elt), true

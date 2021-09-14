@@ -517,6 +517,29 @@ func TestAugment(t *testing.T) {
 				},
 			},
 		},
+		{
+			"array",
+			`func main() {
+				f(1, [3]byte{2, 3, 4}, 5)
+			}
+			func f(v int, v2 [3]byte, v3 byte) {
+				panic("ooh")
+			}`,
+			true,
+			Stack{
+				Calls: []Call{
+					newCallSrc(
+						"main.f",
+						Args{
+							Values:    []Arg{{Value: 1}, {Value: pointer, IsPtr: true}},
+							Processed: []string{"1", "[3]byte(0x2fffffff)"},
+						},
+						"/root/main.go",
+						6),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
+				},
+			},
+		},
 	}
 
 	skipUnder32Bit := map[string]struct{}{
