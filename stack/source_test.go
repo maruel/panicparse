@@ -494,6 +494,57 @@ func TestAugment(t *testing.T) {
 				},
 			},
 		},
+		{
+			"uint",
+			`func main() {
+				f(123)
+			}
+			func f(v uint) {
+				panic("ooh")
+			}`,
+			true,
+			Stack{
+				Calls: []Call{
+					newCallSrc(
+						"main.f",
+						Args{
+							Values:    []Arg{{Value: 123}},
+							Processed: []string{"123"},
+						},
+						"/root/main.go",
+						6),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
+				},
+			},
+		},
+		{
+			"negative int",
+			`func main() {
+				f(-123)
+			}
+			func f(v int64) {
+				panic("ooh")
+			}`,
+			true,
+			Stack{
+				Calls: []Call{
+					newCallSrc(
+						"main.f",
+						Args{
+							Values:    []Arg{{Value: 18446744073709551493}},
+							Processed: []string{"-123"},
+						},
+						"/root/main.go",
+						6),
+					newCallSrc("main.main", Args{}, "/root/main.go", 3),
+				},
+			},
+		},
+	}
+
+	skipUnder32Bit := map[string]struct{}{
+		"float64":      {},
+		"negative int": {},
 	}
 
 	for i, line := range data {
@@ -501,8 +552,8 @@ func TestAugment(t *testing.T) {
 		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
-			if line.name == "float64" && !is64Bit {
-				t.Skip("skipping float64 test on 32 bits platform")
+			if _, ok := skipUnder32Bit[line.name]; ok && !is64Bit {
+				t.Skipf("skipping %s test on 32 bits platform", line.name)
 			}
 			// Marshal the code a bit to make it nicer. Inject 'package main'.
 			lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)

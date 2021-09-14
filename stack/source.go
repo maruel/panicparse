@@ -15,6 +15,7 @@ import (
 	"go/token"
 	"io/ioutil"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -270,8 +271,22 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%g", math.Float32frombits(uint32(pop()))))
 		case "float64":
 			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%g", math.Float64frombits(pop())))
-		case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64":
-			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%d", pop()))
+		case "uint", "uint8", "uint16", "uint32", "uint64":
+			call.Args.Processed = append(call.Args.Processed, strconv.FormatUint(pop(), 10))
+		// NOTE: we need a separate case per signed int type so that we can
+		// properly interpret negative integers.
+		case "int":
+			// Assume the stack was generated with the same bitness (32 vs 64)
+			// as the code processing it.
+			call.Args.Processed = append(call.Args.Processed, strconv.Itoa(int(pop())))
+		case "int8":
+			call.Args.Processed = append(call.Args.Processed, strconv.Itoa(int(int8(pop()))))
+		case "int16":
+			call.Args.Processed = append(call.Args.Processed, strconv.Itoa(int(int16(pop()))))
+		case "int32":
+			call.Args.Processed = append(call.Args.Processed, strconv.Itoa(int(int32(pop()))))
+		case "int64":
+			call.Args.Processed = append(call.Args.Processed, strconv.FormatInt(int64(pop()), 10))
 		case "string":
 			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%s(%s, len=%d)", t, popName(), pop()))
 		default:
