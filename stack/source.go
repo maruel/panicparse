@@ -270,8 +270,22 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%g", math.Float32frombits(uint32(pop()))))
 		case "float64":
 			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%g", math.Float64frombits(pop())))
-		case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64":
+		case "uint", "uint8", "uint16", "uint32", "uint64":
 			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%d", pop()))
+		// NOTE: we need a separate case per signed int type so that we can
+		// properly interpret negative integers.
+		case "int":
+			// Assume the stack was generated with the same bitness (32 vs 64)
+			// as the code processing it.
+			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%d", int64(int(pop()))))
+		case "int8":
+			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%d", int64(int8(pop()))))
+		case "int16":
+			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%d", int64(int16(pop()))))
+		case "int32":
+			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%d", int64(int32(pop()))))
+		case "int64":
+			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%d", int64(pop())))
 		case "string":
 			call.Args.Processed = append(call.Args.Processed, fmt.Sprintf("%s(%s, len=%d)", t, popName(), pop()))
 		default:
