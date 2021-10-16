@@ -2108,54 +2108,19 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			return pstServe
 		}
 		if b.State == "chan receive" {
-			localgopath := getGOPATHs()[0]
-			// If not using Go modules, the path is different as the version in
-			// GOPATH is used instead.
 			// Warning: This is brittle and will fail whenever go-colorable is
-			// updated.
-			v := "@v0.1.7"
-			prefix := "pkg/mod"
-			if !internaltest.IsUsingModules() {
-				v = ""
-				prefix = "src"
+			// updated so only check the string minimum here.
+			if !b.Signature.Locked {
+				t.Fatal("expected Locked")
 			}
-			pColorable := prefix + "/github.com/mattn/go-colorable" + v + "/noncolorable.go"
-			want := Signature{
-				State: "chan receive",
-				CreatedBy: Stack{
-					Calls: []Call{
-						newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 73),
-					},
-				},
-				Stack: Stack{
-					Calls: []Call{
-						newCallLocal(
-							"main.(*writeHang).Write",
-							Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
-							pathJoin(pwebDir, "main.go"),
-							92),
-						newCallLocal(
-							"github.com/mattn/go-colorable.(*NonColorable).Write",
-							Args{Values: []Arg{{}, {}, {}, {}, {}, {}, {}}},
-							pathJoin(localgopath, pColorable),
-							30),
-					},
-				},
-				Locked: true,
-			}
-			// The arguments content is variable, so just count the number of
-			// arguments and give up on the rest.
+			want := Stack{Calls: []Call{newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 139)}}
+			compareStacks(t, &b.Signature.CreatedBy, &want)
 			for i := range b.Signature.Stack.Calls {
-				for j := range b.Signature.Stack.Calls[i].Args.Values {
-					b.Signature.Stack.Calls[i].Args.Values[j].Value = 0
-					b.Signature.Stack.Calls[i].Args.Values[j].Name = ""
-					b.Signature.Stack.Calls[i].Args.Values[j].IsPtr = false
+				if strings.HasPrefix(b.Signature.Stack.Calls[i].ImportPath, "github.com/mattn/go-colorable") {
+					return pstColorable
 				}
 			}
-			// Warning: This is brittle and will fail whenever go-colorable is
-			// updated. See above.
-			similarSignatures(t, &want, &b.Signature)
-			return pstColorable
+			t.Fatalf("failed to find go-colorable\n%# v", b.Signature.Stack.Calls)
 		}
 		// That's the unix.Nanosleep() or windows.SleepEx() call.
 		if b.State == "syscall" {
