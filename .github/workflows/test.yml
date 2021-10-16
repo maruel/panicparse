@@ -138,7 +138,7 @@ jobs:
     - name: 'Check: go test -cover'
       run: go test -timeout=40s -covermode=count -coverprofile coverage.txt ./...
       # Don't send code coverage if anything failed to reduce spam.
-    - uses: codecov/codecov-action@v1
+    - uses: codecov/codecov-action@v2
     - name: 'Cleanup'
       run: rm coverage.txt
       # Don't run go test -race if anything failed, to speed up the results.
