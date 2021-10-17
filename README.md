@@ -49,7 +49,7 @@ Ruel](https://github.com/maruel) and
 
 ## Installation
 
-    go get github.com/maruel/panicparse/v2/cmd/pp
+    go install github.com/maruel/panicparse/v2/cmd/pp@latest
 
 
 ## Usage
@@ -163,7 +163,7 @@ you may be running the _Perl PAR Packager_ instead of panicparse.
 You have two choices, either you put `$GOPATH/bin` at the beginning of `$PATH`
 or use long name `panicparse` with:
 
-    go get github.com/maruel/panicparse/v2
+    go install github.com/maruel/panicparse/v2@latest
 
 then using `panicparse` instead of `pp`:
 
