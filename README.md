@@ -169,3 +169,11 @@ or use long name `panicparse` with:
 then using `panicparse` instead of `pp`:
 
     go test 2> panicparse
+
+Hint: You may also use shell aliases
+
+    alias gp=panicparse    
+    go test 2> gp
+    
+    alias p=panicparse
+    go test 2> p
