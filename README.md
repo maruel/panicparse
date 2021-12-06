@@ -17,7 +17,7 @@ panicparse helps make sense of Go crash dumps:
 
 See [v2.0.1 blog post](https://maruel.ca/post/panicparse-2.0.1/).
 
-   * **New in v2.2.0!**: Go 1.17 stack trace suport.
+   * **New in v2.2.0!**: Go 1.17 stack trace support.
    * **New in v2.0.0!**: Full go module support.
    * **New in v2.0.0!**: Race detector support.
    * **New in v2.0.0!**: HTML export.
