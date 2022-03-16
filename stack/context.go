@@ -257,14 +257,15 @@ var (
 	// gotRaceHeader1, done
 	raceHeaderFooter = []byte("==================")
 	// gotRaceHeader2
-	raceHeader = []byte("WARNING: DATA RACE")
-	crlf       = []byte("\r\n")
-	lf         = []byte("\n")
-	commaSpace = []byte(", ")
-	writeCap   = []byte("Write")
-	writeLow   = []byte("write")
-	threeDots  = []byte("...")
-	underscore = []byte("_")
+	raceHeader             = []byte("WARNING: DATA RACE")
+	crlf                   = []byte("\r\n")
+	lf                     = []byte("\n")
+	commaSpace             = []byte(", ")
+	writeCap               = []byte("Write")
+	writeLow               = []byte("write")
+	threeDots              = []byte("...")
+	underscore             = []byte("_")
+	inaccurateQuestionMark = []byte("?")
 )
 
 // These are effectively constants.
@@ -854,13 +855,18 @@ func parseArgs(line []byte) (Args, error) {
 				arg := Arg{IsOffsetTooLarge: true}
 				cur.Values = append(cur.Values, arg)
 			default:
+				inaccurate := bytes.HasSuffix(a, inaccurateQuestionMark)
+				if inaccurate {
+					a = a[:len(a)-len(inaccurateQuestionMark)]
+				}
+
 				v, err := strconv.ParseUint(unsafeString(a), 0, 64)
 				if err != nil {
 					return Args{}, errors.New("failed to parse int")
 				}
 				// Assume the stack was generated with the same bitness (32 vs 64) as
 				// the code processing it.
-				arg := Arg{Value: v, IsPtr: v > pointerFloor && v < pointerCeiling}
+				arg := Arg{Value: v, IsPtr: v > pointerFloor && v < pointerCeiling, IsInaccurate: inaccurate}
 				cur.Values = append(cur.Values, arg)
 			}
 		}

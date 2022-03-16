@@ -1057,6 +1057,56 @@ func TestScanSnapshotSynthetic(t *testing.T) {
 			},
 		},
 
+		{
+			name: "WithCarriageReturn1.18Inaccurate",
+			in: []string{
+				"goroutine 1 [running]:",
+				"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek()",
+				" ??:0 +0x6d",
+				"gopkg.in/yaml%2ev2.handleErr(0x433b20?)",
+				"\t/gopath/src/gopkg.in/yaml.v2/yaml.go:153 +0xc6",
+				"reflect.Value.assignTo(0x570860, 0x803f3e0, 0x15)",
+				"\t/goroot/src/reflect/value.go:2125 +0x368",
+				"main.main()",
+				"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:428 +0x27",
+				"",
+			},
+			err: io.EOF,
+			want: []*Goroutine{
+				{
+					Signature: Signature{
+						State: "running",
+						Stack: Stack{
+							Calls: []Call{
+								newCall(
+									"github.com/cockroachdb/cockroach/storage/engine._Cfunc_DBIterSeek",
+									Args{},
+									"??",
+									0),
+								newCall(
+									"gopkg.in/yaml%2ev2.handleErr",
+									Args{Values: []Arg{{Value: 0x433b20, IsPtr: true, IsInaccurate: true}}},
+									"/gopath/src/gopkg.in/yaml.v2/yaml.go",
+									153),
+								newCall(
+									"reflect.Value.assignTo",
+									Args{Values: []Arg{{Value: 0x570860, IsPtr: true}, {Value: 0x803f3e0, IsPtr: true}, {Value: 0x15}}},
+									"/goroot/src/reflect/value.go",
+									2125),
+								newCall(
+									"main.main",
+									Args{},
+									"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+									428),
+							},
+						},
+					},
+					ID:    1,
+					First: true,
+				},
+			},
+		},
+
 		// goconvey is culprit of this.
 		{
 			name: "Indented",
