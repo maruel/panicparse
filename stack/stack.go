@@ -122,6 +122,10 @@ type Arg struct {
 	// preventing the argument from being printed in the stack trace.
 	IsOffsetTooLarge bool
 
+	// IsInaccurate determines if Value is inaccurate. Stacks could have inaccurate values
+	// for arguments passed in registers. Go 1.18 prints a ? for these values.
+	IsInaccurate bool
+
 	// The following are set if IsAggregate == true.
 
 	// Fields are the fields/elements of aggregate-typed arguments.
