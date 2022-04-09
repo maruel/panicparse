@@ -193,6 +193,9 @@ func showBanner() bool {
 // compiled. This is to work around the Perl Package manager 'pp' that is
 // preinstalled on some OSes.
 func Main() error {
+	fmt.Printf("\nWARNING: You are using the wrong old version of panicparse.\n\n" +
+		"Run: go install github.com/maruel/panicparse/v2/cmd/pp@latest\n\n")
+
 	aggressive := flag.Bool("aggressive", false, "Aggressive deduplication including non pointers")
 	parse := flag.Bool("parse", true, "Parses source files to deduct types; use -parse=false to work around bugs in source parser")
 	rebase := flag.Bool("rebase", true, "Guess GOROOT and GOPATH")
