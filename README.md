@@ -88,7 +88,7 @@ have this shortcut, so use the long form:
     go test -v 2>&1 | pp
 
 
-**Fish**: `&|` redirects stderr and stdout. It's an alias for `2>&1 |` 
+**Fish**: `&|` redirects stderr and stdout. It's an alias for `2>&1 |`
 ([fish piping](https://fishshell.com/docs/current/index.html#piping)):
 
     go test -v &| pp
@@ -172,8 +172,8 @@ then using `panicparse` instead of `pp`:
 
 Hint: You may also use shell aliases
 
-    alias gp=panicparse    
+    alias gp=panicparse
     go test 2> gp
-    
+
     alias p=panicparse
     go test 2> p
