@@ -426,14 +426,14 @@ func similarGoroutines(t *testing.T, want, got []*Goroutine) {
 	}
 }
 
-func zapGoroutines(t *testing.T, a, b []*Goroutine) {
-	if len(a) != len(b) {
+func zapGoroutines(t *testing.T, want, got []*Goroutine) {
+	if len(want) != len(got) {
 		t.Error("different []*Goroutine length")
 		return
 	}
-	for i := range a {
+	for i := range want {
 		// &(*Goroutine).Signature
-		zapSignatures(t, &a[i].Signature, &b[i].Signature)
+		zapSignatures(t, &want[i].Signature, &got[i].Signature)
 	}
 }
 
@@ -448,55 +448,58 @@ func similarSignatures(t *testing.T, want, got *Signature) {
 	}
 }
 
-func zapSignatures(t *testing.T, a, b *Signature) {
+func zapSignatures(t *testing.T, want, got *Signature) {
 	// Signature.Stack.([]Call)
-	if len(a.Stack.Calls) != len(b.Stack.Calls) {
+	if len(want.Stack.Calls) != len(got.Stack.Calls) {
 		t.Error("different call length")
 		return
 	}
-	if len(a.CreatedBy.Calls) != 0 && len(b.CreatedBy.Calls) != 0 {
-		if a.CreatedBy.Calls[0].Line != 0 && b.CreatedBy.Calls[0].Line != 0 {
-			a.CreatedBy.Calls[0].Line = 42
-			b.CreatedBy.Calls[0].Line = 42
+	if len(want.CreatedBy.Calls) != 0 && len(got.CreatedBy.Calls) != 0 {
+		if want.CreatedBy.Calls[0].Line != 0 && got.CreatedBy.Calls[0].Line != 0 {
+			want.CreatedBy.Calls[0].Line = 42
+			got.CreatedBy.Calls[0].Line = 42
 		}
 	}
-	zapStacks(t, &a.Stack, &b.Stack)
+	zapStacks(t, &want.Stack, &got.Stack)
 }
 
-func zapStacks(t *testing.T, a, b *Stack) {
-	if len(a.Calls) != len(b.Calls) {
+func zapStacks(t *testing.T, want, got *Stack) {
+	if len(want.Calls) != len(got.Calls) {
 		t.Error("different Stack.[]Call length")
 		return
 	}
-	for i := range a.Calls {
-		zapCalls(t, &a.Calls[i], &b.Calls[i])
+	for i := range want.Calls {
+		zapCalls(t, &want.Calls[i], &got.Calls[i])
 	}
 }
 
-func zapCalls(t *testing.T, a, b *Call) {
-	if a.Line != 0 && b.Line != 0 {
-		a.Line = 42
-		b.Line = 42
+func zapCalls(t *testing.T, want, got *Call) {
+	if want.Line != 0 && got.Line != 0 {
+		want.Line = 42
+		got.Line = 42
 	}
-	zapArgs(t, &a.Args, &b.Args)
+	zapArgs(t, &want.Args, &got.Args)
 }
 
-func zapArgs(t *testing.T, a, b *Args) {
-	if len(a.Values) != len(b.Values) {
+func zapArgs(t *testing.T, want, got *Args) {
+	if len(want.Values) != len(got.Values) {
 		t.Error("different Args.Values length")
 		return
 	}
-	for i := range a.Values {
-		if a.Values[i].Value != 0 && b.Values[i].Value != 0 {
-			a.Values[i].Value = 42
-			b.Values[i].Value = 42
+	for i := range want.Values {
+		if want.Values[i].Value != 0 && got.Values[i].Value != 0 {
+			want.Values[i].Value = 42
+			got.Values[i].Value = 42
 		}
-		if a.Values[i].IsAggregate && b.Values[i].IsAggregate {
-			zapArgs(t, &a.Values[i].Fields, &b.Values[i].Fields)
+		if want.Values[i].IsAggregate && got.Values[i].IsAggregate {
+			zapArgs(t, &want.Values[i].Fields, &got.Values[i].Fields)
 		}
-		if a.Values[i].Name != "" && b.Values[i].Name != "" {
-			a.Values[i].Name = "foo"
-			b.Values[i].Name = "foo"
+		if want.Values[i].Name != "" && got.Values[i].Name != "" {
+			want.Values[i].Name = "foo"
+			got.Values[i].Name = "foo"
+		}
+		if want.Values[i].IsInaccurate && !got.Values[i].IsInaccurate {
+			want.Values[i].IsInaccurate = false
 		}
 	}
 }

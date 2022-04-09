@@ -2017,9 +2017,9 @@ func testPanicUTF8(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 							// not.
 							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/utf8.(*Strùct).Pànic",
 							ifCombinedAggregateArgs(
-								Args{Values: []Arg{{Value: 1}}},
+								Args{Values: []Arg{{Value: 1, IsInaccurate: true}}},
 								// else
-								Args{Values: []Arg{{Value: 0xc0000b2e48, IsPtr: true}}},
+								Args{Values: []Arg{{Value: 0xc0000b2e48, IsPtr: true, IsInaccurate: true}}},
 							),
 							// See TestCallUTF8 in stack_test.go for exercising the methods on
 							// Call in this situation.
@@ -2286,7 +2286,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			t.Fatal("first bucket is not correct")
 			return pstUnknown
 		}
-		crash := Signature{
+		want := Signature{
 			State: "running",
 			Stack: Stack{
 				Calls: []Call{
@@ -2294,7 +2294,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				},
 			},
 		}
-		similarSignatures(t, &crash, &b.Signature)
+		similarSignatures(t, &want, &b.Signature)
 		return pstMain
 	}
 
@@ -2360,13 +2360,15 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 		}
 		// That's the unix.Nanosleep() or windows.SleepEx() call.
 		if b.State == "syscall" {
-			created := Stack{
-				Calls: []Call{
-					newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 63),
-				},
+			{
+				want := Stack{
+					Calls: []Call{
+						newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 63),
+					},
+				}
+				zapStacks(t, &want, &b.CreatedBy)
+				compareStacks(t, &want, &b.CreatedBy)
 			}
-			zapStacks(t, &created, &b.CreatedBy)
-			compareStacks(t, &created, &b.CreatedBy)
 			if l := len(b.IDs); l != 1 {
 				t.Fatalf("expected 1 goroutine for the signature, got %d", l)
 			}
@@ -2412,24 +2414,26 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					t.Fatalf("unexpected version string %q", ver)
 				}
 			}
-			rest := []Call{
-				newCallLocal("main.sysHang", Args{}, pathJoin(pwebDir, mainOS), 12),
-				newCallLocal(
-					"main.main.func3",
-					ifCombinedAggregateArgs(
-						Args{},
-						// else
-						Args{Values: []Arg{{Value: 0xc000140720, Name: "#135", IsPtr: true}}},
-					),
-					pathJoin(pwebDir, "main.go"),
-					65),
-			}
-			got := b.Stack.Calls[2:]
-			for i := range rest {
-				zapCalls(t, &got[i], &rest[i])
-			}
-			if diff := cmp.Diff(rest, got); diff != "" {
-				t.Fatalf("rest of stack mismatch (-want +got):\n%s", diff)
+			{
+				want := []Call{
+					newCallLocal("main.sysHang", Args{}, pathJoin(pwebDir, mainOS), 12),
+					newCallLocal(
+						"main.main.func3",
+						ifCombinedAggregateArgs(
+							Args{},
+							// else
+							Args{Values: []Arg{{Value: 0xc000140720, Name: "#135", IsPtr: true}}},
+						),
+						pathJoin(pwebDir, "main.go"),
+						65),
+				}
+				got := b.Stack.Calls[2:]
+				for i := range want {
+					zapCalls(t, &want[i], &got[i])
+				}
+				if diff := cmp.Diff(want, got); diff != "" {
+					t.Fatalf("rest of stack mismatch (-want +got):\n%s", diff)
+				}
 			}
 			return pstStdlib
 		}
