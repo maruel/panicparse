@@ -79,11 +79,11 @@ func calcBucketsLengths(a *stack.Aggregated, pf pathFormat) (int, int) {
 	srcLen := 0
 	pkgLen := 0
 	for _, e := range a.Buckets {
-		for _, line := range e.Signature.Stack.Calls {
-			if l := len(pf.formatCall(&line)); l > srcLen {
+		for i := range e.Signature.Stack.Calls {
+			if l := len(pf.formatCall(&e.Signature.Stack.Calls[i])); l > srcLen {
 				srcLen = l
 			}
-			if l := len(line.Func.DirName); l > pkgLen {
+			if l := len(e.Signature.Stack.Calls[i].Func.DirName); l > pkgLen {
 				pkgLen = l
 			}
 		}
@@ -97,11 +97,11 @@ func calcGoroutinesLengths(s *stack.Snapshot, pf pathFormat) (int, int) {
 	srcLen := 0
 	pkgLen := 0
 	for _, e := range s.Goroutines {
-		for _, line := range e.Signature.Stack.Calls {
-			if l := len(pf.formatCall(&line)); l > srcLen {
+		for i := range e.Signature.Stack.Calls {
+			if l := len(pf.formatCall(&e.Signature.Stack.Calls[i])); l > srcLen {
 				srcLen = l
 			}
-			if l := len(line.Func.DirName); l > pkgLen {
+			if l := len(e.Signature.Stack.Calls[i].Func.DirName); l > pkgLen {
 				pkgLen = l
 			}
 		}

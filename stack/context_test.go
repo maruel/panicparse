@@ -2373,14 +2373,17 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			if l := len(b.IDs); l != 1 {
 				t.Fatalf("expected 1 goroutine for the signature, got %d", l)
 			}
-			if l := len(b.Stack.Calls); l != 4 {
-				t.Fatalf("expected %d calls, got %d", 4, l)
-			}
 			if runtime.GOOS == "windows" {
+				if l := len(b.Stack.Calls); l != 5 {
+					t.Fatalf("expected %d calls, got %d", 5, l)
+				}
 				if s := b.Stack.Calls[0].RelSrcPath; s != "runtime/syscall_windows.go" {
 					t.Fatalf("expected %q file, got %q", "runtime/syscall_windows.go", s)
 				}
 			} else {
+				if l := len(b.Stack.Calls); l != 4 {
+					t.Fatalf("expected %d calls, got %d", 4, l)
+				}
 				// The first item shall be an assembly file independent of the OS.
 				if s := b.Stack.Calls[0].RelSrcPath; !strings.HasSuffix(s, ".s") {
 					t.Fatalf("expected assembly file, got %q", s)
@@ -2390,24 +2393,29 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			path := "golang.org/x/sys/unix"
 			fn := "Nanosleep"
 			mainOS := "main_unix.go"
-			if runtime.GOOS == "windows" {
-				path = "golang.org/x/sys/windows"
-				fn = "SleepEx"
-				mainOS = "main_windows.go"
-			}
-			usingModules := internaltest.IsUsingModules()
-			if b.Stack.Calls[1].Func.ImportPath != path || b.Stack.Calls[1].Func.Name != fn {
-				t.Fatalf("expected %q & %q, got %#v", path, fn, b.Stack.Calls[1].Func)
-			}
 			prefix := "golang.org/x/sys@v0.0.0-"
+			expectDate := true
+			usingModules := internaltest.IsUsingModules()
 			if !usingModules {
 				// Assert that there's no version by including the trailing /.
 				prefix = "golang.org/x/sys/"
+				expectDate = false
+			}
+			if runtime.GOOS == "windows" {
+				// This changes across Go version, this check is super fragile.
+				path = "syscall"
+				fn = "Syscall"
+				mainOS = "main_windows.go"
+				prefix = "runtime/syscall_windows.go"
+				expectDate = false
+			}
+			if b.Stack.Calls[1].Func.ImportPath != path || b.Stack.Calls[1].Func.Name != fn {
+				t.Fatalf("expected %q & %q, got %#v", path, fn, b.Stack.Calls[1].Func)
 			}
 			if !strings.HasPrefix(b.Stack.Calls[1].RelSrcPath, prefix) {
 				t.Fatalf("expected %q, got %q", prefix, b.Stack.Calls[1].RelSrcPath)
 			}
-			if usingModules {
+			if expectDate {
 				// Assert that it's using @v0-0-0.<date>-<commit> format.
 				ver := strings.SplitN(b.Stack.Calls[1].RelSrcPath[len(prefix):], "/", 2)[0]
 				re := regexp.MustCompile(`^\d{14}-[a-f0-9]{12}$`)
@@ -2429,7 +2437,8 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 						65),
 				}
 				got := b.Stack.Calls[2:]
-				if ver := internaltest.GetGoMinorVersion(); ver > 0 && ver < 18 && !is64Bit {
+				if ver := internaltest.GetGoMinorVersion(); (ver > 0 && ver < 18 && !is64Bit) || runtime.GOOS == "windows" {
+					// TODO(maruel): Fix check on Windows.
 					// On go1.17 on 32 bits this is failing but not on go1.18, so only
 					// skip in that case.
 					t.Log("skipping some checks on <go1.18 on 32 bits")

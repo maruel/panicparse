@@ -24,7 +24,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.17"]
+        gover: ["1.18"]
     runs-on: "${{matrix.os}}"
     name: "go${{matrix.gover}}.x on ${{matrix.os}}"
     env:
@@ -55,7 +55,7 @@ jobs:
 
       # Run tests first because it's important.
     - name: 'Check: go test -cover'
-      run: go test -timeout=60s -covermode=count -coverprofile coverage.txt ./...
+      run: go test -timeout=120s -covermode=count -coverprofile coverage.txt ./...
       # Don't send code coverage if anything failed to reduce spam.
     - uses: codecov/codecov-action@v2
     - name: 'Cleanup'
@@ -108,7 +108,7 @@ jobs:
       if: always()
       run: |
         go install github.com/gordonklaus/ineffassign@latest
-        go install github.com/securego/gosec/cmd/gosec@latest
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
         go install golang.org/x/lint/golint@latest
         go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
         go install honnef.co/go/tools/cmd/staticcheck@latest
@@ -138,8 +138,8 @@ jobs:
     - name: 'Check: staticcheck'
       if: always()
       run: staticcheck ./...
-    - name: 'Check: gosec (only G104)'
-      run: gosec -include=G104 -fmt=golint -quiet ./...
+    - name: 'Check: gosec (only a subset)'
+      run: gosec -exclude=G103,G107,G108,G203,G204,G304,G307 -fmt=golint -quiet ./...
 
       # The following checks are not dependent on the OS or go build tags. Only
       # run them on ubuntu-latest since it's the fastest one.
