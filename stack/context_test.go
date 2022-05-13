@@ -2023,7 +2023,7 @@ func testPanicUTF8(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 							),
 							// See TestCallUTF8 in stack_test.go for exercising the methods on
 							// Call in this situation.
-							pathJoin(ppDir, "internal", "utf8", "ùtf8.go"),
+							pathJoin(ppDir, "internal", "utf8", "utf8.go"),
 							10),
 						newCallLocal("main.glob..func21", Args{}, pathJoin(ppDir, "main.go"), 322),
 						newCallLocal("main.main", Args{}, pathJoin(ppDir, "main.go"), 340),
