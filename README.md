@@ -15,16 +15,12 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
-See [v2.0.1 blog post](https://maruel.ca/post/panicparse-2.0.1/).
-
-   * **New in v2.2.0!**: Go 1.17 stack trace support.
-   * **New in v2.0.0!**: Full go module support.
-   * **New in v2.0.0!**: Race detector support.
-   * **New in v2.0.0!**: HTML export.
-   * **New in v2.0.0!**: Completely refactored stack package for higher
-     performance.
-   * **New in v1.4.0!**:
-     [webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack/webstack#SnapshotHandler)
+   * Go 1.17 stack trace support.
+   * Full go module support.
+   * Race detector support.
+   * HTML export.
+   * High performance parsing.
+   * [webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack/webstack#SnapshotHandler)
      is a http handler that serves a very tight and swell snapshot of your
      goroutines, much more readable than
      [net/http/pprof](https://golang.org/pkg/net/http/pprof).
@@ -33,19 +29,7 @@ See [v2.0.1 blog post](https://maruel.ca/post/panicparse-2.0.1/).
    * Arguments as pointer IDs instead of raw pointer values.
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
    * Parses the source files if available to augment the output.
-   * Works on Windows.
-
-
-### webstack in action
-
-![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/panicparse_webstack.gif "Screencast")
-
-
-## Authors
-
-`panicparse` was created with ❤️️ and passion by [Marc-Antoine
-Ruel](https://github.com/maruel) and
-[friends](https://github.com/maruel/panicparse/graphs/contributors).
+   * Works on Windows. 🪟
 
 
 ## Installation
@@ -177,3 +161,19 @@ Hint: You may also use shell aliases
 
     alias p=panicparse
     go test 2> p
+
+
+### webstack in action
+
+The
+[webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack/webstack#SnapshotHandler)
+http.Handler enables glancing at at a snapshot of your process trivially:
+
+![Screencast](https://raw.githubusercontent.com/wiki/maruel/panicparse/panicparse_webstack.gif "Screencast")
+
+
+## Authors
+
+`panicparse` was created with ❤️️ and passion by [Marc-Antoine
+Ruel](https://github.com/maruel) and
+[friends](https://github.com/maruel/panicparse/graphs/contributors).
