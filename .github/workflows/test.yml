@@ -30,14 +30,14 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: x
     steps:
-    - uses: actions/setup-go@v2
+    - uses: actions/setup-go@v3
       with:
         go-version: "${{matrix.gover}}"
 
       # Checkout and print debugging information.
     - name: Turn off git core.autocrlf
       run: git config --global core.autocrlf false
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: "Debug"
       run: |
         echo HOME = $HOME
@@ -201,20 +201,20 @@ jobs:
   test_short:
     env:
       GOPATH: ${{github.workspace}}
-      GO111MODULE: auto
+      GO111MODULE: off
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        gover: ['1.9.7', '1.12.17', '1.14.7']
+        gover: ['1.13.15', '1.14.7']
     runs-on: "${{matrix.os}}"
     name: "go${{matrix.gover}} on ${{matrix.os}} (quick)"
     steps:
-    - uses: actions/setup-go@v2
+    - uses: actions/setup-go@v3
       with:
         go-version: "${{matrix.gover}}"
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         path: src/github.com/maruel/panicparse
     - name: 'Check: go get -d -t'
@@ -232,13 +232,13 @@ jobs:
       fail-fast: false
       matrix:
         # Do not forget to bump every 6 months!
-        gover: ["1.16"]
+        gover: ["1.17", "1.18"]
     runs-on: ubuntu-latest
     name: "go${{matrix.gover}}.x on ubuntu-latest 32 bits (quick)"
     steps:
-    - uses: actions/setup-go@v2
+    - uses: actions/setup-go@v3
       with:
         go-version: "${{matrix.gover}}"
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: 'Check: go test'
       run: go test -timeout=40s ./...

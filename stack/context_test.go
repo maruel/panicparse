@@ -1469,6 +1469,7 @@ func TestGomoduleComplex(t *testing.T) {
 	}()
 
 	os.Setenv("GOPATH", filepath.Join(root, "go"))
+	os.Setenv("GO111MODULE", "on")
 	tree := map[string]string{
 		"pkg1/go.mod": "module example.com/pkg1\n" +
 			"require (\n" +
