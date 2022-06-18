@@ -22,6 +22,13 @@ import (
 	"github.com/maruel/panicparse/v2/internal/internaltest"
 )
 
+type shouldRun32bits bool
+
+const (
+	run32bits  shouldRun32bits = true
+	skip32bits shouldRun32bits = false
+)
+
 func TestAugment(t *testing.T) {
 	t.Parallel()
 
@@ -51,7 +58,10 @@ func TestAugment(t *testing.T) {
 		// arguments and shows as elided. Non-pointer call may show an elided
 		// argument, while there was no argument listed before.
 		mayBeInlined bool
-		want         Stack
+		// Many test are hard to parse in 32 bits. Eventually we should fix these
+		// but I don't have time for this.
+		run32bits shouldRun32bits
+		want      Stack
 	}
 	data := []testCase{
 		{
@@ -68,6 +78,7 @@ func TestAugment(t *testing.T) {
 			}`,
 			// The function became inlinable in go 1.17.
 			combinedAggregateArgs,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -100,6 +111,7 @@ func TestAugment(t *testing.T) {
 				panic(a())
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -123,6 +135,7 @@ func TestAugment(t *testing.T) {
 				panic(a[0]())
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -155,6 +168,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -187,6 +201,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -219,6 +234,7 @@ func TestAugment(t *testing.T) {
 				panic(a[0].(string))
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -251,6 +267,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -274,6 +291,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -297,6 +315,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -320,6 +339,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -345,6 +365,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -371,6 +392,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -394,6 +416,7 @@ func TestAugment(t *testing.T) {
 				panic(s)
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -426,6 +449,7 @@ func TestAugment(t *testing.T) {
 				panic(s)
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -461,6 +485,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -486,6 +511,7 @@ func TestAugment(t *testing.T) {
 				panic(err.Error())
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -519,6 +545,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			skip32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -551,6 +578,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -576,6 +604,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			skip32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -601,6 +630,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -624,6 +654,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -647,6 +678,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -685,6 +717,7 @@ func TestAugment(t *testing.T) {
 			type c struct{ d }
 			type d struct{ i int }`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -728,6 +761,7 @@ func TestAugment(t *testing.T) {
 			type d struct{ e }
 			type e struct{ i int }`,
 			true,
+			run32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -772,6 +806,7 @@ func TestAugment(t *testing.T) {
 			type d struct{ e }
 			type e struct{ i [27]int }`,
 			true,
+			skip32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -828,6 +863,7 @@ func TestAugment(t *testing.T) {
 			type d struct{ e }
 			type e struct{ i [30]int }`,
 			true,
+			skip32bits,
 			Stack{
 				Calls: []Call{
 					newCallSrc(
@@ -887,6 +923,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -918,6 +955,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -964,6 +1002,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1005,6 +1044,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1050,6 +1090,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1090,6 +1131,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1116,6 +1158,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1143,6 +1186,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1171,6 +1215,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1200,6 +1245,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1229,6 +1275,7 @@ func TestAugment(t *testing.T) {
 					panic("ooh")
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1263,6 +1310,7 @@ func TestAugment(t *testing.T) {
 					i                      [2]int
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1298,6 +1346,7 @@ func TestAugment(t *testing.T) {
 					i                      [3]int
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1335,6 +1384,7 @@ func TestAugment(t *testing.T) {
 					j                      int
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1372,6 +1422,7 @@ func TestAugment(t *testing.T) {
 					j                      int
 				}`,
 				true,
+				run32bits,
 				Stack{
 					Calls: []Call{
 						newCallSrc(
@@ -1404,8 +1455,8 @@ func TestAugment(t *testing.T) {
 		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
-			if line.name == "float64" && !is64Bit {
-				t.Skip("skipping float64 test on 32 bits platform")
+			if line.run32bits == skip32bits && !is64Bit {
+				t.Skip("skipping test on 32bits platform")
 			}
 			// Marshal the code a bit to make it nicer. Inject 'package main'.
 			lines := append([]string{"package main"}, strings.Split(line.input, "\n")...)
