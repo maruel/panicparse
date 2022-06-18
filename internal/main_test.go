@@ -129,8 +129,8 @@ func TestMainFn(t *testing.T) {
 //
 
 func compareString(t *testing.T, want, got string) {
-	helper(t)()
 	if diff := cmp.Diff(want, got); diff != "" {
+		t.Helper()
 		t.Fatalf("Mismatch (-want +got):\n%s", diff)
 	}
 }

@@ -1504,7 +1504,7 @@ func TestAugment(t *testing.T) {
 			// Run the command up to twice.
 
 			// Only disable inlining if necessary.
-			disableInline := hasInlining && line.mayBeInlined
+			disableInline := line.mayBeInlined
 			content := getCrash(t, main, disableInline)
 			t.Log("First")
 			// Warning: this function modifies want.
@@ -1733,6 +1733,7 @@ func getCrash(t *testing.T, main string, disableInline bool) []byte {
 	cmd.Env = overrideEnv(os.Environ(), "GOTRACEBACK", "1")
 	out, err := cmd.CombinedOutput()
 	if err == nil {
+		t.Helper()
 		t.Fatal("expected error since this is supposed to crash")
 	}
 	return out
@@ -1740,7 +1741,6 @@ func getCrash(t *testing.T, main string, disableInline bool) []byte {
 
 // zapPointers zaps out pointers in got.
 func zapPointers(t *testing.T, want, got *Stack) {
-	helper(t)()
 	for i := range got.Calls {
 		if i >= len(want.Calls) {
 			// When using GOTRACEBACK=2, it'll include runtime.main() and

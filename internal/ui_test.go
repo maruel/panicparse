@@ -206,8 +206,8 @@ func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {
 }
 
 func compareInt(t *testing.T, want, got int) {
-	helper(t)()
 	if want != got {
+		t.Helper()
 		t.Fatalf("%d != %d", want, got)
 	}
 }

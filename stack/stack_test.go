@@ -397,20 +397,21 @@ func newCallLocal(f string, a Args, s string, l int) Call {
 }
 
 func compareErr(t *testing.T, want, got error) {
-	helper(t)()
 	if want == nil && got == nil {
 		return
 	}
 	if want == nil || got == nil {
+		t.Helper()
 		t.Errorf("want: %v, got: %v", want, got)
 	} else if want.Error() != got.Error() {
+		t.Helper()
 		t.Errorf("want: %q, got: %q", want.Error(), got.Error())
 	}
 }
 
 func compareString(t *testing.T, want, got string) {
-	helper(t)()
 	if want != got {
+		t.Helper()
 		t.Fatalf("%q != %q", want, got)
 	}
 }
@@ -419,15 +420,16 @@ func compareString(t *testing.T, want, got string) {
 //
 // Warning: it mutates inputs.
 func similarGoroutines(t *testing.T, want, got []*Goroutine) {
-	helper(t)()
 	zapGoroutines(t, want, got)
 	if diff := cmp.Diff(want, got); diff != "" {
+		t.Helper()
 		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
 	}
 }
 
 func zapGoroutines(t *testing.T, want, got []*Goroutine) {
 	if len(want) != len(got) {
+		t.Helper()
 		t.Error("different []*Goroutine length")
 		return
 	}
@@ -441,15 +443,16 @@ func zapGoroutines(t *testing.T, want, got []*Goroutine) {
 //
 // Warning: it mutates inputs.
 func similarSignatures(t *testing.T, want, got *Signature) {
-	helper(t)()
 	zapSignatures(t, want, got)
 	if diff := cmp.Diff(want, got); diff != "" {
+		t.Helper()
 		t.Fatalf("Signature mismatch (-want +got):\n%s", diff)
 	}
 }
 
 func zapSignatures(t *testing.T, want, got *Signature) {
 	// Signature.Stack.([]Call)
+	t.Helper()
 	if len(want.Stack.Calls) != len(got.Stack.Calls) {
 		t.Error("different call length")
 		return
@@ -465,8 +468,12 @@ func zapSignatures(t *testing.T, want, got *Signature) {
 
 func zapStacks(t *testing.T, want, got *Stack) {
 	if len(want.Calls) != len(got.Calls) {
+		t.Helper()
 		t.Error("different Stack.[]Call length")
 		return
+	}
+	if len(want.Calls) != 0 {
+		t.Helper()
 	}
 	for i := range want.Calls {
 		zapCalls(t, &want.Calls[i], &got.Calls[i])
@@ -474,6 +481,7 @@ func zapStacks(t *testing.T, want, got *Stack) {
 }
 
 func zapCalls(t *testing.T, want, got *Call) {
+	t.Helper()
 	if want.Line != 0 && got.Line != 0 {
 		want.Line = 42
 		got.Line = 42
@@ -483,8 +491,12 @@ func zapCalls(t *testing.T, want, got *Call) {
 
 func zapArgs(t *testing.T, want, got *Args) {
 	if len(want.Values) != len(got.Values) {
+		t.Helper()
 		t.Error("different Args.Values length")
 		return
+	}
+	if len(want.Values) != 0 {
+		t.Helper()
 	}
 	for i := range want.Values {
 		if want.Values[i].Value != 0 && got.Values[i].Value != 0 {
@@ -505,15 +517,15 @@ func zapArgs(t *testing.T, want, got *Args) {
 }
 
 func compareGoroutines(t *testing.T, want, got []*Goroutine) {
-	helper(t)()
 	if diff := cmp.Diff(want, got); diff != "" {
+		t.Helper()
 		t.Fatalf("Goroutine mismatch (-want +got):\n%s", diff)
 	}
 }
 
 func compareStacks(t *testing.T, want, got *Stack) {
-	helper(t)()
 	if diff := cmp.Diff(want, got); diff != "" {
+		t.Helper()
 		t.Fatalf("Stack mismatch (-want +got):\n%s", diff)
 	}
 }

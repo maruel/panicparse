@@ -216,7 +216,7 @@ func Compile(in, exe, cwd string, disableInlining, race bool) error {
 		if race && strings.HasPrefix(string(out), "go test: -race is only supported on ") {
 			return errNoRace
 		}
-		return fmt.Errorf("compile failure: "+wrap+"\n%s", err, out)
+		return fmt.Errorf("compile failure: %w\n%s", err, out)
 	}
 	return nil
 }

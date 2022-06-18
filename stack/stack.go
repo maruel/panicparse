@@ -71,7 +71,7 @@ func (f *Func) Init(raw string) error {
 	// Only the path part is escaped.
 	var err error
 	if f.Complete, err = url.QueryUnescape(raw); err != nil {
-		return fmt.Errorf("bad function reference: "+wrap, err)
+		return fmt.Errorf("bad function reference: %w", err)
 	}
 	// Update the index in the unescaped string.
 	endPkg += len(f.Complete) - len(raw)

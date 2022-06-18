@@ -182,9 +182,6 @@ func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pat
 }
 
 func showBanner() bool {
-	if !showGOTRACEBACKBanner {
-		return false
-	}
 	gtb := os.Getenv("GOTRACEBACK")
 	return gtb == "" || gtb == "single"
 }
@@ -294,7 +291,7 @@ func Main() error {
 		// Do not handle SIGQUIT when passed a file to process.
 		name := flag.Arg(0)
 		if in, err = os.Open(name); err != nil {
-			return fmt.Errorf("did you mean to specify a valid stack dump file name? "+wrap, err)
+			return fmt.Errorf("did you mean to specify a valid stack dump file name? %w", err)
 		}
 		defer in.Close()
 

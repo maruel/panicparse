@@ -15,7 +15,7 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
-   * Go 1.17 stack trace support.
+   * Go 1.18 stack trace support. Requires >=go1.13.
    * Full go module support.
    * Race detector support.
    * HTML export.
@@ -116,9 +116,10 @@ Run `go tool compile -help` to get the full list of valid values for -gcflags.
 
 ### GOTRACEBACK
 
-Starting with Go 1.6, [`GOTRACEBACK`](https://golang.org/pkg/runtime/) defaults
-to `single` instead of `all` / `1` that was used in 1.5 and before. To get all
-goroutines trace and not just the crashing one, set the environment variable:
+By default, [`GOTRACEBACK`](https://golang.org/pkg/runtime/) defaults to
+`single`, which means that a panic will only return the current goroutine trace
+alone. To get all goroutines trace and not just the crashing one, set the
+environment variable:
 
     export GOTRACEBACK=all
 

@@ -386,8 +386,8 @@ func BenchmarkAggregate(b *testing.B) {
 }
 
 func compareBuckets(t *testing.T, want, got []*Bucket) {
-	helper(t)()
 	if diff := cmp.Diff(want, got); diff != "" {
+		t.Helper()
 		t.Fatalf("Bucket mismatch (-want +got):\n%s", diff)
 	}
 }

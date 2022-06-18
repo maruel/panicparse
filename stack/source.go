@@ -79,7 +79,7 @@ func (c *cacheAST) loadFile(fileName string) error {
 	fset := token.NewFileSet()
 	parsed, err := parser.ParseFile(fset, fileName, src, 0)
 	if err != nil {
-		return fmt.Errorf("failed to parse "+wrap, err)
+		return fmt.Errorf("failed to parse %w", err)
 	}
 	c.parsed[fileName] = &parsedFile{
 		lineToByteOffset: lineToByteOffsets(src),
