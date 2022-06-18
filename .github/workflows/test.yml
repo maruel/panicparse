@@ -242,3 +242,28 @@ jobs:
     - uses: actions/checkout@v3
     - name: 'Check: go test'
       run: go test -timeout=40s ./...
+
+  codeql:
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        # Do not forget to bump every 6 months!
+        gover: ["1.18"]
+    permissions:
+      security-events: write
+    runs-on: ubuntu-latest
+    name: "go${{matrix.gover}}.x on ubuntu-latest (codeql)"
+    steps:
+    - uses: actions/setup-go@v3
+      with:
+        go-version: "${{matrix.gover}}"
+    - uses: actions/checkout@v3
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: go
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
