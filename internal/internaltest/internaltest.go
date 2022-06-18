@@ -213,8 +213,13 @@ func Compile(in, exe, cwd string, disableInlining, race bool) error {
 	c := exec.Command("go", append(args, in)...)
 	c.Dir = cwd
 	if out, err := c.CombinedOutput(); err != nil {
-		if race && strings.HasPrefix(string(out), "go test: -race is only supported on ") {
-			return errNoRace
+		if race {
+			s := string(out)
+			const e1 = "go test: -race is only supported on "
+			const e2 = "go build: -race is only supported on "
+			if strings.HasPrefix(s, e1) || strings.HasPrefix(s, e2) {
+				return errNoRace
+			}
 		}
 		return fmt.Errorf("compile failure: %w\n%s", err, out)
 	}

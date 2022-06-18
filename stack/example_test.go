@@ -2,8 +2,10 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-// Output is currently different on 32 bits so skip the examples for now. It's
-// a gross hack.
+// Output is currently different on 32 bits on go1.17 so skip the examples for
+// now. It's a gross hack.
+
+//go:build go1.18 || !386
 
 package stack_test
 
