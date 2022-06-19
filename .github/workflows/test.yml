@@ -53,66 +53,15 @@ jobs:
         path: ~/go
         key: "${{runner.os}}-gopkg-${{hashFiles('go.sum', '.github/workflows/*.yml')}}"
 
-      # Run tests first because it's important.
-    - name: 'Check: go test -cover'
-      run: go test -timeout=120s -covermode=count -coverprofile coverage.txt ./...
-      # Don't send code coverage if anything failed to reduce spam.
-    - uses: codecov/codecov-action@v2
-    - name: 'Cleanup'
-      if: always()
-      run: rm coverage.txt
-
-      # Don't run go test -race if anything failed, to speed up the results.
-    - name: 'Check: go test -race'
-      run: go test -timeout=60s -race ./...
-    - name: 'Check: go test -bench=.'
-      run: go test -timeout=60s -bench=. -benchtime=100ms -cpu=1 -run NONE ./...
-
-    - name: "Check: tree is clean"
-      if: always()
-      run: |
-        # Nothing should have changed in the tree up to that point and no
-        # unsuspected file was created.
-        TOUCHED=$(git status --porcelain)
-        if ! test -z "$TOUCHED"; then
-          echo "Oops, something touched these files, please cleanup:"
-          echo "$TOUCHED"
-          git diff
-          false
-        fi
-
-    - name: "Check: go generate doesn't modify files"
-      if: always()
-      run: |
-        go generate ./...
-        TOUCHED=$(git status --porcelain)
-        if ! test -z "$TOUCHED"; then
-          echo "go generate created these files, please fix:"
-          echo "$TOUCHED"
-          false
-        fi
-
-    - name: "Check: go mod tidy doesn't modify files"
-      if: always()
-      run: |
-        go mod tidy
-        TOUCHED=$(git status --porcelain)
-        if ! test -z "$TOUCHED"; then
-          echo "go mod tidy was not clean, please update:"
-          git diff
-          false
-        fi
-
       # Fetch the tools.
-    - name: 'go get necessary tools'
+    - name: 'go install necessary tools'
       if: always()
       run: |
         go install github.com/gordonklaus/ineffassign@latest
         go install github.com/securego/gosec/v2/cmd/gosec@latest
-        go install golang.org/x/lint/golint@latest
         go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
         go install honnef.co/go/tools/cmd/staticcheck@latest
-    - name: 'go get necessary tools (ubuntu)'
+    - name: 'go install necessary tools (ubuntu)'
       if: always() && matrix.os == 'ubuntu-latest'
       run: |
         go install github.com/client9/misspell/cmd/misspell@latest
@@ -129,9 +78,6 @@ jobs:
           SHADOW_TOOL="${SHADOW_TOOL}.exe"
         fi
         go vet -vettool=$SHADOW_TOOL ./...
-    - name: 'Check: golint'
-      if: always()
-      run: golint -set_exit_status ./...
     - name: 'Check: inefficient variable assignment'
       if: always()
       run: ineffassign ./...
@@ -180,6 +126,56 @@ jobs:
           echo "" >> _comments.txt
           echo "$ERR" >> _comments.txt
           echo "" >> _comments.txt
+          false
+        fi
+
+      # Run tests last since it's potentially the slowest step.
+    - name: 'Check: go test -cover'
+      run: go test -timeout=120s -covermode=count -coverprofile coverage.txt ./...
+      # Don't send code coverage if anything failed to reduce spam.
+    - uses: codecov/codecov-action@v2
+    - name: 'Cleanup'
+      if: always()
+      run: rm coverage.txt
+      # Don't run go test -race if anything failed, to speed up the results.
+    - name: 'Check: go test -race'
+      run: go test -timeout=60s -race ./...
+    - name: 'Check: go test -bench=.'
+      run: go test -timeout=60s -bench=. -benchtime=100ms -cpu=1 -run NONE ./...
+
+    - name: "Check: tree is clean"
+      if: always()
+      run: |
+        # Nothing should have changed in the tree up to that point and no
+        # unsuspected file was created.
+        TOUCHED=$(git status --porcelain --ignored)
+        if ! test -z "$TOUCHED"; then
+          echo "Oops, something touched these files, please cleanup:"
+          echo "$TOUCHED"
+          git diff
+          false
+        fi
+
+    - name: "Check: go generate doesn't modify files"
+      if: always()
+      run: |
+        go generate ./...
+        # Also test for untracked files.
+        TOUCHED=$(git status --porcelain --ignored)
+        if ! test -z "$TOUCHED"; then
+          echo "go generate created these files, please fix:"
+          echo "$TOUCHED"
+          false
+        fi
+
+    - name: "Check: go mod tidy doesn't modify files"
+      if: always()
+      run: |
+        go mod tidy
+        TOUCHED=$(git status --porcelain --ignored)
+        if ! test -z "$TOUCHED"; then
+          echo "go mod tidy was not clean, please update:"
+          git diff
           false
         fi
 
