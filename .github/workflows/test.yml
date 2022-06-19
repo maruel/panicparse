@@ -131,6 +131,7 @@ jobs:
 
       # Run tests last since it's potentially the slowest step.
     - name: 'Check: go test -cover'
+      if: always()
       run: go test -timeout=120s -covermode=count -coverprofile coverage.txt ./...
       # Don't send code coverage if anything failed to reduce spam.
     - uses: codecov/codecov-action@v2
