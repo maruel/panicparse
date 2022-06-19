@@ -50,7 +50,7 @@ jobs:
         go install github.com/maruel/pat/cmd/ba@latest
     - name: 'Check: go test -cover'
       if: always()
-      run: go test -timeout=120s -covermode=count -coverprofile coverage.txt ./...
+      run: go test -timeout=120s -covermode=count -coverprofile coverage.txt -bench=. -benchtime=1x ./...
       # Don't send code coverage if anything failed to reduce spam.
     - uses: codecov/codecov-action@v2
     - name: 'Cleanup'
