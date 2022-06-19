@@ -3,13 +3,14 @@
 # that can be found in the LICENSE file.
 
 # References:
-# https://developer.github.com/webhooks/event-payloads/
-# https://github.com/actions/cache
 # https://github.com/actions/checkout
 # https://github.com/actions/setup-go
 # https://help.github.com/en/actions/configuring-and-managing-workflows/authenticating-with-the-github_token#using-the-github_token-in-a-workflow
 # https://help.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions/
 # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions
+# https://docs.github.com/en/rest/commits/comments#create-a-commit-comment
+# https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#pull_request
+# https://docs.github.com/en/actions/learn-github-actions/contexts
 
 on: [push, pull_request]
 name: Run tests
@@ -37,10 +38,16 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: git config --global core.autocrlf false
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
     - uses: actions/setup-go@v3
       with:
         go-version: "~${{matrix.gover}}.0"
         cache: true
+    - name: 'go install necessary tools'
+      if: always()
+      run: |
+        go install github.com/maruel/pat/cmd/ba@latest
     - name: 'Check: go test -cover'
       if: always()
       run: go test -timeout=120s -covermode=count -coverprofile coverage.txt ./...
@@ -50,9 +57,9 @@ jobs:
       if: always()
       run: rm coverage.txt
     - name: 'Check: go test -race'
-      run: go test -timeout=60s -race ./...
-    - name: 'Check: go test -bench=.'
-      run: go test -timeout=60s -bench=. -benchtime=100ms -cpu=1 -run NONE ./...
+      run: go test -timeout=120s -race ./...
+    - name: 'Check: benchmark 📈'
+      run: ba -a HEAD~1
     - name: 'Check: go test (32 bits, short)'
       if: matrix.os != 'macos-latest'
       env:
@@ -140,6 +147,7 @@ jobs:
       if: always()
       run: staticcheck ./...
     - name: 'Check: gosec'
+      if: always()
       run: gosec -exclude=G103,G107,G108,G203,G204,G304,G307 -fmt=golint -quiet ./...
       # The following checks are not dependent on the OS or go build tags. Only
       # run them on ubuntu-latest since it's the fastest one.
@@ -164,10 +172,10 @@ jobs:
             echo "- ${FILE}" >> _gofmt.txt
           done
           cat _gofmt.txt
-          echo "## ⚠ gofmt Failed" >> _comments.txt
-          echo "" >> _comments.txt
-          cat _gofmt.txt >> _comments.txt
-          echo "" >> _comments.txt
+          echo "## ⚠ gofmt Failed" >> ../_comments.txt
+          echo "" >> ../_comments.txt
+          cat _gofmt.txt >> ../_comments.txt
+          echo "" >> ../_comments.txt
           false
         fi
     - name: "Check: misspelling; code doesn't contain misspelling (ubuntu)"
@@ -176,24 +184,27 @@ jobs:
         ERR=$(misspell .)
         if ! test -z "$ERR"; then
           echo "$ERR"
-          echo "## ⚠ misspell Failed" >> _comments.txt
-          echo "" >> _comments.txt
-          echo "$ERR" >> _comments.txt
-          echo "" >> _comments.txt
+          echo "## ⚠ misspell Failed" >> ../_comments.txt
+          echo "" >> ../_comments.txt
+          echo "$ERR" >> ../_comments.txt
+          echo "" >> ../_comments.txt
           false
         fi
     - name: 'Send comments'
-      if: failure() && github.event_name == 'pull_request'
+      if: failure()
       run: |
-        if [ -f _comments.txt ]; then
-          URL=$(cat ${GITHUB_EVENT_PATH} | jq -r .pull_request.comments_url)
-          echo "Sending $(cat _comments.txt|wc -l) lines of comments to ${URL}"
-          PAYLOAD=$(echo '{}' | jq --arg body "$(cat _comments.txt)" '.body = $body')
+        if [ -f ../_comments.txt ]; then
+          URL="${{github.event.issue.pull_request.url}}"
+          if test -z "$URL"; then
+            URL="${{github.api_url}}/repos/${{github.repository}}/commits/${{github.sha}}/comments"
+          fi
+          echo "Sending $(cat ../_comments.txt|wc -l) lines of comments to ${URL}"
           curl -sS --request POST \
             --header "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
             --header "Content-Type: application/json" \
-            --data "${PAYLOAD}" "${URL}" > /dev/null
-          rm _comments.txt
+            --data "$(cat ../_comments.txt | jq -R --slurp '{body: .}')" \
+            "${URL}" > /dev/null
+          rm ../_comments.txt
         fi
     - name: "Check: go generate doesn't modify files"
       if: always()
