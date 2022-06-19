@@ -14,7 +14,12 @@
 on: [push, pull_request]
 name: Run tests
 jobs:
-  test_all:
+    # Runs go test both with code coverage sent to codecov, race detector and
+    # benchmarks. At the end do a quick check to ensure the tests to not leave
+    # files in the tree.
+  test:
+    name: "test: go${{matrix.gover}}.x/${{matrix.os}}"
+    runs-on: "${{matrix.os}}"
     continue-on-error: true
     defaults:
       run:
@@ -25,19 +30,78 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
         gover: ["1.18"]
-    runs-on: "${{matrix.os}}"
-    name: "go${{matrix.gover}}.x on ${{matrix.os}}"
     env:
       PYTHONDONTWRITEBYTECODE: x
     steps:
-    - uses: actions/setup-go@v3
-      with:
-        go-version: "${{matrix.gover}}"
-
-      # Checkout and print debugging information.
     - name: Turn off git core.autocrlf
+      if: matrix.os == 'windows-latest'
       run: git config --global core.autocrlf false
     - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: "~${{matrix.gover}}.0"
+        cache: true
+    - name: 'Check: go test -cover'
+      if: always()
+      run: go test -timeout=120s -covermode=count -coverprofile coverage.txt ./...
+      # Don't send code coverage if anything failed to reduce spam.
+    - uses: codecov/codecov-action@v2
+    - name: 'Cleanup'
+      if: always()
+      run: rm coverage.txt
+    - name: 'Check: go test -race'
+      run: go test -timeout=60s -race ./...
+    - name: 'Check: go test -bench=.'
+      run: go test -timeout=60s -bench=. -benchtime=100ms -cpu=1 -run NONE ./...
+    - name: 'Check: go test (32 bits, short)'
+      if: matrix.os != 'macos-latest'
+      env:
+        GOARCH: 386
+      run: go test -timeout=40s -short ./...
+    - name: "Check: tree is clean"
+      if: always()
+      run: |
+        # Nothing should have changed in the tree up to that point and no
+        # unsuspected file was created.
+        TOUCHED=$(git status --porcelain --ignored)
+        if ! test -z "$TOUCHED"; then
+          echo "Oops, something touched these files, please cleanup:"
+          echo "$TOUCHED"
+          git diff
+          false
+        fi
+
+
+    # Run linters. This workflow can be merged with the test_all one if desired
+    # to cut on runtime, at the cost of latency. I dislike waiting for results
+    # so I prefer to run them in parallel.
+  lint:
+    name: "lint: go${{matrix.gover}}.x/${{matrix.os}}"
+    runs-on: "${{matrix.os}}"
+    continue-on-error: true
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        # You may want to run only on linux to save on cost. Projects with
+        # OS-specific code benefits from explicitly linting on macOS and
+        # Windows.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Do not forget to bump every 6 months!
+        gover: ["1.18"]
+    env:
+      PYTHONDONTWRITEBYTECODE: x
+    steps:
+    - name: Turn off git core.autocrlf
+      if: matrix.os == 'windows-latest'
+      run: git config --global core.autocrlf false
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: "~${{matrix.gover}}.0"
+        cache: true
     - name: "Debug"
       run: |
         echo HOME = $HOME
@@ -46,14 +110,6 @@ jobs:
         echo ""
         echo $ ls -l $HOME/go/bin
         ls -la $HOME/go/bin
-
-    - name: 'Cache: ~/go'
-      uses: actions/cache@v2
-      with:
-        path: ~/go
-        key: "${{runner.os}}-gopkg-${{hashFiles('go.sum', '.github/workflows/*.yml')}}"
-
-      # Fetch the tools.
     - name: 'go install necessary tools'
       if: always()
       run: |
@@ -66,12 +122,11 @@ jobs:
       run: |
         go install github.com/client9/misspell/cmd/misspell@latest
         go install github.com/google/addlicense@latest
-
-      # Now run proper checks.
     - name: 'Check: go vet'
       if: always()
       run: go vet ./...
     - name: 'Check: go vet shadow; shadowed variables'
+      if: always()
       run: |
         SHADOW_TOOL="$(which shadow)"
         if [ -f "${SHADOW_TOOL}.exe" ]; then
@@ -84,9 +139,8 @@ jobs:
     - name: 'Check: staticcheck'
       if: always()
       run: staticcheck ./...
-    - name: 'Check: gosec (only a subset)'
+    - name: 'Check: gosec'
       run: gosec -exclude=G103,G107,G108,G203,G204,G304,G307 -fmt=golint -quiet ./...
-
       # The following checks are not dependent on the OS or go build tags. Only
       # run them on ubuntu-latest since it's the fastest one.
     - name: 'Check: no executable was committed (ubuntu)'
@@ -96,6 +150,9 @@ jobs:
           echo 'Do not commit executables beside shell scripts'
           false
         fi
+    - name: 'Check: addlicense; all sources have a license header (ubuntu)'
+      if: always() && matrix.os == 'ubuntu-latest'
+      run: addlicense -check .
     - name: 'Check: gofmt; code is well formatted (ubuntu)'
       if: always() && matrix.os == 'ubuntu-latest'
       run: |
@@ -113,9 +170,6 @@ jobs:
           echo "" >> _comments.txt
           false
         fi
-    - name: 'Check: addlicense; all sources have a license header (ubuntu)'
-      if: always() && matrix.os == 'ubuntu-latest'
-      run: addlicense -check .
     - name: "Check: misspelling; code doesn't contain misspelling (ubuntu)"
       if: always() && matrix.os == 'ubuntu-latest'
       run: |
@@ -128,58 +182,6 @@ jobs:
           echo "" >> _comments.txt
           false
         fi
-
-      # Run tests last since it's potentially the slowest step.
-    - name: 'Check: go test -cover'
-      if: always()
-      run: go test -timeout=120s -covermode=count -coverprofile coverage.txt ./...
-      # Don't send code coverage if anything failed to reduce spam.
-    - uses: codecov/codecov-action@v2
-    - name: 'Cleanup'
-      if: always()
-      run: rm coverage.txt
-      # Don't run go test -race if anything failed, to speed up the results.
-    - name: 'Check: go test -race'
-      run: go test -timeout=60s -race ./...
-    - name: 'Check: go test -bench=.'
-      run: go test -timeout=60s -bench=. -benchtime=100ms -cpu=1 -run NONE ./...
-
-    - name: "Check: tree is clean"
-      if: always()
-      run: |
-        # Nothing should have changed in the tree up to that point and no
-        # unsuspected file was created.
-        TOUCHED=$(git status --porcelain --ignored)
-        if ! test -z "$TOUCHED"; then
-          echo "Oops, something touched these files, please cleanup:"
-          echo "$TOUCHED"
-          git diff
-          false
-        fi
-
-    - name: "Check: go generate doesn't modify files"
-      if: always()
-      run: |
-        go generate ./...
-        # Also test for untracked files.
-        TOUCHED=$(git status --porcelain --ignored)
-        if ! test -z "$TOUCHED"; then
-          echo "go generate created these files, please fix:"
-          echo "$TOUCHED"
-          false
-        fi
-
-    - name: "Check: go mod tidy doesn't modify files"
-      if: always()
-      run: |
-        go mod tidy
-        TOUCHED=$(git status --porcelain --ignored)
-        if ! test -z "$TOUCHED"; then
-          echo "go mod tidy was not clean, please update:"
-          git diff
-          false
-        fi
-
     - name: 'Send comments'
       if: failure() && github.event_name == 'pull_request'
       run: |
@@ -191,29 +193,60 @@ jobs:
             --header "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
             --header "Content-Type: application/json" \
             --data "${PAYLOAD}" "${URL}" > /dev/null
+          rm _comments.txt
+        fi
+    - name: "Check: go generate doesn't modify files"
+      if: always()
+      run: |
+        go generate ./...
+        # Also test for untracked files. go generate should not generate ignored
+        # files either.
+        TOUCHED=$(git status --porcelain --ignored)
+        if ! test -z "$TOUCHED"; then
+          echo "go generate created these files, please fix:"
+          echo "$TOUCHED"
+          false
+        fi
+    - name: "Check: go mod tidy doesn't modify files"
+      if: always()
+      run: |
+        go mod tidy
+        TOUCHED=$(git status --porcelain --ignored)
+        if ! test -z "$TOUCHED"; then
+          echo "go mod tidy was not clean, please update:"
+          git diff
+          false
         fi
 
+
     # Run on older Go versions while inside GOPATH, which tests different parts
-    # of the code. go modules will be used on 1.13 and later but not before.
-  test_short:
-    env:
-      GOPATH: ${{github.workspace}}
-      GO111MODULE: off
+    # of the code. This is panicparse specific and will be removed after 2022.
+  gopath:
+    name: "gopath: go${{matrix.gover}}/${{matrix.os}}"
+    runs-on: "${{matrix.os}}"
     continue-on-error: true
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
         gover: ['1.13.15', '1.14.7']
-    runs-on: "${{matrix.os}}"
-    name: "go${{matrix.gover}} on ${{matrix.os}} (quick)"
+    env:
+      PYTHONDONTWRITEBYTECODE: x
+      GOPATH: ${{github.workspace}}
+      GO111MODULE: off
     steps:
-    - uses: actions/setup-go@v3
-      with:
-        go-version: "${{matrix.gover}}"
+    - name: Turn off git core.autocrlf
+      if: matrix.os == 'windows-latest'
+      run: git config --global core.autocrlf false
     - uses: actions/checkout@v3
       with:
         path: src/github.com/maruel/panicparse
+    - uses: actions/setup-go@v3
+      with:
+        go-version: "=${{matrix.gover}}"
     - name: 'Check: go get -d -t'
       working-directory: src/github.com/maruel/panicparse
       run: go get -d -t ./...
@@ -221,41 +254,25 @@ jobs:
       working-directory: src/github.com/maruel/panicparse
       run: go test -timeout=40s ./...
 
-  test_32bits:
-    env:
-      GOARCH: 386
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        # Do not forget to bump every 6 months!
-        gover: ["1.17", "1.18"]
-    runs-on: ubuntu-latest
-    name: "go${{matrix.gover}}.x on ubuntu-latest 32 bits (quick)"
-    steps:
-    - uses: actions/setup-go@v3
-      with:
-        go-version: "${{matrix.gover}}"
-    - uses: actions/checkout@v3
-    - name: 'Check: go test'
-      run: go test -timeout=40s ./...
 
   codeql:
+    name: "codeql: go${{matrix.gover}}.x/${{matrix.os}}"
+    runs-on: "${{matrix.os}}"
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         # Do not forget to bump every 6 months!
         gover: ["1.18"]
     permissions:
       security-events: write
-    runs-on: ubuntu-latest
-    name: "go${{matrix.gover}}.x on ubuntu-latest (codeql)"
     steps:
+    - uses: actions/checkout@v3
     - uses: actions/setup-go@v3
       with:
-        go-version: "${{matrix.gover}}"
-    - uses: actions/checkout@v3
+        go-version: "~${{matrix.gover}}.0"
+        cache: true
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v2
       with:
