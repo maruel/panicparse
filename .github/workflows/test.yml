@@ -59,7 +59,7 @@ jobs:
     - name: 'Check: go test -race'
       run: go test -timeout=120s -race -bench=. -benchtime=1x ./...
     - name: 'Check: benchmark 📈'
-      run: ba -a HEAD~1
+      run: ba -against HEAD~1
     - name: 'Check: go test -short (CGO_ENABLED=0)'
       env:
         CGO_ENABLED: 0
@@ -135,7 +135,7 @@ jobs:
         go install github.com/google/addlicense@latest
     - name: 'Check: go vet'
       if: always()
-      run: go vet ./...
+      run: go vet -unsafeptr=false ./...
     - name: 'Check: go vet shadow; shadowed variables'
       if: always()
       run: |
