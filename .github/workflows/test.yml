@@ -57,18 +57,18 @@ jobs:
       if: always()
       run: rm coverage.txt
     - name: 'Check: go test -race'
-      run: go test -timeout=120s -race ./...
+      run: go test -timeout=120s -race -bench=. -benchtime=1x ./...
     - name: 'Check: benchmark 📈'
       run: ba -a HEAD~1
     - name: 'Check: go test -short (CGO_ENABLED=0)'
       env:
         CGO_ENABLED: 0
-      run: go test -timeout=120s -short ./...
+      run: go test -timeout=120s -short -bench=. -benchtime=1x ./...
     - name: 'Check: go test -short (32 bits)'
       if: matrix.os != 'macos-latest'
       env:
         GOARCH: 386
-      run: go test -timeout=120s -short ./...
+      run: go test -timeout=120s -short -bench=. -benchtime=1x ./...
     - name: "Check: tree is clean"
       if: always()
       run: |
