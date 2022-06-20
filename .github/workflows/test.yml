@@ -60,11 +60,15 @@ jobs:
       run: go test -timeout=120s -race ./...
     - name: 'Check: benchmark 📈'
       run: ba -a HEAD~1
-    - name: 'Check: go test (32 bits, short)'
+    - name: 'Check: go test -short (CGO_ENABLED=0)'
+      env:
+        CGO_ENABLED: 0
+      run: go test -timeout=120s -short ./...
+    - name: 'Check: go test -short (32 bits)'
       if: matrix.os != 'macos-latest'
       env:
         GOARCH: 386
-      run: go test -timeout=40s -short ./...
+      run: go test -timeout=120s -short ./...
     - name: "Check: tree is clean"
       if: always()
       run: |
@@ -230,10 +234,11 @@ jobs:
         fi
 
 
-    # Run on older Go versions while inside GOPATH, which tests different parts
+    # Ensure tests pass on oldest supported Go version.
+    # Do while inside GOPATH, which tests different parts
     # of the code. This is panicparse specific and will be removed after 2022.
-  gopath:
-    name: "gopath: go${{matrix.gover}}/${{matrix.os}}"
+  old:
+    name: "test: go${{matrix.gover}}/${{matrix.os}}"
     runs-on: "${{matrix.os}}"
     continue-on-error: true
     defaults:
@@ -263,7 +268,7 @@ jobs:
       run: go get -d -t ./...
     - name: 'Check: go test'
       working-directory: src/github.com/maruel/panicparse
-      run: go test -timeout=40s ./...
+      run: go test -timeout=120s ./...
 
 
   codeql:
