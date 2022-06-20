@@ -1381,6 +1381,7 @@ func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 	if !s.guessPaths() {
 		t.Error("expected success")
 	}
+	// This is a change detector on internal/main.go.
 	want = []*Goroutine{
 		{
 			Signature: Signature{
@@ -1397,7 +1398,7 @@ func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 							"main.glob..func9",
 							Args{},
 							pathJoin(ppDir, "main.go"),
-							311,
+							312,
 						),
 						newCallLocal(
 							"main.main",
@@ -2350,7 +2351,8 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			if !b.Signature.Locked {
 				t.Fatal("expected Locked")
 			}
-			want := Stack{Calls: []Call{newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 139)}}
+			// This is a change detector on internal/main.go.
+			want := Stack{Calls: []Call{newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 141)}}
 			compareStacks(t, &b.Signature.CreatedBy, &want)
 			for i := range b.Signature.Stack.Calls {
 				if strings.HasPrefix(b.Signature.Stack.Calls[i].ImportPath, "github.com/mattn/go-colorable") {

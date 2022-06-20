@@ -124,6 +124,7 @@ func panicRaceDisabled(name string) {
 func rerunWithFastCrash() {
 	if os.Getenv("GORACE") != "log_path=stderr halt_on_error=1" {
 		_ = os.Setenv("GORACE", "log_path=stderr halt_on_error=1")
+		/* #nosec G204 */
 		c := exec.Command(os.Args[0], os.Args[1:]...)
 		c.Stderr = os.Stderr
 		if err, ok := c.Run().(*exec.ExitError); ok {

@@ -72,7 +72,8 @@ func funcClass(c *Call) template.HTML {
 	if c.Func.IsExported {
 		s += " Exported"
 	}
-	return template.HTML("Func" + s)
+	/* #nosec G203 */
+	return template.HTML("Func") + template.HTML(template.HTMLEscapeString(s))
 }
 
 func minus(i, j int) int {
@@ -107,9 +108,9 @@ func pkgURL(c *Call) template.URL {
 		}
 	}
 	if c.Func.IsExported {
-		return template.URL(url + ip + "#" + symbol(&c.Func))
+		return url + ip + template.URL("#") + symbol(&c.Func)
 	}
-	return template.URL(url + ip)
+	return url + ip
 }
 
 // srcURL returns an URL to the sources.
@@ -117,13 +118,14 @@ func pkgURL(c *Call) template.URL {
 // TODO(maruel): Support custom local godoc server as it serves files too.
 func srcURL(c *Call) template.URL {
 	url, _ := getSrcBranchURL(c)
-	return template.URL(url)
+	return url
 }
 
 func escape(s string) template.URL {
 	// That's the only way I found to get the kind of escaping I wanted, where
 	// '/' is not escaped.
 	u := url.URL{Path: s}
+	/* #nosec G203 */
 	return template.URL(u.EscapedPath())
 }
 
@@ -140,6 +142,7 @@ func getSrcBranchURL(c *Call) (template.URL, template.URL) {
 			ver = ver[len(devel) : len(devel)+10]
 		}
 		tag = url.QueryEscape(ver)
+		/* #nosec G203 */
 		return template.URL(fmt.Sprintf("https://github.com/golang/go/blob/%s/src/%s#L%d", tag, escape(c.RelSrcPath), c.Line)), template.URL(tag)
 	}
 	// TODO(maruel): Leverage Location.
@@ -156,6 +159,7 @@ func getSrcBranchURL(c *Call) (template.URL, template.URL) {
 			if parts := strings.SplitN(rest, "/", 3); len(parts) == 3 {
 				p, srcTag, tag := splitTag(parts[1])
 				url := fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s#L%d", escape(parts[0]), p, srcTag, escape(parts[2]), c.Line)
+				/* #nosec G203 */
 				return template.URL(url), tag
 			}
 			log.Printf("problematic github.com URL: %q", rel)
@@ -168,6 +172,7 @@ func getSrcBranchURL(c *Call) (template.URL, template.URL) {
 				// The source of truth is are actually go.googlesource.com, but
 				// github.com has nicer syntax highlighting.
 				url := fmt.Sprintf("https://github.com/golang/%s/blob/%s/%s#L%d", p, srcTag, escape(parts[2]), c.Line)
+				/* #nosec G203 */
 				return template.URL(url), tag
 			}
 			log.Printf("problematic golang.org URL: %q", rel)
@@ -185,9 +190,11 @@ func getSrcBranchURL(c *Call) (template.URL, template.URL) {
 	}
 
 	if c.LocalSrcPath != "" {
+		/* #nosec G203 */
 		return template.URL("file:///" + escape(c.LocalSrcPath)), template.URL(tag)
 	}
 	if c.RemoteSrcPath != "" {
+		/* #nosec G203 */
 		return template.URL("file:///" + escape(c.RemoteSrcPath)), template.URL(tag)
 	}
 	return "", ""
@@ -219,6 +226,7 @@ func splitTag(s string) (string, string, template.URL) {
 	if m := reVersion.FindStringSubmatch(tag); len(m) != 0 {
 		srcTag = m[1]
 	}
+	/* #nosec G203 */
 	return s[:i], url.QueryEscape(srcTag), template.URL(url.QueryEscape(tag))
 }
 
@@ -233,5 +241,6 @@ func symbol(f *Func) template.URL {
 		// Transform the method form.
 		s = reMethodSymbol.ReplaceAllString(s, "$1$2")
 	}
+	/* #nosec G203 */
 	return template.URL(url.QueryEscape(s))
 }

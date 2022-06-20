@@ -19,6 +19,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+
+	/* #nosec G108 */
 	_ "net/http/pprof"
 	"os"
 	"runtime"

@@ -18,6 +18,7 @@ var Unblock = make(chan struct{})
 // GetAsync does an HTTP GET to the URL but leaves the actual fetching to a
 // goroutine.
 func GetAsync(url string) {
+	/* #nosec G107 */
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalf("get %s: %v", url, err)

@@ -102,6 +102,7 @@ func TestProcessTwoSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// This is a change detector on main.go.
 	want := ("Ya\n" +
 		"GOTRACEBACK=all\n" +
 		"panic: simple\n\n" +
@@ -112,7 +113,7 @@ func TestProcessTwoSnapshots(t *testing.T) {
 		"panic: 42\n\n" +
 		"1: running\n" +
 		"    main main.go:90  panicint(0x2a)\n" +
-		"    main main.go:311 glob..func9()\n" +
+		"    main main.go:312 glob..func9()\n" +
 		"    main main.go:73  main()\n" +
 		"Yo\n")
 	compareString(t, want, out.String())

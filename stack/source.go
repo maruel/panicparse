@@ -71,6 +71,7 @@ func (c *cacheAST) loadFile(fileName string) error {
 		// Ignore C and assembly.
 		return fmt.Errorf("cannot load non-go file %q", fileName)
 	}
+	/* #nosec G304 */
 	src, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		return err

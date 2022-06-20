@@ -210,6 +210,7 @@ func Compile(in, exe, cwd string, disableInlining, race bool) error {
 	if race {
 		args = append(args, "-race")
 	}
+	/* #nosec G204 */
 	c := exec.Command("go", append(args, in)...)
 	c.Dir = cwd
 	if out, err := c.CombinedOutput(); err != nil {
@@ -231,6 +232,7 @@ func Compile(in, exe, cwd string, disableInlining, race bool) error {
 // It ignores the exit code, since it's meant to run panic, which crashes by
 // design.
 func execRun(cmd ...string) []byte {
+	/* #nosec G204 */
 	c := exec.Command(cmd[0], cmd[1:]...)
 	c.Env = append(os.Environ(), "GOTRACEBACK=all")
 	out, _ := c.CombinedOutput()

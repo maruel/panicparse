@@ -1010,6 +1010,7 @@ func (g *gomodCache) isGoModule(parts []string) (string, string) {
 		if runtime.GOOS == "windows" {
 			p = strings.Replace(p, "/", pathSeparator, -1)
 		}
+		/* #nosec G304 */
 		b, err := ioutil.ReadFile(p)
 		if err != nil {
 			continue
@@ -1198,5 +1199,6 @@ func trimCurlyBrackets(s []byte) (int, []byte, int) {
 //
 // A workaround for the absence of https://github.com/golang/go/issues/2632.
 func unsafeString(b []byte) string {
+	/* #nosec G103 */
 	return *(*string)(unsafe.Pointer(&b))
 }

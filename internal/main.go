@@ -109,6 +109,7 @@ type toHTMLer interface {
 }
 
 func toHTML(h toHTMLer, p string, needsEnv bool) error {
+	/* #nosec G304 */
 	f, err := os.Create(p)
 	if err != nil {
 		return err
@@ -290,9 +291,11 @@ func Main() error {
 	case 1:
 		// Do not handle SIGQUIT when passed a file to process.
 		name := flag.Arg(0)
+		/* #nosec G304 */
 		if in, err = os.Open(name); err != nil {
 			return fmt.Errorf("did you mean to specify a valid stack dump file name? %w", err)
 		}
+		/* #nosec G307 */
 		defer in.Close()
 
 	default:
