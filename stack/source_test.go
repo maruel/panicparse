@@ -607,7 +607,7 @@ func TestAugment(t *testing.T) {
 				panic("ooh")
 			}`,
 			true,
-			goarchList{"386"},
+			goarchList{"386", "arm", "mipsle"},
 			Stack{
 				Calls: []Call{
 					newCallSrc(
