@@ -30,7 +30,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.18"]
+        gover: ["1.19"]
     env:
       PYTHONDONTWRITEBYTECODE: x
     steps:
@@ -101,7 +101,7 @@ jobs:
         # Windows.
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.18"]
+        gover: ["1.19"]
     env:
       PYTHONDONTWRITEBYTECODE: x
     steps:
@@ -280,7 +280,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.18"]
+        gover: ["1.19"]
     permissions:
       security-events: write
     steps:

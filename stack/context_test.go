@@ -1546,11 +1546,18 @@ func TestGomoduleComplex(t *testing.T) {
 	}
 	rootLocal := rootRemote
 	if runtime.GOOS == "darwin" {
-		// On MacOS, the path is a symlink and it will be somehow evaluated when we
-		// get the traces back. This must NOT be run on Windows otherwise the path
-		// will be converted to 8.3 format.
-		if rootRemote, err = filepath.EvalSymlinks(rootLocal); err != nil {
-			t.Fatal(err)
+		if ver := internaltest.GetGoMinorVersion(); ver > 0 && ver < 19 {
+			// On MacOS, $TMPDIR path is a symlink /var -> /private/var.
+			//
+			// On versions before go1.19, it was somehow evaluated by exec.Cmd.Run().
+			// This stopped being true on go1.19. I suspect it is a side-effect of
+			// https://go.dev/doc/go1.19#os-exec-path
+			//
+			// This must NOT be run on Windows otherwise the path will be converted
+			// to 8.3 format.
+			if rootRemote, err = filepath.EvalSymlinks(rootLocal); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 
@@ -2386,9 +2393,15 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				if l := len(b.Stack.Calls); l != 4 {
 					t.Fatalf("expected %d calls, got %d", 4, l)
 				}
-				// The first item shall be an assembly file independent of the OS.
-				if s := b.Stack.Calls[0].RelSrcPath; !strings.HasSuffix(s, ".s") {
-					t.Fatalf("expected assembly file, got %q", s)
+				// The first item shall be an assembly file independent of the OS on Go
+				// < 1.19.
+				s := b.Stack.Calls[0].RelSrcPath
+				if ver := internaltest.GetGoMinorVersion(); ver > 0 && ver < 19 {
+					if !strings.HasSuffix(s, ".s") {
+						t.Fatalf("expected assembly file, got %q", s)
+					}
+				} else if !strings.HasPrefix(s, "syscall") && !strings.HasSuffix(s, ".go") {
+					t.Fatalf("expected syscall go file, got %q", s)
 				}
 			}
 			// Process the golang.org/x/sys call specifically.
