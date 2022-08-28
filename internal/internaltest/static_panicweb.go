@@ -6,7 +6,7 @@ package internaltest
 
 // staticPanicweb is a snapshot created by running:
 //
-//  bash static_panicweb.sh
+//	bash static_panicweb.sh
 //
 // Not using go:generate here since it takes 2 minutes to complete.
 const staticPanicweb = `goroutine 135 [running]:

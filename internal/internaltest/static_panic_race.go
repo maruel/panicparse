@@ -6,8 +6,8 @@ package internaltest
 
 // staticPanicRace is a snapshot created with:
 //
-//  go install -race github.com/maruel/panicparse/cmd/panic
-//  panic race |& sed "s#$HOME##g"
+//	go install -race github.com/maruel/panicparse/cmd/panic
+//	panic race |& sed "s#$HOME##g"
 //
 // when installed within $GOPATH.
 const staticPanicRace = `

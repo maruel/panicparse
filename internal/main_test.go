@@ -41,7 +41,7 @@ func TestProcess(t *testing.T) {
 			palette: testPalette,
 			simil:   stack.AnyPointer,
 			path:    basePath,
-			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:71 GmainR()A\n",
+			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:74 GmainR()A\n",
 		},
 		{
 			name:    "FullPath",
@@ -49,14 +49,14 @@ func TestProcess(t *testing.T) {
 			simil:   stack.AnyValue,
 			path:    fullPath,
 			// "/" is used even on Windows.
-			want: fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:71 GmainR()A\n", strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)),
+			want: fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:74 GmainR()A\n", strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)),
 		},
 		{
 			name:    "NoColor",
 			palette: &Palette{},
 			simil:   stack.AnyValue,
 			path:    basePath,
-			want:    "GOTRACEBACK=all\npanic: simple\n\n1: running\n    main main.go:71 main()\n",
+			want:    "GOTRACEBACK=all\npanic: simple\n\n1: running\n    main main.go:74 main()\n",
 		},
 		{
 			name:    "Match",
@@ -72,7 +72,7 @@ func TestProcess(t *testing.T) {
 			simil:   stack.AnyValue,
 			path:    basePath,
 			filter:  regexp.MustCompile(`notpresent`),
-			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:71 GmainR()A\n",
+			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:74 GmainR()A\n",
 		},
 	}
 	for i, line := range data {
@@ -107,14 +107,14 @@ func TestProcessTwoSnapshots(t *testing.T) {
 		"GOTRACEBACK=all\n" +
 		"panic: simple\n\n" +
 		"1: running\n" +
-		"    main main.go:71 main()\n" +
+		"    main main.go:74 main()\n" +
 		"Ye\n" +
 		"GOTRACEBACK=all\n" +
 		"panic: 42\n\n" +
 		"1: running\n" +
-		"    main main.go:90  panicint(0x2a)\n" +
-		"    main main.go:312 glob..func9()\n" +
-		"    main main.go:73  main()\n" +
+		"    main main.go:93  panicint(0x2a)\n" +
+		"    main main.go:315 glob..func9()\n" +
+		"    main main.go:76  main()\n" +
 		"Yo\n")
 	compareString(t, want, out.String())
 }

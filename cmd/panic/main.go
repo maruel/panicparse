@@ -7,17 +7,20 @@
 // It is a tool to help test pp, it is used in its unit tests.
 //
 // To install, run:
-//   go install github.com/maruel/panicparse/v2/cmd/panic
-//   panic -help
-//   panic str |& pp
+//
+//	go install github.com/maruel/panicparse/v2/cmd/panic
+//	panic -help
+//	panic str |& pp
 //
 // Some panics require the race detector with -race:
-//   go install -race github.com/maruel/panicparse/v2/cmd/panic
-//   panic race |& pp
+//
+//	go install -race github.com/maruel/panicparse/v2/cmd/panic
+//	panic race |& pp
 //
 // To use with optimization (-N) and inlining (-l) disabled, build with
 // -gcflags '-N -l' like:
-//   go install -gcflags '-N -l' github.com/maruel/panicparse/v2/cmd/panic
+//
+//	go install -gcflags '-N -l' github.com/maruel/panicparse/v2/cmd/panic
 package main
 
 // To add a new panic stack signature, add it to types type below, keeping the
