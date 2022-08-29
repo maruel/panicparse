@@ -2352,7 +2352,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				t.Fatal("expected Locked")
 			}
 			// This is a change detector on internal/main.go.
-			want := Stack{Calls: []Call{newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 141)}}
+			want := Stack{Calls: []Call{newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 145)}}
 			compareStacks(t, &b.Signature.CreatedBy, &want)
 			for i := range b.Signature.Stack.Calls {
 				if strings.HasPrefix(b.Signature.Stack.Calls[i].ImportPath, "github.com/mattn/go-colorable") {

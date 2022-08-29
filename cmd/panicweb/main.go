@@ -107,7 +107,11 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(rootPage)
 	})
-	go http.Serve(ln, http.DefaultServeMux)
+	srv := &http.Server{
+		Handler:           http.DefaultServeMux,
+		ReadHeaderTimeout: 2 * time.Second,
+	}
+	go srv.Serve(ln)
 
 	// Start many clients.
 	a := ln.Addr()
