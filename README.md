@@ -15,21 +15,22 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
-   * Go 1.18 stack trace support. Requires >=go1.13.
-   * Full go module support.
    * Race detector support.
    * HTML export.
+   * Easy to use as an [HTTP Handler
+     middleware](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack#example-package-HttpHandlerMiddleware).
    * High performance parsing.
-   * [webstack.SnapshotHandler](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack/webstack#SnapshotHandler)
-     is a http handler that serves a very tight and swell snapshot of your
-     goroutines, much more readable than
-     [net/http/pprof](https://golang.org/pkg/net/http/pprof).
+   * [HTTP web server](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack/webstack#SnapshotHandler)
+     that serves a very tight and swell snapshot of your goroutines, much more
+     readable than [net/http/pprof](https://golang.org/pkg/net/http/pprof).
    * &gt;50% more compact output than original stack dump yet more readable.
    * Deduplicates redundant goroutine stacks. Useful for large server crashes.
    * Arguments as pointer IDs instead of raw pointer values.
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
    * Parses the source files if available to augment the output.
-   * Works on Windows. 🪟
+   * Works on Windows, macOS, unix.
+   * Full go module support.
+   * Requires >=go1.17. Use v2.3.1 for older Go versions.
 
 
 ## Installation
@@ -99,9 +100,9 @@ To dump to a file then parse, pass the file path of a stack trace
 
 ### Disable inlining
 
-Starting with go1.11, the toolchain starts to inline more often. This causes
-traces to be less informative. Starting with go1.17, optimization also interfere
-with traces. You can use the following to help diagnosing issues:
+The Go toolchain inlines function when it can. This causes traces to be less
+informative. Optimization also interfere with traces. You can use the following
+to help diagnosing issues:
 
     go install -gcflags '-N -l' path/to/foo
     foo |& pp
