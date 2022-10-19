@@ -112,23 +112,12 @@ func StaticPanicRaceOutput() []byte {
 	return []byte(staticPanicRace)
 }
 
-// IsUsingModules is best guess to know if go module are enabled.
-//
-// Panics if an internal error occurs.
+// IsUsingModules returns if go modules are enabled.
 //
 // It reads the current value of GO111MODULES.
 func IsUsingModules() bool {
-	// Calculate the default. We assume developer builds are recent (go1.14 and
-	// later).
-	ver := GetGoMinorVersion()
-	if ver > 0 && ver < 11 {
-		// go1.9.7+ and go1.10.3+ were fixed to tolerate semantic versioning import
-		// but they do not support the environment variable.
-		return false
-	}
-	def := (ver == 0 || ver >= 14)
 	s := os.Getenv("GO111MODULE")
-	return (def && (s == "auto" || s == "")) || s == "on"
+	return s != "off"
 }
 
 //

@@ -155,7 +155,7 @@ func (a *Arg) String() string {
 }
 
 const (
-	// With go1.15 on Windows, the pointer floor can be below 1MiB (!)
+	// The pointer floor can be below 1MiB (!) on Windows.
 	// Assumes all values are above 512KiB and positive are pointers; assuming
 	// that above half the memory is kernel memory.
 	//

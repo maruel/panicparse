@@ -50,10 +50,10 @@ func TestAugment(t *testing.T) {
 	type testCase struct {
 		name  string
 		input string
-		// Starting with go1.11, inlining is enabled. The stack trace may (it
-		// depends on tool chain version) not contain much information about the
-		// arguments and shows as elided. Non-pointer call may show an elided
-		// argument, while there was no argument listed before.
+		// Due to inlining, the stack trace may (it depends on tool chain version)
+		// not contain much information about the arguments and shows as elided.
+		// Non-pointer call may show an elided argument, while there was no
+		// argument listed before.
 		mayBeInlined bool
 		// archBlock lists the CPU architectures to skip this test case on.
 		//
@@ -1423,8 +1423,7 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 	if err != nil {
 		t.Fatalf("failed to parse input: %v", err)
 	}
-	// On go1.4, there's one less empty line.
-	if got := prefix.String(); got != "panic: ooh\n\n" && got != "panic: ooh\n" {
+	if got := prefix.String(); got != "panic: ooh\n\n" {
 		t.Fatalf("Unexpected panic output:\n%#v", got)
 	}
 	compareString(t, "exit status 2\n", string(suffix))
@@ -1438,9 +1437,8 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 	got := s.Goroutines[0].Signature.Stack
 	zapPointers(t, &want, &got)
 
-	// On go1.11 with non-pointer method, it shows elided argument where
-	// there used to be none before. It's only for test case "non-pointer
-	// method".
+	// With a non-pointer method, elided argument can be shown. It's only for
+	// test case "non-pointer method".
 	if mayBeInlined {
 		for j := range got.Calls {
 			if !want.Calls[j].Args.Elided {
