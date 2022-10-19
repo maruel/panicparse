@@ -16,6 +16,8 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -180,4 +182,100 @@ func Example_simple() {
 
 	parsedStack := parseStack(debug.Stack())
 	fmt.Printf("parsedStack: %#v", parsedStack)
+}
+
+// Registers a middleware to trap exceptions and report them on http.Handler.
+//
+// For demonstration purposes, start a web server that panics and call into
+// it.
+func Example_httpHandlerMiddleware() {
+	// Make this a function in your code:
+	WrapPanic := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if v := recover(); v != nil {
+					// Collect the stack and process it.
+					rawStack := append(debug.Stack(), '\n', '\n')
+					st, _, err := stack.ScanSnapshot(bytes.NewReader(rawStack), ioutil.Discard, stack.DefaultOpts())
+
+					if err != nil || len(st.Goroutines) != 1 {
+						// Processing failed. Print out the raw stack.
+						fmt.Printf("recovered: %q\nStack processing failed: %v\nRaw stack:\n%s", v, err, rawStack)
+						return
+					}
+
+					// Calculate alignment.
+					srcLen := 0
+					pkgLen := 0
+					for _, line := range st.Goroutines[0].Stack.Calls {
+						if l := len(fmt.Sprintf("%s:%d", line.SrcName, line.Line)); l > srcLen {
+							srcLen = l
+						}
+						if l := len(filepath.Base(line.Func.ImportPath)); l > pkgLen {
+							pkgLen = l
+						}
+					}
+					buf := bytes.Buffer{}
+					// Reduce memory allocation.
+					buf.Grow(len(st.Goroutines[0].Stack.Calls) * (40 + srcLen + pkgLen))
+					for _, line := range st.Goroutines[0].Stack.Calls {
+
+						// REMOVE: Skip the standard library in this test since it would
+						// make it Go version dependent.
+						if line.Location == stack.Stdlib {
+							continue
+						}
+
+						// REMOVE: Not printing args here to make the test deterministic.
+						args := "<args>"
+						//args := line.Args.String()
+
+						fmt.Fprintf(
+							&buf,
+							"    %-*s %-*s %s(%s)\n",
+							pkgLen, line.Func.DirName, srcLen,
+							fmt.Sprintf("%s:%d", line.SrcName, line.Line),
+							line.Func.Name,
+							args)
+					}
+					if st.Goroutines[0].Stack.Elided {
+						io.WriteString(&buf, "    (...)\n")
+					}
+					// Print out the formatted stack.
+					fmt.Printf("recovered: %q\nParsed stack:\n%s", v, buf.String())
+				}
+			}()
+			h.ServeHTTP(w, r)
+		})
+	}
+
+	// Start the web server.
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		log.Fatal(err)
+	}
+	mux := http.ServeMux{}
+	mux.Handle("/", WrapPanic(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		panic("It happens")
+	})))
+	ch := make(chan error)
+	go func() {
+		ch <- http.Serve(ln, &mux)
+	}()
+
+	// Call the server once to force a stack trace to be printed.
+	_, _ = http.Get("http://" + ln.Addr().String() + "/")
+
+	// Close the server.
+	if err := ln.Close(); err != nil {
+		log.Fatal(err)
+	}
+	<-ch
+
+	// Output:
+	// recovered: "It happens"
+	// Parsed stack:
+	//     stack_test example_test.go:198 Example_httpHandlerMiddleware.func1.1.1(<args>)
+	//     stack_test example_test.go:259 Example_httpHandlerMiddleware.func2(<args>)
+	//     stack_test example_test.go:248 Example_httpHandlerMiddleware.func1.1(<args>)
 }
