@@ -15,20 +15,20 @@ panicparse helps make sense of Go crash dumps:
 
 ## Features
 
-   * Race detector support.
+   * Race detector support, e.g. it can parse output produced by `go test -race`
    * HTML export.
    * Easy to use as an [HTTP Handler
      middleware](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack#example-package-HttpHandlerMiddleware).
    * High performance parsing.
    * [HTTP web server](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack/webstack#SnapshotHandler)
      that serves a very tight and swell snapshot of your goroutines, much more
-     readable than [net/http/pprof](https://golang.org/pkg/net/http/pprof).
+     readable than [net/http/pprof](https://pkg.go.dev/net/http/pprof).
    * &gt;50% more compact output than original stack dump yet more readable.
    * Deduplicates redundant goroutine stacks. Useful for large server crashes.
    * Arguments as pointer IDs instead of raw pointer values.
    * Pushes stdlib-only stacks at the bottom to help focus on important code.
    * Parses the source files if available to augment the output.
-   * Works on Windows, macOS, unix.
+   * Works on any platform supported by Go, including Windows, macOS, linux.
    * Full go module support.
    * Requires >=go1.17. Use v2.3.1 for older Go versions.
 
@@ -100,7 +100,7 @@ To dump to a file then parse, pass the file path of a stack trace
 
 ### Disable inlining
 
-The Go toolchain inlines function when it can. This causes traces to be less
+The Go toolchain inlines functions when it can. This causes traces to be less
 informative. Optimization also interfere with traces. You can use the following
 to help diagnosing issues:
 
