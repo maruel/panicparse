@@ -13,8 +13,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -72,7 +72,7 @@ func (c *cacheAST) loadFile(fileName string) error {
 		return fmt.Errorf("cannot load non-go file %q", fileName)
 	}
 	/* #nosec G304 */
-	src, err := ioutil.ReadFile(fileName)
+	src, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
 	}

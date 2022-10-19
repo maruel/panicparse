@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -243,7 +242,7 @@ func Main() error {
 
 	log.SetFlags(log.Lmicroseconds)
 	if !*verboseFlag {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	}
 
 	var err error

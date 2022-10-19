@@ -11,7 +11,6 @@ package webstack
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -119,7 +118,7 @@ func snapshot(maxmem int, opts *stack.Opts) (*stack.Snapshot, error) {
 		}
 		buf = make([]byte, l)
 	}
-	s, _, err := stack.ScanSnapshot(bytes.NewReader(buf), ioutil.Discard, opts)
+	s, _, err := stack.ScanSnapshot(bytes.NewReader(buf), io.Discard, opts)
 	// That's expected.
 	if err == io.EOF {
 		err = nil

@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"net/url"
+	"os"
 	"regexp"
 	"runtime"
 	"strings"
@@ -244,7 +244,7 @@ func TestSnapshot_ToHTML(t *testing.T) {
 	if data == nil {
 		t.Skip("-race is unsupported on this platform")
 	}
-	s, _, err := ScanSnapshot(bytes.NewReader(data), ioutil.Discard, DefaultOpts())
+	s, _, err := ScanSnapshot(bytes.NewReader(data), io.Discard, DefaultOpts())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,14 +257,14 @@ func TestSnapshot_ToHTML(t *testing.T) {
 	if !s.IsRace() {
 		t.Fatal("expected a race")
 	}
-	if err := s.ToHTML(ioutil.Discard, ""); err != nil {
+	if err := s.ToHTML(io.Discard, ""); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func BenchmarkAggregated_ToHTML(b *testing.B) {
 	b.ReportAllocs()
-	s, _, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, DefaultOpts())
+	s, _, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), io.Discard, DefaultOpts())
 	if err != io.EOF {
 		b.Fatal(err)
 	}
@@ -274,7 +274,7 @@ func BenchmarkAggregated_ToHTML(b *testing.B) {
 	a := s.Aggregate(AnyPointer)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := a.ToHTML(ioutil.Discard, ""); err != nil {
+		if err := a.ToHTML(io.Discard, ""); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -284,7 +284,7 @@ func BenchmarkAggregated_ToHTML(b *testing.B) {
 
 // loadGoroutines should match what is in regen.go.
 func loadGoroutines() ([]byte, error) {
-	htmlRaw, err := ioutil.ReadFile("goroutines.tpl")
+	htmlRaw, err := os.ReadFile("goroutines.tpl")
 	if err != nil {
 		return nil, err
 	}

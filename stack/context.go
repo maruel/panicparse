@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
@@ -1011,7 +1010,7 @@ func (g *gomodCache) isGoModule(parts []string) (string, string) {
 			p = strings.Replace(p, "/", pathSeparator, -1)
 		}
 		/* #nosec G304 */
-		b, err := ioutil.ReadFile(p)
+		b, err := os.ReadFile(p)
 		if err != nil {
 			continue
 		}

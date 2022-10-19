@@ -7,7 +7,6 @@ package stack
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -30,7 +29,7 @@ func TestAggregateNotAggressive(t *testing.T) {
 		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
-	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, defaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), io.Discard, defaultOpts())
 	if err != io.EOF {
 		t.Fatal(err)
 	}
@@ -107,7 +106,7 @@ func TestAggregateExactMatching(t *testing.T) {
 		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:74 +0xeb",
 		"",
 	}
-	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, defaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), io.Discard, defaultOpts())
 	if err != io.EOF {
 		t.Fatal(err)
 	}
@@ -169,7 +168,7 @@ func TestAggregateAggressive(t *testing.T) {
 		"\t/gopath/src/github.com/maruel/panicparse/stack/stack.go:72 +0x49",
 		"",
 	}
-	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, defaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), io.Discard, defaultOpts())
 	if err != io.EOF {
 		t.Fatal(err)
 	}
@@ -233,7 +232,7 @@ func TestAggregateDeadlockPanic(t *testing.T) {
 		"created by main",
 		"  foo/foo.go:631 +0x4b",
 	}
-	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), ioutil.Discard, defaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), io.Discard, defaultOpts())
 	if err != io.EOF {
 		t.Fatal(err)
 	}
@@ -366,7 +365,7 @@ func TestAggregateDeadlockPanic(t *testing.T) {
 
 func BenchmarkAggregate(b *testing.B) {
 	b.ReportAllocs()
-	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), ioutil.Discard, defaultOpts())
+	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), io.Discard, defaultOpts())
 	if err != io.EOF {
 		b.Fatal(err)
 	}

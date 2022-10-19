@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -139,7 +139,7 @@ func compareString(t *testing.T, want, got string) {
 func TestMain(m *testing.M) {
 	flag.Parse()
 	if !testing.Verbose() {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	}
 	// Set the environment variable so the stack doesn't include the info header.
 	os.Setenv("GOTRACEBACK", "all")

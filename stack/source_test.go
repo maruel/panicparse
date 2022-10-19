@@ -7,7 +7,6 @@ package stack
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"math/bits"
 	"os"
 	"os/exec"
@@ -1365,7 +1364,7 @@ func TestAugment(t *testing.T) {
 			input := strings.Join(lines, "\n")
 
 			// Create one temporary directory by subtest.
-			root, err := ioutil.TempDir("", "stack")
+			root, err := os.MkdirTemp("", "stack")
 			if err != nil {
 				t.Fatalf("failed to create temporary directory: %v", err)
 			}
@@ -1375,7 +1374,7 @@ func TestAugment(t *testing.T) {
 				}
 			}()
 			main := filepath.Join(root, "main.go")
-			if err := ioutil.WriteFile(main, []byte(input), 0500); err != nil {
+			if err := os.WriteFile(main, []byte(input), 0500); err != nil {
 				t.Fatalf("failed to write %q: %v", main, err)
 			}
 
@@ -1462,7 +1461,7 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 
 func TestAugmentErr(t *testing.T) {
 	t.Parallel()
-	root, err := ioutil.TempDir("", "stack")
+	root, err := os.MkdirTemp("", "stack")
 	if err != nil {
 		t.Fatalf("failed to create temporary directory: %v", err)
 	}

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -172,24 +171,25 @@ func GetGoMinorVersion() int {
 	return m
 }
 
-// build creates a temporary file and returns the path to it.
+// build builds to a temporary file and returns the path to it.
 func build(tool string, race bool) string {
-	p := filepath.Join(os.TempDir(), tool)
-	if race {
-		p += "_race"
-	}
-	// Starting with go1.11, ioutil.TempFile() supports specifying a suffix. This
-	// is necessary to set the ".exe" suffix on Windows. Until we drop support
-	// for go1.10 and earlier, do the equivalent ourselves in an lousy way.
-	p += fmt.Sprintf("_%d", os.Getpid())
+	s := "panicparse*"
 	if runtime.GOOS == "windows" {
-		p += ".exe"
+		s = "panicparse*.exe"
 	}
+	f, err := os.CreateTemp("", s)
+	if err != nil {
+		_, _ = os.Stderr.WriteString(err.Error())
+		return ""
+	}
+	p := f.Name()
+	_ = f.Close()
 	path := "github.com/maruel/panicparse/cmd/"
 	if IsUsingModules() {
 		path = "github.com/maruel/panicparse/v2/cmd/"
 	}
 	if err := Compile(path+tool, p, "", true, race); err != nil {
+		_ = os.Remove(p)
 		_, _ = os.Stderr.WriteString(err.Error())
 		return ""
 	}

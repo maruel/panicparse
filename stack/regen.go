@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strconv"
@@ -36,7 +35,7 @@ const favicon template.HTML = "{{.Favicon}}"
 
 // loadGoroutines returns "goroutines.tpl" slightly processed for density.
 func loadGoroutines() ([]byte, error) {
-	htmlRaw, err := ioutil.ReadFile("goroutines.tpl")
+	htmlRaw, err := os.ReadFile("goroutines.tpl")
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +52,7 @@ func mainImpl() error {
 	}
 
 	// See README.md how to generate it.
-	iconRaw, err := ioutil.ReadFile("emoji_u1f4a3_64.gif")
+	iconRaw, err := os.ReadFile("emoji_u1f4a3_64.gif")
 	if err != nil {
 		return err
 	}
@@ -70,7 +69,7 @@ func mainImpl() error {
 	if err := t.Execute(&b, data); err != nil {
 		return err
 	}
-	return ioutil.WriteFile("data.go", b.Bytes(), 0666)
+	return os.WriteFile("data.go", b.Bytes(), 0666)
 }
 
 func main() {

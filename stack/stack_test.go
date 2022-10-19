@@ -7,7 +7,7 @@ package stack
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"runtime"
@@ -580,7 +580,7 @@ func getSignature() *Signature {
 func TestMain(m *testing.M) {
 	flag.Parse()
 	if !testing.Verbose() {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	}
 	os.Exit(m.Run())
 }

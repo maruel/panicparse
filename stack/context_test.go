@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -32,7 +31,7 @@ func TestScanSnapshotErr(t *testing.T) {
 		{LocalGOPATHs: []string{"\\"}},
 	}
 	for _, opts := range data {
-		if _, _, err := ScanSnapshot(&bytes.Buffer{}, ioutil.Discard, opts); err == nil {
+		if _, _, err := ScanSnapshot(&bytes.Buffer{}, io.Discard, opts); err == nil {
 			t.Fatal("expected error")
 		}
 	}
@@ -1327,7 +1326,7 @@ func TestScanSnapshotSynthetic(t *testing.T) {
 				compareGoroutines(t, line.want, s.Goroutines)
 			}
 			compareString(t, line.prefix, prefix.String())
-			rest, err := ioutil.ReadAll(r)
+			rest, err := io.ReadAll(r)
 			compareErr(t, nil, err)
 			compareString(t, line.suffix, string(suffix)+string(rest))
 		})
@@ -1435,7 +1434,7 @@ func TestGetGOPATHs(t *testing.T) {
 		t.Fatalf("expected only one path: %v", p)
 	}
 
-	root, err := ioutil.TempDir("", "stack")
+	root, err := os.MkdirTemp("", "stack")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1459,7 +1458,7 @@ func TestGomoduleComplex(t *testing.T) {
 	}
 	old := os.Getenv("GOPATH")
 	defer os.Setenv("GOPATH", old)
-	root, err := ioutil.TempDir("", "stack")
+	root, err := os.MkdirTemp("", "stack")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1651,7 +1650,7 @@ func TestGomoduleComplex(t *testing.T) {
 
 func TestGoRun(t *testing.T) {
 	t.Parallel()
-	root, err := ioutil.TempDir("", "stack")
+	root, err := os.MkdirTemp("", "stack")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1663,7 +1662,7 @@ func TestGoRun(t *testing.T) {
 
 	p := filepath.Join(root, "main.go")
 	content := "package main\nfunc main() { panic(42) }\n"
-	if err = ioutil.WriteFile(p, []byte(content), 0600); err != nil {
+	if err = os.WriteFile(p, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 	c := exec.Command("go", "run", p)
@@ -2189,7 +2188,7 @@ func BenchmarkScanSnapshot_Guess(b *testing.B) {
 	opts := defaultOpts()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s, _, err := ScanSnapshot(bytes.NewReader(data), ioutil.Discard, opts)
+		s, _, err := ScanSnapshot(bytes.NewReader(data), io.Discard, opts)
 		if err != io.EOF {
 			b.Fatal(err)
 		}
@@ -2205,7 +2204,7 @@ func BenchmarkScanSnapshot_NoGuess(b *testing.B) {
 	opts := defaultOpts()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s, _, err := ScanSnapshot(bytes.NewReader(data), ioutil.Discard, opts)
+		s, _, err := ScanSnapshot(bytes.NewReader(data), io.Discard, opts)
 		if err != io.EOF {
 			b.Fatal(err)
 		}
@@ -2508,7 +2507,7 @@ func createTree(t *testing.T, root string, tree map[string]string) {
 		if err := os.MkdirAll(b, 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := ioutil.WriteFile(p, []byte(content), 0600); err != nil {
+		if err := os.WriteFile(p, []byte(content), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}

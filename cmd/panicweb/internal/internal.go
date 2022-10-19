@@ -7,7 +7,7 @@
 package internal
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 )
@@ -24,7 +24,7 @@ func GetAsync(url string) {
 		log.Fatalf("get %s: %v", url, err)
 	}
 	go func() {
-		_, err := ioutil.ReadAll(resp.Body)
+		_, err := io.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatalf("failed to read: %v", err)
 		}

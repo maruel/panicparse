@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -48,10 +47,10 @@ func Example_text() {
 	}`
 
 	// Skipped error handling to make the example shorter.
-	root, _ := ioutil.TempDir("", "stack")
+	root, _ := os.MkdirTemp("", "stack")
 	defer os.RemoveAll(root)
 	p := filepath.Join(root, "main.go")
-	ioutil.WriteFile(p, []byte(source), 0600)
+	os.WriteFile(p, []byte(source), 0600)
 	// Disable both optimization (-N) and inlining (-l).
 	c := exec.Command("go", "run", "-gcflags", "-N -l", p)
 	// This is important, otherwise only the panicking goroutine will be printed.
@@ -155,7 +154,7 @@ func Example_stream() {
 // Converts a stack trace from os.Stdin into HTML on os.Stdout, discarding
 // everything else.
 func Example_hTML() {
-	s, _, err := stack.ScanSnapshot(os.Stdin, ioutil.Discard, stack.DefaultOpts())
+	s, _, err := stack.ScanSnapshot(os.Stdin, io.Discard, stack.DefaultOpts())
 	if err != nil && err != io.EOF {
 		log.Fatal(err)
 	}
@@ -168,7 +167,7 @@ func Example_hTML() {
 // the parsed stack object.
 func Example_simple() {
 	parseStack := func(rawStack []byte) stack.Stack {
-		s, _, err := stack.ScanSnapshot(bytes.NewReader(rawStack), ioutil.Discard, stack.DefaultOpts())
+		s, _, err := stack.ScanSnapshot(bytes.NewReader(rawStack), io.Discard, stack.DefaultOpts())
 		if err != nil && err != io.EOF {
 			panic(err)
 		}
@@ -196,7 +195,7 @@ func Example_httpHandlerMiddleware() {
 				if v := recover(); v != nil {
 					// Collect the stack and process it.
 					rawStack := append(debug.Stack(), '\n', '\n')
-					st, _, err := stack.ScanSnapshot(bytes.NewReader(rawStack), ioutil.Discard, stack.DefaultOpts())
+					st, _, err := stack.ScanSnapshot(bytes.NewReader(rawStack), io.Discard, stack.DefaultOpts())
 
 					if err != nil || len(st.Goroutines) != 1 {
 						// Processing failed. Print out the raw stack.
@@ -275,7 +274,7 @@ func Example_httpHandlerMiddleware() {
 	// Output:
 	// recovered: "It happens"
 	// Parsed stack:
-	//     stack_test example_test.go:198 Example_httpHandlerMiddleware.func1.1.1(<args>)
-	//     stack_test example_test.go:259 Example_httpHandlerMiddleware.func2(<args>)
-	//     stack_test example_test.go:248 Example_httpHandlerMiddleware.func1.1(<args>)
+	//     stack_test example_test.go:197 Example_httpHandlerMiddleware.func1.1.1(<args>)
+	//     stack_test example_test.go:258 Example_httpHandlerMiddleware.func2(<args>)
+	//     stack_test example_test.go:247 Example_httpHandlerMiddleware.func1.1(<args>)
 }

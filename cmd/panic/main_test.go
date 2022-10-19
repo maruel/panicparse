@@ -5,7 +5,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
 )
@@ -13,7 +13,7 @@ import (
 func TestMain(t *testing.T) {
 	t.Parallel()
 	if !testing.Verbose() {
-		stdErr = ioutil.Discard
+		stdErr = io.Discard
 		defer func() {
 			stdErr = os.Stderr
 		}()
