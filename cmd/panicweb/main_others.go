@@ -3,7 +3,6 @@
 // that can be found in the LICENSE file.
 
 //go:build !aix && !dragonfly && !freebsd && !linux && !netbsd && !openbsd && !solaris && !windows
-// +build !aix,!dragonfly,!freebsd,!linux,!netbsd,!openbsd,!solaris,!windows
 
 package main
 

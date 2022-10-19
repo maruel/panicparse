@@ -1982,13 +1982,9 @@ func testPanicStr(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 					Calls: []Call{
 						newCallLocal(
 							"main.panicstr",
-							ifCombinedAggregateArgs(
-								Args{Values: []Arg{{IsAggregate: true, Fields: Args{
-									Values: []Arg{{Value: 0x123456, IsPtr: true}, {Value: 4}},
-								}}}},
-								// else
-								Args{Values: []Arg{{Value: 0x123456, IsPtr: true}, {Value: 4}}},
-							),
+							Args{Values: []Arg{{IsAggregate: true, Fields: Args{
+								Values: []Arg{{Value: 0x123456, IsPtr: true}, {Value: 4}},
+							}}}},
 							pathJoin(ppDir, "main.go"),
 							50),
 						newCallLocal("main.glob..func19", Args{}, pathJoin(ppDir, "main.go"), 307),
@@ -2025,11 +2021,7 @@ func testPanicUTF8(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 							// runtime stack generator. The path is escaped, but symbols are
 							// not.
 							"github.com/maruel/panicparse"+ver+"/cmd/panic/internal/utf8.(*Strùct).Pànic",
-							ifCombinedAggregateArgs(
-								Args{Values: []Arg{{Value: 1, IsInaccurate: true}}},
-								// else
-								Args{Values: []Arg{{Value: 0xc0000b2e48, IsPtr: true, IsInaccurate: true}}},
-							),
+							Args{Values: []Arg{{Value: 1, IsInaccurate: true}}},
 							// See TestCallUTF8 in stack_test.go for exercising the methods on
 							// Call in this situation.
 							pathJoin(ppDir, "internal", "utf8", "utf8.go"),
@@ -2443,11 +2435,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 					newCallLocal("main.sysHang", Args{}, pathJoin(pwebDir, mainOS), 12),
 					newCallLocal(
 						"main.main.func3",
-						ifCombinedAggregateArgs(
-							Args{},
-							// else
-							Args{Values: []Arg{{Value: 0xc000140720, Name: "#135", IsPtr: true}}},
-						),
+						Args{},
 						pathJoin(pwebDir, "main.go"),
 						65),
 				}
@@ -2524,14 +2512,4 @@ func createTree(t *testing.T, root string, tree map[string]string) {
 			t.Fatal(err)
 		}
 	}
-}
-
-// ifCombinedAggregateArgs returns one of the two provided Args structs, based
-// on the go compiler version. For 1.17 and above, combined is returned. For pre
-// 1.17, separate is returned.
-func ifCombinedAggregateArgs(combined, separate Args) Args {
-	if combinedAggregateArgs {
-		return combined
-	}
-	return separate
 }

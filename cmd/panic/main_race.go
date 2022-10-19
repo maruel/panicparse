@@ -3,7 +3,6 @@
 // that can be found in the LICENSE file.
 
 //go:build race
-// +build race
 
 package main
 
