@@ -2400,13 +2400,13 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			path := "golang.org/x/sys/unix"
 			fn := "Nanosleep"
 			mainOS := "main_unix.go"
-			prefix := "golang.org/x/sys@v0.0.0-"
-			expectDate := true
+			prefix := "golang.org/x/sys@"
+			expectVersion := true
 			usingModules := internaltest.IsUsingModules()
 			if !usingModules {
 				// Assert that there's no version by including the trailing /.
 				prefix = "golang.org/x/sys/"
-				expectDate = false
+				expectVersion = false
 			}
 			if runtime.GOOS == "windows" {
 				// This changes across Go version, this check is super fragile.
@@ -2414,7 +2414,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				fn = "Syscall"
 				mainOS = "main_windows.go"
 				prefix = "runtime/syscall_windows.go"
-				expectDate = false
+				expectVersion = false
 			}
 			if b.Stack.Calls[1].Func.ImportPath != path || b.Stack.Calls[1].Func.Name != fn {
 				t.Fatalf("expected %q & %q, got %#v", path, fn, b.Stack.Calls[1].Func)
@@ -2422,10 +2422,10 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			if !strings.HasPrefix(b.Stack.Calls[1].RelSrcPath, prefix) {
 				t.Fatalf("expected %q, got %q", prefix, b.Stack.Calls[1].RelSrcPath)
 			}
-			if expectDate {
-				// Assert that it's using @v0-0-0.<date>-<commit> format.
+			if expectVersion {
+				// Assert that it's using v0.1.0 format.
 				ver := strings.SplitN(b.Stack.Calls[1].RelSrcPath[len(prefix):], "/", 2)[0]
-				re := regexp.MustCompile(`^\d{14}-[a-f0-9]{12}$`)
+				re := regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 				if !re.MatchString(ver) {
 					t.Fatalf("unexpected version string %q", ver)
 				}
