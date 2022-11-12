@@ -6,6 +6,7 @@ process.
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/maruel/panicparse/v2/stack)](https://pkg.go.dev/github.com/maruel/panicparse/v2/stack)
 [![codecov](https://codecov.io/gh/maruel/panicparse/branch/main/graph/badge.svg?token=izj1cLjUi3)](https://codecov.io/gh/maruel/panicparse)
+[![go-recipes](https://raw.githubusercontent.com/nikolaydubina/go-recipes/main/badge.svg?raw=true)](https://github.com/nikolaydubina/go-recipes#-pretty-print-panic-messages)
 
 
 panicparse helps make sense of Go crash dumps:
