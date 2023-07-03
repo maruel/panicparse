@@ -285,7 +285,7 @@ func Main() error {
 				<-signals
 			}
 		}()
-		signal.Notify(signals, os.Interrupt, syscall.SIGQUIT)
+		signal.Notify(signals, syscall.SIGQUIT)
 
 	case 1:
 		// Do not handle SIGQUIT when passed a file to process.
