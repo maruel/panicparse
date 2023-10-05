@@ -48,7 +48,7 @@ panicparse helps make sense of Go crash dumps:
    * Ubuntu (bash v4 or zsh): `|&`
    * macOS, [install bash 4+](README.md#updating-bash-on-macos), then: `|&`
    * Windows _or_ macOS with stock bash v3: `2>&1 |`
-   * [Fish](http://fishshell.com/) shell: `^|`
+   * [Fish](http://fishshell.com/) shell: `&|`
 
 
 #### Longer version
@@ -75,7 +75,7 @@ have this shortcut, so use the long form:
 
 
 **Fish**: `&|` redirects stderr and stdout. It's an alias for `2>&1 |`
-([fish piping](https://fishshell.com/docs/current/index.html#piping)):
+([fish piping](https://fishshell.com/docs/current/language.html#piping)):
 
     go test -v &| pp
 
