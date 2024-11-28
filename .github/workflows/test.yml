@@ -2,16 +2,6 @@
 # Use of this source code is governed under the Apache License, Version 2.0
 # that can be found in the LICENSE file.
 
-# References:
-# https://github.com/actions/checkout
-# https://github.com/actions/setup-go
-# https://help.github.com/en/actions/configuring-and-managing-workflows/authenticating-with-the-github_token#using-the-github_token-in-a-workflow
-# https://help.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions/
-# https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions
-# https://docs.github.com/en/rest/commits/comments#create-a-commit-comment
-# https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#pull_request
-# https://docs.github.com/en/actions/learn-github-actions/contexts
-
 on: [push, pull_request]
 name: Run tests
 jobs:
@@ -37,10 +27,10 @@ jobs:
     - name: Turn off git core.autocrlf
       if: matrix.os == 'windows-latest'
       run: git config --global core.autocrlf false
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 2
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: "~${{matrix.gover}}.0"
     - name: 'go install necessary tools'
@@ -51,7 +41,9 @@ jobs:
       if: always()
       run: go test -timeout=120s -covermode=count -coverprofile coverage.txt -bench=. -benchtime=1x ./...
       # Don't send code coverage if anything failed to reduce spam.
-    - uses: codecov/codecov-action@v3
+    - uses: codecov/codecov-action@v4
+      with:
+        token: ${{secrets.CODECOV_TOKEN}}
     - name: 'Cleanup'
       if: always()
       run: rm coverage.txt
@@ -107,23 +99,15 @@ jobs:
     - name: Turn off git core.autocrlf
       if: matrix.os == 'windows-latest'
       run: git config --global core.autocrlf false
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: "~${{matrix.gover}}.0"
-    - name: "Debug"
-      run: |
-        echo HOME = $HOME
-        echo GITHUB_WORKSPACE = $GITHUB_WORKSPACE
-        echo PATH = $PATH
-        echo ""
-        echo $ ls -l $HOME/go/bin
-        ls -la $HOME/go/bin
     - name: 'go install necessary tools'
       if: always()
       run: |
         go install github.com/gordonklaus/ineffassign@latest
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        go install github.com/securego/gosec/v2/cmd/gosec@v2.20.0
         go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
         go install honnef.co/go/tools/cmd/staticcheck@latest
     - name: 'go install necessary tools (ubuntu)'
@@ -258,10 +242,10 @@ jobs:
     - name: Turn off git core.autocrlf
       if: matrix.os == 'windows-latest'
       run: git config --global core.autocrlf false
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         path: src/github.com/maruel/panicparse
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: "=${{matrix.gover}}"
     - name: 'Check: go get -d -t'
@@ -285,15 +269,15 @@ jobs:
     permissions:
       security-events: write
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: "~${{matrix.gover}}.0"
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: go
     - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
+      uses: github/codeql-action/autobuild@v3
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      uses: github/codeql-action/analyze@v3
