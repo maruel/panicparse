@@ -108,8 +108,8 @@ jobs:
       run: |
         go install github.com/gordonklaus/ineffassign@latest
         go install github.com/securego/gosec/v2/cmd/gosec@v2.18.2
-        go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
-        go install honnef.co/go/tools/cmd/staticcheck@latest
+        go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@v0.24.0
+        go install honnef.co/go/tools/cmd/staticcheck@v0.4.7
     - name: 'go install necessary tools (ubuntu)'
       if: always() && matrix.os == 'ubuntu-latest'
       run: |
