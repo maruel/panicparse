@@ -2,7 +2,7 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-//go:generate go install golang.org/x/tools/cmd/stringer@latest
+//go:generate go install golang.org/x/tools/cmd/stringer@v0.24.0
 //go:generate stringer -type state
 //go:generate stringer -type Location
 
