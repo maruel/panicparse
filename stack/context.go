@@ -356,7 +356,7 @@ const (
 	// to: gotFileFunc
 	gotFunc
 	// Regexp: reCreated
-	// Signature: "created by main.glob..func4"
+	// Signature: "created by main.init.func4"
 	// Goroutine creation line was found.
 	// from: gotFileFunc
 	// to: gotFileCreated

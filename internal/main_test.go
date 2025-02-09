@@ -113,7 +113,7 @@ func TestProcessTwoSnapshots(t *testing.T) {
 		"panic: 42\n\n" +
 		"1: running\n" +
 		"    main main.go:93  panicint(0x2a)\n" +
-		"    main main.go:315 glob..func9()\n" +
+		"    main main.go:315 init.func9()\n" +
 		"    main main.go:76  main()\n" +
 		"Yo\n")
 	compareString(t, want, out.String())
