@@ -20,7 +20,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.20"]
+        gover: ["1.23"]
     env:
       PYTHONDONTWRITEBYTECODE: x
     steps:
@@ -92,7 +92,7 @@ jobs:
         # Windows.
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.20"]
+        gover: ["1.23"]
     env:
       PYTHONDONTWRITEBYTECODE: x
     steps:
@@ -109,7 +109,7 @@ jobs:
         go install github.com/gordonklaus/ineffassign@latest
         go install github.com/securego/gosec/v2/cmd/gosec@v2.18.2
         go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@v0.24.0
-        go install honnef.co/go/tools/cmd/staticcheck@v0.4.7
+        go install honnef.co/go/tools/cmd/staticcheck@v0.5.1
     - name: 'go install necessary tools (ubuntu)'
       if: always() && matrix.os == 'ubuntu-latest'
       run: |
@@ -265,7 +265,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.20"]
+        gover: ["1.23"]
     permissions:
       security-events: write
     steps:

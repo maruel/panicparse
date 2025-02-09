@@ -2350,7 +2350,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				t.Fatal("expected Locked")
 			}
 			// This is a change detector on internal/main.go.
-			want := Stack{Calls: []Call{newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 145)}}
+			want := Stack{Calls: []Call{newCallLocal("main.main in goroutine 1", Args{}, pathJoin(pwebDir, "main.go"), 145)}}
 			compareStacks(t, &b.Signature.CreatedBy, &want)
 			for i := range b.Signature.Stack.Calls {
 				if strings.HasPrefix(b.Signature.Stack.Calls[i].ImportPath, "github.com/mattn/go-colorable") {
@@ -2364,7 +2364,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			{
 				want := Stack{
 					Calls: []Call{
-						newCallLocal("main.main", Args{}, pathJoin(pwebDir, "main.go"), 63),
+						newCallLocal("main.main in goroutine 1", Args{}, pathJoin(pwebDir, "main.go"), 63),
 					},
 				}
 				zapStacks(t, &want, &b.CreatedBy)
@@ -2374,8 +2374,8 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				t.Fatalf("expected 1 goroutine for the signature, got %d", l)
 			}
 			if runtime.GOOS == "windows" {
-				if l := len(b.Stack.Calls); l != 5 {
-					t.Fatalf("expected %d calls, got %d", 5, l)
+				if got, want := len(b.Stack.Calls), 4; got != want {
+					t.Fatalf("expected %d calls, got %d", want, got)
 				}
 				if s := b.Stack.Calls[0].RelSrcPath; s != "runtime/syscall_windows.go" {
 					t.Fatalf("expected %q file, got %q", "runtime/syscall_windows.go", s)
@@ -2396,6 +2396,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				}
 			}
 			// Process the golang.org/x/sys call specifically.
+			callIdx := 1
 			path := "golang.org/x/sys/unix"
 			fn := "Nanosleep"
 			mainOS := "main_unix.go"
@@ -2409,21 +2410,22 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 			}
 			if runtime.GOOS == "windows" {
 				// This changes across Go version, this check is super fragile.
+				callIdx = 0
 				path = "syscall"
 				fn = "Syscall"
 				mainOS = "main_windows.go"
 				prefix = "runtime/syscall_windows.go"
 				expectVersion = false
 			}
-			if b.Stack.Calls[1].Func.ImportPath != path || b.Stack.Calls[1].Func.Name != fn {
-				t.Fatalf("expected %q & %q, got %#v", path, fn, b.Stack.Calls[1].Func)
+			if b.Stack.Calls[callIdx].Func.ImportPath != path || b.Stack.Calls[callIdx].Func.Name != fn {
+				t.Fatalf("expected %q & %q, got %#v", path, fn, b.Stack.Calls[callIdx].Func)
 			}
-			if !strings.HasPrefix(b.Stack.Calls[1].RelSrcPath, prefix) {
-				t.Fatalf("expected %q, got %q", prefix, b.Stack.Calls[1].RelSrcPath)
+			if !strings.HasPrefix(b.Stack.Calls[callIdx].RelSrcPath, prefix) {
+				t.Fatalf("expected %q, got %q", prefix, b.Stack.Calls[callIdx].RelSrcPath)
 			}
 			if expectVersion {
 				// Assert that it's using v0.1.0 format.
-				ver := strings.SplitN(b.Stack.Calls[1].RelSrcPath[len(prefix):], "/", 2)[0]
+				ver := strings.SplitN(b.Stack.Calls[callIdx].RelSrcPath[len(prefix):], "/", 2)[0]
 				re := regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 				if !re.MatchString(ver) {
 					t.Fatalf("unexpected version string %q", ver)
@@ -2438,7 +2440,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 						pathJoin(pwebDir, "main.go"),
 						65),
 				}
-				got := b.Stack.Calls[2:]
+				got := b.Stack.Calls[callIdx+1:]
 				if ver := internaltest.GetGoMinorVersion(); (ver > 0 && ver < 18 && !is64Bit) || runtime.GOOS == "windows" {
 					// TODO(maruel): Fix check on Windows.
 					// On go1.17 on 32 bits this is failing but not on go1.18, so only

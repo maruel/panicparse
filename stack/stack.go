@@ -79,6 +79,14 @@ func (f *Func) Init(raw string) error {
 		f.ImportPath = f.Complete[:endPkg]
 	}
 	f.Name = f.Complete[endPkg+1:]
+	if idx := strings.LastIndexByte(f.Name, ' '); idx > -1 {
+		cut := f.Name[:idx]
+		// TODO(go1.20): switch to strings.CutSuffix
+		const inGoroutineSuffix = " in goroutine"
+		if strings.HasSuffix(cut, inGoroutineSuffix) {
+			f.Name = strings.TrimSuffix(cut, inGoroutineSuffix)
+		}
+	}
 	f.DirName = f.ImportPath
 	if i := strings.LastIndexByte(f.DirName, '/'); i != -1 {
 		f.DirName = f.DirName[i+1:]
