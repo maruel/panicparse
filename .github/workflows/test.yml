@@ -230,29 +230,19 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        # https://github.com/golang/go/issues/55078
-        # golang.org/x/sys/unix broke on Go versions before 1.17. Not worth
-        # fixing.
-        gover: ['1.17.13']
+        # TODO: switch to an older Go version once tests are made compatible
+        gover: ['1.23']
     env:
       PYTHONDONTWRITEBYTECODE: x
-      GOPATH: ${{github.workspace}}
-      GO111MODULE: off
     steps:
     - name: Turn off git core.autocrlf
       if: matrix.os == 'windows-latest'
       run: git config --global core.autocrlf false
     - uses: actions/checkout@v4
-      with:
-        path: src/github.com/maruel/panicparse
     - uses: actions/setup-go@v5
       with:
         go-version: "=${{matrix.gover}}"
-    - name: 'Check: go get -d -t'
-      working-directory: src/github.com/maruel/panicparse
-      run: go get -d -t ./...
     - name: 'Check: go test'
-      working-directory: src/github.com/maruel/panicparse
       run: go test -timeout=120s -bench=. -benchtime=1x ./...
 
 
