@@ -494,9 +494,12 @@ func TestAugment(t *testing.T) {
 						"main.f",
 						Args{
 							Values: []Arg{{IsAggregate: true, Fields: Args{
-								Values: []Arg{{Value: pointer, IsPtr: true}, {Value: 3}},
+								Values: []Arg{
+									{Value: pointer, IsPtr: true},
+									{Value: pointer, IsPtr: true},
+								},
 							}}},
-							Processed: []string{"error{0x2fffffff, 0x3}"},
+							Processed: []string{"error{0x2fffffff, 0x2fffffff}"},
 						},
 						"/root/main.go",
 						7),

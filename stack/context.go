@@ -252,7 +252,6 @@ const pathSeparator = string(filepath.Separator)
 
 var (
 	lockedToThread = []byte("locked to thread")
-	framesElided   = []byte("...additional frames elided...")
 	// gotRaceHeader1, done
 	raceHeaderFooter = []byte("==================")
 	// gotRaceHeader2
@@ -270,7 +269,7 @@ var (
 // These are effectively constants.
 var (
 	// gotRoutineHeader
-	reRoutineHeader = regexp.MustCompile("^([ \t]*)goroutine (\\d+) \\[([^\\]]+)\\]\\:$")
+	reRoutineHeader = regexp.MustCompile("^([ \t]*)goroutine (\\d+)(?: gp=[^ ]+ m=[^ ]+(?: mp=[^ ]+)?)? \\[([^\\]]+)\\]\\:$")
 	reMinutes       = regexp.MustCompile(`^(\d+) minutes$`)
 
 	// gotUnavail
@@ -356,7 +355,7 @@ const (
 	// to: gotFileFunc
 	gotFunc
 	// Regexp: reCreated
-	// Signature: "created by main.glob..func4"
+	// Signature: "created by main.init.func4"
 	// Goroutine creation line was found.
 	// from: gotFileFunc
 	// to: gotFileCreated
@@ -448,6 +447,18 @@ type scanningState struct {
 	state          state
 	prefix         []byte
 	goroutineIndex int
+}
+
+func isFramesElidedLine(line []byte) bool {
+	// before go1.21:
+	// ...additional frames elided...
+	//
+	// go1.21 and newer:
+	// print("...", elide, " frames elided...\n")
+	framesElided := []byte("...additional frames elided...")
+	return bytes.Equal(line, framesElided) ||
+		bytes.HasPrefix(line, []byte("...")) &&
+			bytes.HasSuffix(line, []byte(" frames elided..."))
 }
 
 // scan scans one line, updates goroutines and move to the next state.
@@ -605,7 +616,7 @@ func (s *scanningState) scan(line []byte) (bool, error) {
 			s.state = gotCreated
 			return true, nil
 		}
-		if bytes.Equal(trimmed, framesElided) {
+		if isFramesElidedLine(trimmed) {
 			cur.Stack.Elided = true
 			// TODO(maruel): New state.
 			return true, nil

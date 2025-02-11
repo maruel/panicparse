@@ -20,7 +20,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.20"]
+        gover: ["1.23"]
     env:
       PYTHONDONTWRITEBYTECODE: x
     steps:
@@ -92,7 +92,7 @@ jobs:
         # Windows.
         os: [ubuntu-latest, macos-latest, windows-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.20"]
+        gover: ["1.23"]
     env:
       PYTHONDONTWRITEBYTECODE: x
     steps:
@@ -109,7 +109,7 @@ jobs:
         go install github.com/gordonklaus/ineffassign@latest
         go install github.com/securego/gosec/v2/cmd/gosec@v2.18.2
         go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@v0.24.0
-        go install honnef.co/go/tools/cmd/staticcheck@v0.4.7
+        go install honnef.co/go/tools/cmd/staticcheck@v0.5.1
     - name: 'go install necessary tools (ubuntu)'
       if: always() && matrix.os == 'ubuntu-latest'
       run: |
@@ -230,29 +230,19 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        # https://github.com/golang/go/issues/55078
-        # golang.org/x/sys/unix broke on Go versions before 1.17. Not worth
-        # fixing.
-        gover: ['1.17.13']
+        # TODO: switch to an older Go version once tests are made compatible
+        gover: ['1.23']
     env:
       PYTHONDONTWRITEBYTECODE: x
-      GOPATH: ${{github.workspace}}
-      GO111MODULE: off
     steps:
     - name: Turn off git core.autocrlf
       if: matrix.os == 'windows-latest'
       run: git config --global core.autocrlf false
     - uses: actions/checkout@v4
-      with:
-        path: src/github.com/maruel/panicparse
     - uses: actions/setup-go@v5
       with:
         go-version: "=${{matrix.gover}}"
-    - name: 'Check: go get -d -t'
-      working-directory: src/github.com/maruel/panicparse
-      run: go get -d -t ./...
     - name: 'Check: go test'
-      working-directory: src/github.com/maruel/panicparse
       run: go test -timeout=120s -bench=. -benchtime=1x ./...
 
 
@@ -265,7 +255,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Do not forget to bump every 6 months!
-        gover: ["1.20"]
+        gover: ["1.23"]
     permissions:
       security-events: write
     steps:
