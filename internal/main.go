@@ -79,6 +79,7 @@ func writeBucketsToConsole(out io.Writer, p *Palette, a *stack.Aggregated, pf pa
 		}
 		_, _ = io.WriteString(out, header)
 		_, _ = io.WriteString(out, p.StackLines(&e.Signature, srcLen, pkgLen, pf))
+		_, _ = io.WriteString(out, "\n")
 	}
 	return nil
 }
@@ -99,6 +100,7 @@ func writeGoroutinesToConsole(out io.Writer, p *Palette, s *stack.Snapshot, pf p
 		}
 		_, _ = io.WriteString(out, header)
 		_, _ = io.WriteString(out, p.StackLines(&e.Signature, srcLen, pkgLen, pf))
+		_, _ = io.WriteString(out, "\n")
 	}
 	return nil
 }
