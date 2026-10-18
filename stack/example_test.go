@@ -2,11 +2,6 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-// Output is currently different on 32 bits on go1.17 so skip the examples for
-// now. It's a gross hack.
-
-//go:build go1.18 || !386
-
 package stack_test
 
 import (
@@ -222,9 +217,9 @@ func Example_httpHandlerMiddleware() {
 	// Output:
 	// recovered: "It happens"
 	// Parsed stack:
-	//     stack_test example_test.go:239 recoverPanic(<args>)
-	//     stack_test example_test.go:233 panickingHandler(<args>)
-	//     stack_test example_test.go:295 Example_httpHandlerMiddleware.wrapPanic.func2(<args>)
+	//     stack_test example_test.go:234 recoverPanic(<args>)
+	//     stack_test example_test.go:228 panickingHandler(<args>)
+	//     stack_test example_test.go:292 wrapPanic.func1(<args>)
 }
 
 // panickingHandler is an http.HandlerFunc that panics.
@@ -289,6 +284,8 @@ func recoverPanic() {
 
 // wrapPanic is a http.Handler middleware that traps panics and print it out to
 // os.Stdout.
+//
+//go:noinline
 func wrapPanic(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer recoverPanic()

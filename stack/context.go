@@ -2,9 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-//go:generate go install golang.org/x/tools/cmd/stringer@v0.24.0
-//go:generate stringer -type state
-//go:generate stringer -type Location
+//go:generate go tool stringer -type state
+//go:generate go tool stringer -type Location
 
 package stack
 
@@ -12,6 +11,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"go/build"
 	"io"
 	"os"
 	"os/user"
@@ -61,8 +61,11 @@ type Opts struct {
 }
 
 // DefaultOpts returns default options to process the snapshot.
+//
+// Source lookup starts with the build toolchain root from go/build.Default.
+// Set LocalGOROOT when the sources live elsewhere.
 func DefaultOpts() *Opts {
-	p := runtime.GOROOT()
+	p := build.Default.GOROOT
 	if runtime.GOOS == "windows" {
 		p = strings.Replace(p, pathSeparator, "/", -1)
 	}
@@ -839,25 +842,24 @@ func parseFunc(c *Call, line []byte) (bool, error) {
 // struct.
 func parseArgs(line []byte) (Args, error) {
 	const maxDepth = 6 // 5 from traceback.go, +1 for top level
-	var stack [maxDepth]*Args
 	var args Args
-	depth := 0
-	stack[depth] = &args
+	frames := [maxDepth]*Args{&args}
+	stack := frames[:1]
 	for _, s := range bytes.Split(line, commaSpace) {
 		opened, a, closed := trimCurlyBrackets(s)
 		for i := 0; i < opened; i++ {
-			cur := stack[depth]
+			cur := stack[len(stack)-1]
 			cur.Values = append(cur.Values, Arg{})
 			next := &cur.Values[len(cur.Values)-1]
 			next.IsAggregate = true
-			depth++
-			if depth >= maxDepth {
+			if len(stack) == maxDepth {
 				return Args{}, fmt.Errorf("nested aggregate-typed arguments exceeded depth limit")
 			}
-			stack[depth] = &next.Fields
+			stack = stack[:len(stack)+1]
+			stack[len(stack)-1] = &next.Fields
 		}
 		if len(a) > 0 {
-			cur := stack[depth]
+			cur := stack[len(stack)-1]
 			switch {
 			case bytes.Equal(a, threeDots):
 				cur.Elided = true
@@ -881,14 +883,13 @@ func parseArgs(line []byte) (Args, error) {
 			}
 		}
 		for i := 0; i < closed; i++ {
-			stack[depth] = nil
-			depth--
-			if depth < 0 {
+			if len(stack) == 1 {
 				return Args{}, errors.New("unmatched closing curly bracket")
 			}
+			stack = stack[:len(stack)-1]
 		}
 	}
-	if depth != 0 {
+	if len(stack) != 1 {
 		return Args{}, errors.New("unmatched opening curly bracket")
 	}
 	return args, nil
@@ -1043,6 +1044,23 @@ func (s *Snapshot) findRoots() int {
 	s.LocalGomods = map[string]string{}
 	missing := 0
 	gmc := gomodCache{}
+	const src = "/src"
+	// Standard-library frames identify GOROOT before module-cache paths can claim it.
+	// Downloaded toolchains can live inside GOPATH/pkg/mod.
+	if s.RemoteGOROOT == "" && s.LocalGOROOT != "" {
+	findStdlib:
+		for _, g := range s.Goroutines {
+			for _, calls := range [][]Call{g.Stack.Calls, g.CreatedBy.Calls} {
+				for _, c := range calls {
+					suffix := src + "/" + c.Func.ImportPath + "/" + c.SrcName
+					if strings.HasSuffix(c.RemoteSrcPath, suffix) && isFile(s.LocalGOROOT+suffix) {
+						s.RemoteGOROOT = strings.TrimSuffix(c.RemoteSrcPath, suffix)
+						break findStdlib
+					}
+				}
+			}
+		}
+	}
 	for _, f := range getFiles(s.Goroutines) {
 		// TODO(maruel): Could a stack dump have mixed cases? I think it's
 		// possible, need to confirm and handle.
@@ -1063,15 +1081,6 @@ func (s *Snapshot) findRoots() int {
 
 		// At this point, disk will be looked up.
 		parts := splitPath(f)
-		// Initializes RemoteGOROOT.
-		const src = "/src"
-		if s.RemoteGOROOT == "" {
-			if r := isRootedIn(s.LocalGOROOT+src, parts); r != "" {
-				s.RemoteGOROOT = r[:len(r)-len(src)]
-				//log.Printf("Found RemoteGOROOT=%s", s.RemoteGOROOT)
-				continue
-			}
-		}
 		// Initializes RemoteGOPATHs.
 		found := false
 		for _, l := range s.LocalGOPATHs {

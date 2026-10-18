@@ -17,6 +17,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 
@@ -81,7 +82,7 @@ func main() {
 					ok = p != nil && p[0] == 100 && p[1] >= 64 && p[1] < 128
 				}
 			}
-			log.Printf("- %s: %t", req.RemoteAddr, ok)
+			slog.Info("panicparse access", "remote_addr", req.RemoteAddr, "allowed", ok)
 			if !ok {
 				http.Error(w, "forbidden", http.StatusForbidden)
 				return

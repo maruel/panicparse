@@ -7,10 +7,10 @@ package stack
 import (
 	"flag"
 	"fmt"
+	"go/build"
 	"io"
 	"log"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -336,7 +336,7 @@ var (
 )
 
 func init() {
-	goroot = strings.Replace(runtime.GOROOT(), "\\", "/", -1)
+	goroot = strings.Replace(build.Default.GOROOT, "\\", "/", -1)
 	gopaths = map[string]string{}
 	for i, p := range getGOPATHs() {
 		gopaths[p] = p

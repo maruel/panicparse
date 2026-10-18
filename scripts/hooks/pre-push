@@ -1,0 +1,74 @@
+#!/bin/bash
+# Copyright 2026 Marc-Antoine Ruel. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+# Validates the checked-out, clean commit before pushing.
+
+set -euo pipefail
+
+if (($# != 2)); then
+  printf '%s\n' 'Usage: pre-push <remote-name> <remote-url>' >&2
+  exit 2
+fi
+
+script_dir="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly script_dir
+repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd)"
+readonly repo_root
+
+cd -- "$repo_root"
+
+zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+readonly zero
+head_oid=$(git rev-parse --verify HEAD 2>/dev/null || true)
+readonly head_oid
+has_ref_update=false
+
+while read -r local_ref local_oid remote_ref remote_oid; do
+  # Deleting a remote ref does not push local content and is always allowed.
+  if [[ "$local_ref" == '(delete)' || "$local_oid" == "$zero" ]]; then
+    continue
+  fi
+  # Worktree-based checks below only describe the checked-out commit, so
+  # refuse anything else instead of validating the wrong tree.
+  if [[ -z "$head_oid" || "$local_oid" != "$head_oid" ]]; then
+    printf 'Push blocked: %s is not checked out; only HEAD can be pushed.\n' "$local_ref" >&2
+    exit 1
+  fi
+  has_ref_update=true
+  if [[ "$remote_oid" == "$zero" ]]; then
+    range="$local_oid"
+  else
+    range="$remote_oid..$local_oid"
+  fi
+  wip_commit=$(git rev-list -n 1 --grep '^WIP' "$range")
+  if [[ -n "$wip_commit" ]]; then
+    printf 'Found WIP commit in %s; not pushing.\n' "$local_ref" >&2
+    exit 1
+  fi
+  if [[ "$remote_ref" == 'refs/heads/main' ]]; then
+    commit_count=$(git rev-list --count "$range")
+    if ((commit_count > 1)); then
+      printf 'Push blocked: %d commits to main; push one commit at a time.\n' "$commit_count" >&2
+      exit 1
+    fi
+  fi
+done
+
+if ! "$has_ref_update"; then
+  exit 0
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  printf '%s\n' 'Commit or remove all changes before pushing.' >&2
+  exit 1
+fi
+
+# Repository-specific verification.
+make verify
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  printf '%s\n' 'Verification modified the worktree; commit or remove those changes before pushing.' >&2
+  exit 1
+fi

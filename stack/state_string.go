@@ -34,8 +34,9 @@ const _state_name = "lookingdonebetweenRoutinegotRoutineHeadergotFuncgotCreatedg
 var _state_index = [...]uint16{0, 7, 11, 25, 41, 48, 58, 69, 83, 93, 107, 121, 143, 163, 183, 204, 226, 246, 266, 287}
 
 func (i state) String() string {
-	if i < 0 || i >= state(len(_state_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_state_index)-1 {
 		return "state(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _state_name[_state_index[i]:_state_index[i+1]]
+	return _state_name[_state_index[idx]:_state_index[idx+1]]
 }

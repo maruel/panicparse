@@ -36,7 +36,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/maruel/panicparse/v2/cmd/panic/internal"
@@ -126,14 +125,19 @@ func panicRaceDisabled(name string) {
 
 func rerunWithFastCrash() {
 	if os.Getenv("GORACE") != "log_path=stderr halt_on_error=1" {
-		_ = os.Setenv("GORACE", "log_path=stderr halt_on_error=1")
-		/* #nosec G204 */
-		c := exec.Command(os.Args[0], os.Args[1:]...)
+		exe, err := os.Executable()
+		if err != nil {
+			fmt.Fprintln(stdErr, err)
+			os.Exit(1)
+		}
+		c := exec.Command(exe, os.Args[1:]...)
+		c.Env = append(os.Environ(), "GORACE=log_path=stderr halt_on_error=1")
 		c.Stderr = os.Stderr
-		if err, ok := c.Run().(*exec.ExitError); ok {
-			if status, ok := err.Sys().(syscall.WaitStatus); ok {
-				os.Exit(status.ExitStatus())
+		if err := c.Run(); err != nil {
+			if e, ok := err.(*exec.ExitError); ok {
+				os.Exit(e.ExitCode())
 			}
+			fmt.Fprintln(stdErr, err)
 			os.Exit(1)
 		}
 		os.Exit(0)

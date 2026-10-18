@@ -21,8 +21,9 @@ const _Location_name = "LocationUnknownGoModGOPATHGoPkgStdliblastLocation"
 var _Location_index = [...]uint8{0, 15, 20, 26, 31, 37, 49}
 
 func (i Location) String() string {
-	if i < 0 || i >= Location(len(_Location_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Location_index)-1 {
 		return "Location(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Location_name[_Location_index[i]:_Location_index[i+1]]
+	return _Location_name[_Location_index[idx]:_Location_index[idx+1]]
 }

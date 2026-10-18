@@ -31,7 +31,7 @@ panicparse helps make sense of Go crash dumps:
    * Parses the source files if available to augment the output.
    * Works on any platform supported by Go, including Windows, macOS, linux.
    * Full go module support.
-   * Requires >=go1.17. Use v2.3.1 for older Go versions.
+   * Requires Go 1.27 or newer.
 
 
 ## Installation

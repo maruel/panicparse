@@ -7,6 +7,9 @@ package stack
 import (
 	"bytes"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"math/bits"
 	"os"
 	"os/exec"
@@ -14,11 +17,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/maruel/panicparse/v2/internal/internaltest"
 )
 
 // goarchList is a list of GOARCH values.
@@ -1535,15 +1538,12 @@ func TestAugmentErr(t *testing.T) {
 			src:  "no_access.go",
 		},
 	}
-	if internaltest.GetGoMinorVersion() > 11 {
-		// The format changed between 1.9 and 1.12.
-		data = append(data, dataLine{
-			name:  "invalid go code",
-			src:   "bad.go",
-			args:  Args{Values: []Arg{{}}},
-			errRe: regexp.QuoteMeta(fmt.Sprintf("failed to parse %s:1:1: expected 'package', found bad", filepath.Join(root, "bad.go"))),
-		})
-	}
+	data = append(data, dataLine{
+		name:  "invalid go code",
+		src:   "bad.go",
+		args:  Args{Values: []Arg{{}}},
+		errRe: regexp.QuoteMeta(fmt.Sprintf("failed to parse %s:1:1: expected 'package', found bad", filepath.Join(root, "bad.go"))),
+	})
 	if runtime.GOOS != "windows" {
 		// Chmod has no effect on Windows.
 		compareErr(t, nil, os.Chmod(filepath.Join(root, "no_access.go"), 0))
@@ -1603,7 +1603,6 @@ func TestLineToByteOffsets(t *testing.T) {
 
 const pointer = uint64(0x2fffffff)
 const pointerStr = "0x2fffffff"
-const is64Bit = uint64(^uintptr(0)) == ^uint64(0)
 
 func overrideEnv(env []string, key, value string) []string {
 	prefix := key + "="
@@ -1667,4 +1666,82 @@ func zapPointersInArgs(t *testing.T, want, got Args) (ptrs []string) {
 		}
 	}
 	return ptrs
+}
+
+// TestAugmentCall covers signed stack words and unused high bits of narrow values.
+func TestAugmentCall(t *testing.T) {
+	wantInt := "1311768467015204864"
+	if strconv.IntSize == 32 {
+		wantInt = "-2147483648"
+	}
+	data := []struct {
+		typ  string
+		word uint64
+		want string
+	}{
+		{"int", 0x1234567880000000, wantInt},
+		{"int8", 0xffffffffffff007f, "127"},
+		{"int8", 0xffffffffffff0080, "-128"},
+		{"int8", 0xffffffffffffffff, "-1"},
+		{"int16", 0xffffffff00007fff, "32767"},
+		{"int16", 0xffffffff00008000, "-32768"},
+		{"int32", 0x123456787fffffff, "2147483647"},
+		{"int32", 0x1234567880000000, "-2147483648"},
+		{"int64", 0x7fffffffffffffff, "9223372036854775807"},
+		{"int64", 0x8000000000000000, "-9223372036854775808"},
+		{"int64", 0xffffffffffffffff, "-1"},
+		{"float32", 0x123456783fc00000, "1.5"},
+		{"float32", 0x1234567880000000, "-0"},
+	}
+	for i, line := range data {
+		t.Run(fmt.Sprintf("%s/%d", line.typ, i), func(t *testing.T) {
+			f, err := parser.ParseFile(token.NewFileSet(), "args.go", "package main; func f(v "+line.typ+") {}", 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			call := Call{Args: Args{Values: []Arg{{Value: line.word}}}}
+			augmentCall(&call, f.Decls[0].(*ast.FuncDecl))
+			if diff := cmp.Diff([]string{line.want}, call.Args.Processed); diff != "" {
+				t.Fatalf("decoded argument (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestAugmentGenericMethod(t *testing.T) {
+	t.Parallel()
+	main := filepath.Join(t.TempDir(), "main.go")
+	const src = `package main
+
+type sample struct{}
+
+func (s *sample) Fail[T any]() {
+	panic("ooh")
+}
+
+func main() {
+	new(sample).Fail[int]()
+}
+`
+	if err := os.WriteFile(main, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := getCrash(t, main, true)
+	s, _, err := ScanSnapshot(bytes.NewReader(content), &bytes.Buffer{}, defaultOpts())
+	if err != nil || s == nil {
+		t.Fatalf("parse generic method panic: %v\n%s", err, content)
+	}
+	if !s.guessPaths() {
+		t.Fatal("could not resolve generic method source")
+	}
+	if err := s.augment(); err != nil {
+		t.Fatalf("analyze generic method source: %v", err)
+	}
+	call := s.Goroutines[0].Stack.Calls[0]
+	if !strings.HasPrefix(call.Func.Name, "(*sample).Fail[") {
+		t.Fatalf("generic method frame lost: %q", call.Func.Name)
+	}
+	if call.LocalSrcPath != filepath.ToSlash(main) || len(call.Args.Processed) == 0 {
+		t.Fatalf("generic method source was not analyzed: %+v", call)
+	}
 }

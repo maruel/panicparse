@@ -7,6 +7,7 @@ package stack
 import (
 	"bytes"
 	"fmt"
+	"go/build"
 	"html/template"
 	"io"
 	"net/url"
@@ -298,7 +299,7 @@ func loadGoroutines() ([]byte, error) {
 func getBuckets() *Aggregated {
 	return &Aggregated{
 		Snapshot: &Snapshot{
-			LocalGOROOT:   runtime.GOROOT(),
+			LocalGOROOT:   build.Default.GOROOT,
 			LocalGOPATHs:  []string{"/gopath"},
 			RemoteGOROOT:  "/golang",
 			RemoteGOPATHs: map[string]string{"/gopath": "/gopath"},

@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -128,37 +127,6 @@ var (
 	panicOutputsOnce sync.Once
 	panicOutputs     map[string][]byte
 )
-
-// GetGoMinorVersion returns the Go1 minor version.
-//
-// Returns 0 for a developer build, panics if can't parse the version.
-//
-// Ignores the revision (go1.<minor>.<revision>).
-func GetGoMinorVersion() int {
-	ver := runtime.Version()
-	if strings.HasPrefix(ver, "devel ") {
-		return 0
-	}
-	if !strings.HasPrefix(ver, "go1.") {
-		// This will break on go2. Please submit a PR to fix this once Go2 is
-		// released.
-		panic(fmt.Sprintf("unexpected go version %q", ver))
-	}
-	v := ver[4:]
-	if i := strings.IndexByte(v, '.'); i != -1 {
-		v = v[:i]
-	} else if i := strings.Index(v, "beta"); i != -1 {
-		v = v[:i]
-	} else if i := strings.Index(v, "rc"); i != -1 {
-		v = v[:i]
-	}
-
-	m, err := strconv.Atoi(v)
-	if err != nil {
-		panic(fmt.Sprintf("failed to parse %q: %v", ver, err))
-	}
-	return m
-}
 
 // build builds to a temporary file and returns the path to it.
 func build(tool string, race bool) string {

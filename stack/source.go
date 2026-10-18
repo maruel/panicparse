@@ -294,7 +294,7 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 		switch t {
 		case "float32":
 			str = popFmt(func(v uint64) string {
-				f := float64(math.Float32frombits(uint32(v)))
+				f := float64(math.Float32frombits(uint32(v & math.MaxUint32)))
 				return strconv.FormatFloat(f, 'g', -1, 32)
 			})
 		case "float64":
@@ -304,23 +304,23 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 			})
 		case "int":
 			str = popFmt(func(v uint64) string {
-				return strconv.FormatInt(int64(int(v)), 10)
+				return strconv.FormatInt(signedWord(v<<(64-strconv.IntSize))>>(64-strconv.IntSize), 10)
 			})
 		case "int8":
 			str = popFmt(func(v uint64) string {
-				return strconv.FormatInt(int64(int8(v)), 10)
+				return strconv.FormatInt(signedWord(v<<56)>>56, 10)
 			})
 		case "int16":
 			str = popFmt(func(v uint64) string {
-				return strconv.FormatInt(int64(int16(v)), 10)
+				return strconv.FormatInt(signedWord(v<<48)>>48, 10)
 			})
 		case "int32":
 			str = popFmt(func(v uint64) string {
-				return strconv.FormatInt(int64(int32(v)), 10)
+				return strconv.FormatInt(signedWord(v<<32)>>32, 10)
 			})
 		case "int64":
 			str = popFmt(func(v uint64) string {
-				return strconv.FormatInt(int64(v), 10)
+				return strconv.FormatInt(signedWord(v), 10)
 			})
 		case "uint", "uint8", "uint16", "uint32", "uint64":
 			str = popFmt(func(v uint64) string {
@@ -374,4 +374,13 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 		}
 		call.Args.Processed = append(call.Args.Processed, str)
 	}
+}
+
+// signedWord decodes a two's-complement stack word without overflowing a conversion.
+func signedWord(v uint64) int64 {
+	n := int64(v & math.MaxInt64)
+	if v > math.MaxInt64 {
+		n += math.MinInt64
+	}
+	return n
 }

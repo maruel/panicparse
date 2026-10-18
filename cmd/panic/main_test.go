@@ -5,8 +5,11 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"testing"
 )
 
@@ -49,5 +52,31 @@ func TestMain(t *testing.T) {
 			}()
 			l.f()
 		})
+	}
+}
+
+// TestRerunWithFastCrash verifies restart uses the executable rather than argv[0].
+func TestRerunWithFastCrash(t *testing.T) {
+	if os.Getenv("PANICPARSE_REEXEC_TEST") == "1" {
+		if os.Getenv("GORACE") == "log_path=stderr halt_on_error=1" {
+			fmt.Fprintln(os.Stderr, "trusted restart")
+			return
+		}
+		os.Args[0] = "missing-panicparse-executable"
+		rerunWithFastCrash()
+		return
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(exe, "-test.run=^TestRerunWithFastCrash$")
+	cmd.Env = append(os.Environ(), "PANICPARSE_REEXEC_TEST=1", "GORACE=")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("restart failed: %v\n%s", err, out)
+	}
+	if !bytes.Contains(out, []byte("trusted restart")) {
+		t.Fatalf("restarted process did not run: %s", out)
 	}
 }

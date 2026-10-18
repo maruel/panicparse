@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"go/build"
 	"io"
 	"os"
 	"os/exec"
@@ -1361,7 +1362,7 @@ func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 							"main.main",
 							Args{},
 							pathJoin(ppDir, "main.go"),
-							74,
+							73,
 						),
 					},
 				},
@@ -1391,19 +1392,19 @@ func TestScanSnapshotSyntheticTwoSnapshots(t *testing.T) {
 							"main.panicint",
 							Args{Values: []Arg{{Value: 42}}},
 							pathJoin(ppDir, "main.go"),
-							93,
+							92,
 						),
 						newCallLocal(
 							"main.init.func9",
 							Args{},
 							pathJoin(ppDir, "main.go"),
-							315,
+							319,
 						),
 						newCallLocal(
 							"main.main",
 							Args{},
 							pathJoin(ppDir, "main.go"),
-							76,
+							75,
 						),
 					},
 				},
@@ -1453,9 +1454,6 @@ func TestGetGOPATHs(t *testing.T) {
 // of go modules using the "replace" statement.
 func TestGomoduleComplex(t *testing.T) {
 	// This test cannot run in parallel.
-	if internaltest.GetGoMinorVersion() < 11 {
-		t.Skip("requires go module support")
-	}
 	old := os.Getenv("GOPATH")
 	defer os.Setenv("GOPATH", old)
 	root, err := os.MkdirTemp("", "stack")
@@ -1536,7 +1534,7 @@ func TestGomoduleComplex(t *testing.T) {
 	compareString(t, "", string(suffix))
 	wantGOROOT := ""
 	compareString(t, wantGOROOT, s.RemoteGOROOT)
-	compareString(t, runtime.GOROOT(), strings.Replace(s.LocalGOROOT, "/", pathSeparator, -1))
+	compareString(t, build.Default.GOROOT, strings.Replace(s.LocalGOROOT, "/", pathSeparator, -1))
 
 	rootRemote := root
 	if runtime.GOOS == "windows" {
@@ -1544,25 +1542,6 @@ func TestGomoduleComplex(t *testing.T) {
 		rootRemote = strings.Replace(root, pathSeparator, "/", -1)
 	}
 	rootLocal := rootRemote
-	if runtime.GOOS == "darwin" {
-		if ver := internaltest.GetGoMinorVersion(); ver > 0 && ver < 19 {
-			// On MacOS, $TMPDIR path is a symlink /var -> /private/var.
-			//
-			// On versions before go1.19, it was somehow evaluated by exec.Cmd.Run().
-			// This stopped being true on go1.19. I suspect it is a side-effect of
-			// https://go.dev/doc/go1.19#os-exec-path
-			//
-			// This must NOT be run on Windows otherwise the path will be converted
-			// to 8.3 format.
-			if rootRemote, err = filepath.EvalSymlinks(rootLocal); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-
-	// This part is a bit tricky. The symlink is evaluated on the left since,
-	// since it's what is the "remote" path, but it is not on the right since,
-	// which is the "local" path. This difference only exists on MacOS.
 	wantGOPATHs := map[string]string{
 		pathJoin(rootRemote, "go"): pathJoin(rootLocal, "go"),
 	}
@@ -1887,7 +1866,7 @@ func testPanicRace(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 							"main.main",
 							Args{},
 							pathJoin(ppDir, "main.go"),
-							76,
+							75,
 						),
 					},
 				},
@@ -1923,7 +1902,7 @@ func testPanicRace(t *testing.T, s *Snapshot, b *bytes.Buffer, ppDir string) {
 							"main.main",
 							Args{},
 							pathJoin(ppDir, "main.go"),
-							76,
+							75,
 						),
 					},
 				},
@@ -2063,8 +2042,8 @@ func TestPanicweb(t *testing.T) {
 	if !s.guessPaths() {
 		t.Error("expected success")
 	}
-	if s.RemoteGOROOT != strings.Replace(runtime.GOROOT(), "\\", "/", -1) {
-		t.Fatalf("RemoteGOROOT mismatch; want:%q got:%q", runtime.GOROOT(), s.RemoteGOROOT)
+	if s.RemoteGOROOT != strings.Replace(build.Default.GOROOT, "\\", "/", -1) {
+		t.Fatalf("RemoteGOROOT mismatch; want:%q got:%q", build.Default.GOROOT, s.RemoteGOROOT)
 	}
 	if got := len(s.Goroutines); got < 30 {
 		t.Fatalf("unexpected Goroutines; want at least 30, got %d", got)
@@ -2350,7 +2329,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				t.Fatal("expected Locked")
 			}
 			// This is a change detector on internal/main.go.
-			want := Stack{Calls: []Call{newCallLocal("main.main in goroutine 1", Args{}, pathJoin(pwebDir, "main.go"), 145)}}
+			want := Stack{Calls: []Call{newCallLocal("main.main in goroutine 1", Args{}, pathJoin(pwebDir, "main.go"), 146)}}
 			compareStacks(t, &b.Signature.CreatedBy, &want)
 			for i := range b.Signature.Stack.Calls {
 				if strings.HasPrefix(b.Signature.Stack.Calls[i].ImportPath, "github.com/mattn/go-colorable") {
@@ -2384,14 +2363,8 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				if l := len(b.Stack.Calls); l != 4 {
 					t.Fatalf("expected %d calls, got %d", 4, l)
 				}
-				// The first item shall be an assembly file independent of the OS on Go
-				// < 1.19.
 				s := b.Stack.Calls[0].RelSrcPath
-				if ver := internaltest.GetGoMinorVersion(); ver > 0 && ver < 19 {
-					if !strings.HasSuffix(s, ".s") {
-						t.Fatalf("expected assembly file, got %q", s)
-					}
-				} else if !strings.HasPrefix(s, "syscall") && !strings.HasSuffix(s, ".go") {
+				if !strings.HasPrefix(s, "syscall") && !strings.HasSuffix(s, ".go") {
 					t.Fatalf("expected syscall go file, got %q", s)
 				}
 			}
@@ -2441,11 +2414,9 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 						65),
 				}
 				got := b.Stack.Calls[callIdx+1:]
-				if ver := internaltest.GetGoMinorVersion(); (ver > 0 && ver < 18 && !is64Bit) || runtime.GOOS == "windows" {
+				if runtime.GOOS == "windows" {
 					// TODO(maruel): Fix check on Windows.
-					// On go1.17 on 32 bits this is failing but not on go1.18, so only
-					// skip in that case.
-					t.Log("skipping some checks on <go1.18 on 32 bits")
+					t.Log("skipping remaining stack checks on Windows")
 				} else {
 					for i := range want {
 						zapCalls(t, &want[i], &got[i])
@@ -2511,6 +2482,83 @@ func createTree(t *testing.T, root string, tree map[string]string) {
 		}
 		if err := os.WriteFile(p, []byte(content), 0600); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+// TestScanSnapshotToolchainRoots keeps standard-library files separate from cached modules.
+func TestScanSnapshotToolchainRoots(t *testing.T) {
+	packages := []struct{ pkg, file, fn string }{
+		{"runtime", "proc.go", "gopark"},
+		{"net/http", "server.go", "(*Server).Serve"},
+	}
+	roots := []string{
+		"/remote/go",
+		"/remote/gopath/pkg/mod/golang.org/toolchain@v0.0.1-go1.23.0.linux-amd64",
+		"C:/Go",
+		"C:/gopath/pkg/mod/golang.org/toolchain@v0.0.1-go1.23.0.windows-amd64",
+	}
+	for _, line := range packages {
+		for _, remoteRoot := range roots {
+			for _, prefix := range []string{"", "src/", "src/vendor/", "vendor/"} {
+				for _, stdlib := range []bool{false, true} {
+					for _, withModule := range []bool{false, true} {
+						if !withModule && (!stdlib || prefix != "") {
+							continue
+						}
+						t.Run(fmt.Sprintf("%s/%s/%s/stdlib=%t/module=%t", line.pkg, remoteRoot, prefix, stdlib, withModule), func(t *testing.T) {
+							root := t.TempDir()
+							gopath := pathJoin(root, "gopath")
+							goroot := pathJoin(root, "go")
+							module := pathJoin(gopath, "pkg/mod/example.com/library@v1.0.0")
+							modulePkg := prefix + line.pkg
+							createTree(t, root, map[string]string{
+								"go/src/" + line.pkg + "/" + line.file:                                     "package p",
+								"gopath/pkg/mod/example.com/library@v1.0.0/" + modulePkg + "/" + line.file: "package p",
+							})
+							remoteModule := "/remote/gopath/pkg/mod/example.com/library@v1.0.0"
+							if strings.HasPrefix(remoteRoot, "C:") {
+								remoteModule = "C:/gopath/pkg/mod/example.com/library@v1.0.0"
+							}
+							input := "goroutine 1 [running]:\n"
+							if withModule {
+								input += "example.com/library/" + modulePkg + ".Wait(0x1)\n" +
+									"\t" + remoteModule + "/" + modulePkg + "/" + line.file + ":1\n"
+							}
+							if stdlib {
+								input += line.pkg + "." + line.fn + "(0x1)\n\t" + remoteRoot + "/src/" + line.pkg + "/" + line.file + ":1\n"
+							}
+							input += "\n"
+							opts := DefaultOpts()
+							opts.LocalGOROOT = goroot
+							opts.LocalGOPATHs = []string{gopath}
+							opts.AnalyzeSources = false
+							s, _, err := ScanSnapshot(strings.NewReader(input), io.Discard, opts)
+							if err != io.EOF {
+								t.Fatal(err)
+							}
+							wantRoot := ""
+							if stdlib {
+								wantRoot = remoteRoot
+							}
+							if s.RemoteGOROOT != wantRoot {
+								t.Fatalf("standard-library root = %q, want %q", s.RemoteGOROOT, wantRoot)
+							}
+							calls := s.Goroutines[0].Stack.Calls
+							if withModule && (calls[0].Location != GoPkg || calls[0].LocalSrcPath != pathJoin(module, modulePkg, line.file)) {
+								t.Fatalf("module was misclassified: %+v", calls[0])
+							}
+							stdIndex := 0
+							if withModule {
+								stdIndex = 1
+							}
+							if stdlib && (calls[stdIndex].Location != Stdlib || calls[stdIndex].LocalSrcPath != pathJoin(goroot, "src", line.pkg, line.file)) {
+								t.Fatalf("standard library was misclassified: %+v", calls[stdIndex])
+							}
+						})
+					}
+				}
+			}
 		}
 	}
 }

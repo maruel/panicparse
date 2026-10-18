@@ -1,0 +1,6 @@
+# Vendored and generated sources do not need file summaries.
+**/*_gen.go
+**/*_string.go
+**/testdata/**
+third_party/**
+vendor/**

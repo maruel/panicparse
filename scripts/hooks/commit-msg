@@ -1,0 +1,75 @@
+#!/bin/bash
+# Copyright 2026 Marc-Antoine Ruel. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+# Rejects malformed, overlong, or co-authored commit messages.
+
+set -euo pipefail
+
+print_commit_guidance() {
+  printf '%s\n' \
+    'Commit guidance for coding agents:' \
+    '  - Use a concise subject no longer than 120 characters.' \
+    '  - Separate an optional body from the subject with a blank line.' \
+    '  - When useful, explain the rationale and tradeoffs; do not restate the diff.' >&2
+}
+
+if (($# != 1)); then
+  printf '%s\n' 'Usage: commit-msg <message-file>' >&2
+  print_commit_guidance
+  exit 2
+fi
+
+message_file=$1
+readonly message_file
+
+if [[ ! -f "$message_file" ]]; then
+  printf 'Commit message file does not exist: %s\n' "$message_file" >&2
+  print_commit_guidance
+  exit 2
+fi
+
+if grep -Fq '\n' "$message_file"; then
+  printf '%s\n' 'Commit messages must use actual line breaks, not literal \n sequences.' >&2
+  print_commit_guidance
+  exit 1
+fi
+
+if grep -Eiq '^co-authored-by: ' "$message_file"; then
+  printf '%s\n' 'Commit messages must not contain Co-authored-by trailers.' >&2
+  print_commit_guidance
+  exit 1
+fi
+
+if ! awk '
+  /^[[:space:]]*#/ { next }
+  !subject {
+    if (NF) subject = 1
+    next
+  }
+  !separator {
+    if (!NF) {
+      separator = 1
+      next
+    }
+    invalid_separator = 1
+    next
+  }
+  END { exit !subject || invalid_separator }
+' "$message_file"; then
+  printf '%s\n' 'Commit messages need a subject and a blank line before any body.' >&2
+  print_commit_guidance
+  exit 1
+fi
+
+if ! awk '
+  /^[[:space:]]*#/ { next }
+  NF && length($0) > 120 {
+    printf "Commit message line %d is %d characters; maximum is 120.\n", NR, length($0) > "/dev/stderr"
+    exit 1
+  }
+' "$message_file"; then
+  print_commit_guidance
+  exit 1
+fi

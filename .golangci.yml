@@ -1,0 +1,40 @@
+# Copyright 2026 Marc-Antoine Ruel. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+version: "2"
+run:
+  timeout: 5m
+linters:
+  default: none
+  enable:
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unused
+  exclusions:
+    rules:
+      # The standalone gosec CI command scanned production sources only.
+      - path: _test\.go$
+        linters: [gosec]
+      # The restart resolves os.Executable and forwards argv without invoking a shell.
+      - path: ^cmd/panic/main\.go$
+        source: 'exec\.Command\(exe, os\.Args\[1:\]\.\.\.\)'
+        text: G(204|702)
+        linters: [gosec]
+  settings:
+    staticcheck:
+      checks: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022", "-QF*"]
+    govet:
+      enable:
+        - shadow
+      disable:
+        - unsafeptr
+formatters:
+  exclusions:
+    generated: lax
+  enable:
+    - gofmt
+    - goimports
