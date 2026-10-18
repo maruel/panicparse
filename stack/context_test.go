@@ -2353,7 +2353,7 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				t.Fatalf("expected 1 goroutine for the signature, got %d", l)
 			}
 			if runtime.GOOS == "windows" {
-				if got, want := len(b.Stack.Calls), 4; got != want {
+				if got, want := len(b.Stack.Calls), 5; got != want {
 					t.Fatalf("expected %d calls, got %d", want, got)
 				}
 				if s := b.Stack.Calls[0].RelSrcPath; s != "runtime/syscall_windows.go" {
@@ -2382,13 +2382,11 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 				expectVersion = false
 			}
 			if runtime.GOOS == "windows" {
-				// This changes across Go version, this check is super fragile.
-				callIdx = 0
-				path = "syscall"
-				fn = "Syscall"
+				// SleepEx is preceded by syscall.syscalln and syscall.SyscallN.
+				callIdx = 2
+				path = "golang.org/x/sys/windows"
+				fn = "SleepEx"
 				mainOS = "main_windows.go"
-				prefix = "runtime/syscall_windows.go"
-				expectVersion = false
 			}
 			if b.Stack.Calls[callIdx].Func.ImportPath != path || b.Stack.Calls[callIdx].Func.Name != fn {
 				t.Fatalf("expected %q & %q, got %#v", path, fn, b.Stack.Calls[callIdx].Func)
@@ -2414,16 +2412,11 @@ func identifyPanicwebSignature(t *testing.T, b *Bucket, pwebDir string) panicweb
 						65),
 				}
 				got := b.Stack.Calls[callIdx+1:]
-				if runtime.GOOS == "windows" {
-					// TODO(maruel): Fix check on Windows.
-					t.Log("skipping remaining stack checks on Windows")
-				} else {
-					for i := range want {
-						zapCalls(t, &want[i], &got[i])
-					}
-					if diff := cmp.Diff(want, got); diff != "" {
-						t.Fatalf("rest of stack mismatch (-want +got):\n%s", diff)
-					}
+				for i := range want {
+					zapCalls(t, &want[i], &got[i])
+				}
+				if diff := cmp.Diff(want, got); diff != "" {
+					t.Fatalf("rest of stack mismatch (-want +got):\n%s", diff)
 				}
 			}
 			return pstStdlib
@@ -2507,7 +2500,7 @@ func TestScanSnapshotToolchainRoots(t *testing.T) {
 							continue
 						}
 						t.Run(fmt.Sprintf("%s/%s/%s/stdlib=%t/module=%t", line.pkg, remoteRoot, prefix, stdlib, withModule), func(t *testing.T) {
-							root := t.TempDir()
+							root := filepath.ToSlash(t.TempDir())
 							gopath := pathJoin(root, "gopath")
 							goroot := pathJoin(root, "go")
 							module := pathJoin(gopath, "pkg/mod/example.com/library@v1.0.0")
