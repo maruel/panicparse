@@ -15,14 +15,14 @@ help:
 		'make git-hooks' 'Install versioned Git hooks'
 
 fix:
-	@uv run --locked ruff check --fix scripts
+	@uv run --locked ruff check --quiet --fix scripts
 	@uv run --locked ruff format scripts >/dev/null
 	@uv run --locked python scripts/update_agents_file_index.py
 	@go tool golangci-lint fmt
 	@go tool golangci-lint run --show-stats=false --fix ./...
 
 verify:
-	@uv run --locked ruff check scripts
+	@uv run --locked ruff check --quiet scripts
 	@uv run --locked ruff format --check --quiet scripts
 	@go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 	@go tool golangci-lint fmt --diff
