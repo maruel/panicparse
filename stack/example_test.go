@@ -2,6 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
+// Examples rendering text and HTML snapshots and capturing HTTP panics.
+
 package stack_test
 
 import (
@@ -217,9 +219,9 @@ func Example_httpHandlerMiddleware() {
 	// Output:
 	// recovered: "It happens"
 	// Parsed stack:
-	//     stack_test example_test.go:234 recoverPanic(<args>)
-	//     stack_test example_test.go:228 panickingHandler(<args>)
-	//     stack_test example_test.go:292 wrapPanic.func1(<args>)
+	//     stack_test example_test.go:236 recoverPanic(<args>)
+	//     stack_test example_test.go:230 panickingHandler(<args>)
+	//     stack_test example_test.go:294 wrapPanic.func1(<args>)
 }
 
 // panickingHandler is an http.HandlerFunc that panics.

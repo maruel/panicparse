@@ -2,6 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
+// Recorded panicweb goroutine output for stack parsing tests.
+
 package internaltest
 
 // staticPanicweb is a snapshot created by running:

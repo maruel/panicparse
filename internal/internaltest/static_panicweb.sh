@@ -3,6 +3,8 @@
 # Use of this source code is governed under the Apache License, Version 2.0
 # that can be found in the LICENSE file.
 
+# Capture panicweb goroutine output and normalize local toolchain paths.
+
 set -eu
 
 eval `go env | grep 'GOROOT\|GOPATH'`

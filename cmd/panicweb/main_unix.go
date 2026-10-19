@@ -2,6 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
+// Create a long nanosleep system call for Unix goroutine snapshots.
+
 //go:build aix || dragonfly || freebsd || linux || netbsd || openbsd || solaris
 
 package main

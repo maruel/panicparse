@@ -2,6 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
+// Read goroutine snapshots, infer source roots, and augment stack information.
+
 //go:generate go tool stringer -type state
 //go:generate go tool stringer -type Location
 

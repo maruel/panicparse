@@ -2,6 +2,8 @@
 # Use of this source code is governed under the Apache License, Version 2.0
 # that can be found in the LICENSE file.
 
+# CI checks for tests, coverage, static analysis, and generated files.
+
 on: [push, pull_request]
 name: Run tests
 jobs:

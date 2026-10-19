@@ -2,6 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
+// Examples exposing goroutine snapshots through an HTTP handler.
+
 package webstack_test
 
 import (

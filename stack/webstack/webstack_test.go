@@ -2,6 +2,8 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
+// Tests and benchmarks HTTP snapshots, errors, methods, and memory limits.
+
 package webstack
 
 import (

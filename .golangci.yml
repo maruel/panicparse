@@ -2,6 +2,8 @@
 # Use of this source code is governed under the Apache License, Version 2.0
 # that can be found in the LICENSE file.
 
+# Go formatting and static analysis configuration.
+
 version: "2"
 run:
   timeout: 5m
