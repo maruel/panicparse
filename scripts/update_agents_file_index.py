@@ -167,10 +167,18 @@ def get_file_description(filepath):
     with open(filepath, encoding="utf-8") as f:
         lines = [f.readline() for _ in range(SUMMARY_SCAN_LINES)]
     in_copyright = False
+    in_script_metadata = False
     for i, line in enumerate(lines):
         if not line:
             break
         sline = line.strip()
+        if in_script_metadata:
+            if sline == "# ///":
+                in_script_metadata = False
+            continue
+        if fname.endswith(".py") and sline == "# /// script":
+            in_script_metadata = True
+            continue
         if not sline:
             in_copyright = False
             continue
@@ -187,8 +195,6 @@ def get_file_description(filepath):
             continue
         if sline.startswith(f"{prefix} swift-tools-version:"):
             continue
-        if sline.startswith(f"{prefix} ///"):
-            continue
         # Skip YAML front-matter delimiters and shebangs.
         if sline == "---" or sline.startswith("#!"):
             continue
@@ -197,12 +203,6 @@ def get_file_description(filepath):
             continue
         if " copyright " in sline.lower():
             in_copyright = True
-            continue
-        # Skip PEP 723 inline script metadata fields (requires-python, dependencies, etc.)
-        # that appear between # /// script and # /// markers.
-        if fname.endswith(".py") and sline.startswith(
-            (f"{prefix} requires-", f"{prefix} dependencies"),
-        ):
             continue
         if sline.startswith(prefix):
             comment = sline[len(prefix) :].strip()
