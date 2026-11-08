@@ -10,13 +10,12 @@ To opt-in a directory, add these two markers to its AGENTS.md:
     <!-- BEGIN FILE INDEX -->
     <!-- END FILE INDEX -->
 
-The script auto-discovers all non-ignored AGENTS.md files that contain the
-markers, generates a file index from first-line comments, and injects it between
-the markers. Repository-relative glob patterns in .agents-index-ignore exclude
-content that should not require source-file summaries. Directories without
-markers, including the repository root, are left unchanged.
+The script updates opted-in AGENTS.md indexes in the current directory and its
+descendants. Each .agents-index-ignore adds glob exclusions relative to its own
+directory; exclusions apply to that directory and its descendants.
 """
 
+# Canonical source: https://github.com/maruel/tagline/blob/main/update_agents_file_index.py
 import argparse
 import fnmatch
 import os
@@ -25,12 +24,15 @@ import subprocess
 import sys
 
 SUMMARY_SCAN_LINES = 20
+SCRIPT_FILE = os.path.realpath(__file__).replace(os.sep, "/")
 
 INDEX_SUMMARY_GUIDANCE = f"""\
 Add a one-line index summary (the first meaningful comment line):
   - Keep it under 120 characters; favor compact keywords over sentences.
   - Do not wrap it: later lines are ignored.
   - It must be within the first {SUMMARY_SCAN_LINES} lines.
+  - For Python inline metadata, put the summary before # /// script.
+  - For Markdown front matter, put a comment before the first YAML field.
   - Do not group it in license notice. Add an empty line to disambiguate.
   - Omit the filename and generic labels such as "Goal"."""
 
@@ -50,7 +52,9 @@ Index summary examples:
     # Copyright 2026 Example Corp. All rights reserved.
 
     # trace parsing, bottleneck diagnostics, report output
-    '''Foo bar'''
+    # /// script
+    # dependencies = ["example"]
+    # ///
   Go:
     // Copyright 2026 Example Corp. All rights reserved.
 
@@ -62,6 +66,27 @@ Index summary examples:
 HELP_EPILOG = f"{INDEX_SUMMARY_GUIDANCE}\n\n{EXAMPLES}"
 
 
+def get_script_path(git_root: str) -> str:
+    """Return the repository-relative script path with forward slashes."""
+    return os.path.relpath(SCRIPT_FILE, git_root).replace(os.sep, "/")
+
+
+def get_git_root() -> str | None:
+    """Return the root of the repository containing this script."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=os.path.dirname(SCRIPT_FILE),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"Error locating git repository: {e}", file=sys.stderr)
+        return None
+
+
 def get_git_files() -> list[str]:
     """Return tracked and non-ignored untracked files, or [] on failure."""
     try:
@@ -71,13 +96,14 @@ def get_git_files() -> list[str]:
             text=True,
             check=True,
         )
-        return [f for f in result.stdout.split("\0") if f and os.path.lexists(f)]
+        # Git lists unmerged paths once per index stage during a merge or rebase.
+        return list(dict.fromkeys(f for f in result.stdout.split("\0") if f and os.path.lexists(f)))
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"Error listing git files: {e}", file=sys.stderr)
         return []
 
 
-def _py_docstring(lines, i):
+def _py_docstring(lines: list[str], i: int) -> str:
     """Extract the description from a Python triple-quoted docstring starting at lines[i].
 
     Returns the description string, or "" if none found.
@@ -115,7 +141,7 @@ def _c_style_block_comment(lines: list[str], i: int) -> str:
     return ""
 
 
-def get_file_description(filepath):
+def get_file_description(filepath: str) -> str | None:
     """Return the description for a file, or None if not applicable.
 
     Returns None if the file type has no comment convention (or is explicitly
@@ -167,18 +193,13 @@ def get_file_description(filepath):
     with open(filepath, encoding="utf-8") as f:
         lines = [f.readline() for _ in range(SUMMARY_SCAN_LINES)]
     in_copyright = False
-    in_script_metadata = False
     for i, line in enumerate(lines):
         if not line:
             break
         sline = line.strip()
-        if in_script_metadata:
-            if sline == "# ///":
-                in_script_metadata = False
-            continue
+        # Metadata comments are not summaries; the summary must precede them.
         if fname.endswith(".py") and sline == "# /// script":
-            in_script_metadata = True
-            continue
+            return ""
         if not sline:
             in_copyright = False
             continue
@@ -214,13 +235,13 @@ def get_file_description(filepath):
     return ""
 
 
-def discover_configs(all_files):
+def discover_configs(all_files: list[str]) -> dict[str, set[str]]:
     """Auto-discover workspace roots from AGENTS.md files that contain a file index marker.
 
     Returns a dict mapping target AGENTS.md path to its set of excluded child directories.
     """
     candidates = sorted(f for f in all_files if os.path.basename(f) == "AGENTS.md")
-    configs = {}
+    configs: dict[str, set[str]] = {}
     for f in candidates:
         with open(f, encoding="utf-8") as fh:
             if "<!-- BEGIN FILE INDEX -->" in fh.read():
@@ -243,24 +264,50 @@ def discover_configs(all_files):
     return configs
 
 
-def get_index_ignores() -> list[str]:
-    """Read repository-relative exclusion patterns for non-source content."""
-    path = ".agents-index-ignore"
-    if not os.path.exists(path):
-        return []
-    with open(path, encoding="utf-8") as f:
-        lines = (line.strip() for line in f)
-        return [line for line in lines if line and not line.startswith("#")]
+def get_index_ignores(all_files: list[str]) -> dict[str, list[str]]:
+    """Read exclusions in directories containing indexed files or their ancestors."""
+    directories = {""}
+    for filepath in all_files:
+        directory = os.path.dirname(filepath)
+        while directory and directory not in directories:
+            directories.add(directory)
+            directory = os.path.dirname(directory)
+    ignores: dict[str, list[str]] = {}
+    for directory in directories:
+        path = os.path.join(directory, ".agents-index-ignore")
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                lines = (line.strip() for line in f)
+                ignores[directory] = [line for line in lines if line and not line.startswith("#")]
+    return ignores
 
 
-def generate_index(target, exclude, all_files, all_configs, ignored):
+def is_index_ignored(filepath: str, ignores: dict[str, list[str]]) -> bool:
+    """Apply each ancestor's exclusions to a repository-relative path."""
+    for directory, patterns in ignores.items():
+        if directory and not filepath.startswith(directory + "/"):
+            continue
+        relative = filepath[len(directory) + 1 :] if directory else filepath
+        if any(fnmatch.fnmatch(relative, pattern) for pattern in patterns):
+            return True
+    return False
+
+
+def generate_index(
+    target: str,
+    exclude: set[str],
+    all_files: list[str],
+    all_configs: dict[str, set[str]],
+    ignored: dict[str, list[str]],
+    script_path: str,
+) -> tuple[str, list[str]]:
     """Generate the file index for target, returning (content, missing) where
     missing is a list of files that support comments but have no description."""
     root_dir = os.path.dirname(target)
-    files_found = []
-    missing = []
+    files_found: list[tuple[str, str]] = []
+    missing: list[str] = []
     for filepath in all_files:
-        if any(fnmatch.fnmatch(filepath, pattern) for pattern in ignored):
+        if is_index_ignored(filepath, ignored):
             continue
         # Skip own AGENTS.md.
         if filepath == target:
@@ -287,14 +334,14 @@ def generate_index(target, exclude, all_files, all_configs, ignored):
             missing.append(relpath)
         else:
             files_found.append((relpath, desc))
-    desc = "Autogenerated from first-line comments. Run scripts/update_agents_file_index.py to refresh."
+    desc = f"Autogenerated from first-line comments. Run {script_path} to refresh."
     lines = ["## File Index", "", desc, ""]
     for path, comment in sorted(files_found):
         lines.append(f"- `{path}`: {comment}")
     return "\n".join(lines), missing
 
 
-def update_markdown(target_file: str, content: str, check: bool) -> bool:
+def update_markdown(target_file: str, content: str, check: bool, script_path: str) -> bool:
     """Update or check the file index in target_file. Returns True if a change was made (or needed)."""
     if not os.path.exists(target_file):
         print(f"Warning: {target_file} not found, skipping.")
@@ -316,7 +363,7 @@ def update_markdown(target_file: str, content: str, check: bool) -> bool:
         return False
     if check:
         print(
-            f"Error: {target_file} file index is out of date. Run scripts/update_agents_file_index.py to fix.",
+            f"Error: {target_file} file index is out of date. Run {script_path} to fix.",
             file=sys.stderr,
         )
         return True
@@ -326,14 +373,14 @@ def update_markdown(target_file: str, content: str, check: bool) -> bool:
     return False
 
 
-def report_missing_index_summaries(missing: list[str]) -> None:
+def report_missing_index_summaries(missing: list[str], script_path: str) -> None:
     """Print coding-agent guidance for files missing an index summary."""
     print("Error: the following files are missing an index summary:", file=sys.stderr)
     for filepath in sorted(missing):
         print(f"  {filepath}", file=sys.stderr)
     print(INDEX_SUMMARY_GUIDANCE, file=sys.stderr)
     print(
-        "Run scripts/update_agents_file_index.py --help for examples.",
+        f"Run {script_path} --help for examples.",
         file=sys.stderr,
     )
 
@@ -352,28 +399,43 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    git_root = get_git_root()
+    if git_root is None:
+        return 1
+    cwd = os.path.realpath(os.getcwd())
+    git_root = os.path.realpath(git_root)
+    script_path = get_script_path(git_root)
+    if os.path.commonpath((cwd, git_root)) != git_root:
+        print("Error: run the indexer from inside its repository.", file=sys.stderr)
+        return 1
+    scope = os.path.relpath(cwd, git_root).replace(os.sep, "/")
+    os.chdir(git_root)
     all_files = get_git_files()
     if not all_files:
         print("No files found in git repository.")
         return 1
     ret = 0
-    configs = discover_configs(all_files)
-    ignored = get_index_ignores()
-    all_missing = []
+    ignored = get_index_ignores(all_files)
+    configs = discover_configs([f for f in all_files if not is_index_ignored(f, ignored)])
+    targets = {target: exclude for target, exclude in configs.items() if scope == "." or target.startswith(scope + "/")}
+    if not targets:
+        print(f"Error: no opted-in AGENTS.md indexes found in {scope}.", file=sys.stderr)
+        return 1
+    all_missing: list[str] = []
     indexes_out_of_date = False
-    for target, exclude in configs.items():
-        content, missing = generate_index(target, exclude, all_files, configs, ignored)
-        if update_markdown(target, content, check=args.check):
+    for target, exclude in targets.items():
+        content, missing = generate_index(target, exclude, all_files, configs, ignored, script_path)
+        if update_markdown(target, content, check=args.check, script_path=script_path):
             ret = 1
             indexes_out_of_date = True
         all_missing.extend(missing)
     if all_missing:
-        report_missing_index_summaries(all_missing)
+        report_missing_index_summaries(all_missing, script_path)
         ret = 1
     elif args.check and indexes_out_of_date:
         print(INDEX_SUMMARY_GUIDANCE, file=sys.stderr)
         print(
-            "Run scripts/update_agents_file_index.py --help for examples.",
+            f"Run {script_path} --help for examples.",
             file=sys.stderr,
         )
     return ret
