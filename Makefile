@@ -31,7 +31,6 @@ verify:
 	@go tool addlicense -ignore '.venv/**' -ignore '.ruff_cache/**' -ignore 'third_party/**' -ignore 'vendor/**' -check .
 	@uv run --locked python scripts/lint_binaries.py
 	@uv run --locked python scripts/update_agents_file_index.py --check
-	# Module metadata contains upstream dependency names rather than prose.
 	@git ls-files -z -- . ':(exclude)go.mod' ':(exclude)go.sum' | xargs -0 go run github.com/client9/misspell/cmd/misspell@v0.3.4 -error
 	@go mod tidy -diff
 
