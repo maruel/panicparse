@@ -91,7 +91,7 @@ func (r *reader) readLine() ([]byte, error) {
 	var d []byte
 	for {
 		f, err := r.readSlice()
-		if err != errBufferFull {
+		if !errors.Is(err, errBufferFull) {
 			if d == nil {
 				return f, err
 			}

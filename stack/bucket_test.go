@@ -8,6 +8,7 @@ package stack
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -32,7 +33,7 @@ func TestAggregateNotAggressive(t *testing.T) {
 		"",
 	}
 	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), io.Discard, defaultOpts())
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
 	if s == nil {
@@ -40,42 +41,38 @@ func TestAggregateNotAggressive(t *testing.T) {
 	}
 	want := []*Bucket{
 		{
-			Signature: Signature{
-				State: "chan receive",
-				Stack: Stack{
-					Calls: []Call{
-						newCall(
-							"main.func·001",
-							Args{Values: []Arg{
-								{IsAggregate: true, Fields: Args{
-									Values: []Arg{{Value: 0x11000000, IsPtr: true}, {Value: 2}},
-								}},
-								{Value: 3},
+			State: "chan receive",
+			Stack: Stack{
+				Calls: []Call{
+					newCall(
+						"main.func·001",
+						Args{Values: []Arg{
+							{IsAggregate: true, Fields: Args{
+								Values: []Arg{{Value: 0x11000000, IsPtr: true}, {Value: 2}},
 							}},
-							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							72),
-					},
+							{Value: 3},
+						}},
+						"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+						72),
 				},
 			},
 			IDs:   []int{6},
 			First: true,
 		},
 		{
-			Signature: Signature{
-				State: "chan receive",
-				Stack: Stack{
-					Calls: []Call{
-						newCall(
-							"main.func·001",
-							Args{Values: []Arg{
-								{IsAggregate: true, Fields: Args{
-									Values: []Arg{{Value: 0x21000000, Name: "#1", IsPtr: true}, {Value: 2}},
-								}},
-								{Value: 3},
+			State: "chan receive",
+			Stack: Stack{
+				Calls: []Call{
+					newCall(
+						"main.func·001",
+						Args{Values: []Arg{
+							{IsAggregate: true, Fields: Args{
+								Values: []Arg{{Value: 0x21000000, Name: "#1", IsPtr: true}, {Value: 2}},
 							}},
-							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							72),
-					},
+							{Value: 3},
+						}},
+						"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+						72),
 				},
 			},
 			IDs: []int{7},
@@ -109,7 +106,7 @@ func TestAggregateExactMatching(t *testing.T) {
 		"",
 	}
 	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), io.Discard, defaultOpts())
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
 	if s == nil {
@@ -117,30 +114,28 @@ func TestAggregateExactMatching(t *testing.T) {
 	}
 	want := []*Bucket{
 		{
-			Signature: Signature{
-				State: "chan receive",
-				CreatedBy: Stack{
-					Calls: []Call{
-						newCall(
-							"main.mainImpl",
-							Args{},
-							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							74),
-					},
+			State: "chan receive",
+			CreatedBy: Stack{
+				Calls: []Call{
+					newCall(
+						"main.mainImpl",
+						Args{},
+						"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+						74),
 				},
-				Stack: Stack{
-					Calls: []Call{
-						newCall(
-							"main.func·001",
-							Args{Values: []Arg{
-								{IsAggregate: true, Fields: Args{
-									Values: []Arg{{Value: 0x11000000, Name: "#1", IsPtr: true}, {Value: 2}},
-								}},
-								{Value: 3},
+			},
+			Stack: Stack{
+				Calls: []Call{
+					newCall(
+						"main.func·001",
+						Args{Values: []Arg{
+							{IsAggregate: true, Fields: Args{
+								Values: []Arg{{Value: 0x11000000, Name: "#1", IsPtr: true}, {Value: 2}},
 							}},
-							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							72),
-					},
+							{Value: 3},
+						}},
+						"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+						72),
 				},
 			},
 			IDs:   []int{6, 7},
@@ -171,7 +166,7 @@ func TestAggregateAggressive(t *testing.T) {
 		"",
 	}
 	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), io.Discard, defaultOpts())
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
 	if s == nil {
@@ -179,23 +174,21 @@ func TestAggregateAggressive(t *testing.T) {
 	}
 	want := []*Bucket{
 		{
-			Signature: Signature{
-				State:    "chan receive",
-				SleepMin: 10,
-				SleepMax: 100,
-				Stack: Stack{
-					Calls: []Call{
-						newCall(
-							"main.func·001",
-							Args{Values: []Arg{
-								{IsAggregate: true, Fields: Args{
-									Values: []Arg{{Value: 0x11000000, Name: "*", IsPtr: true}, {Value: 2}},
-								}},
-								{Value: 3},
+			State:    "chan receive",
+			SleepMin: 10,
+			SleepMax: 100,
+			Stack: Stack{
+				Calls: []Call{
+					newCall(
+						"main.func·001",
+						Args{Values: []Arg{
+							{IsAggregate: true, Fields: Args{
+								Values: []Arg{{Value: 0x11000000, Name: "*", IsPtr: true}, {Value: 2}},
 							}},
-							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-							72),
-					},
+							{Value: 3},
+						}},
+						"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+						72),
 				},
 			},
 			IDs:   []int{6, 7, 8},
@@ -235,7 +228,7 @@ func TestAggregateDeadlockPanic(t *testing.T) {
 		"  foo/foo.go:631 +0x4b",
 	}
 	s, suffix, err := ScanSnapshot(bytes.NewBufferString(strings.Join(data, "\n")), io.Discard, defaultOpts())
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
 	if s == nil {
@@ -243,41 +236,39 @@ func TestAggregateDeadlockPanic(t *testing.T) {
 	}
 	want := []*Bucket{
 		{
-			Signature: Signature{
-				State: "select",
-				CreatedBy: Stack{Calls: []Call{
+			State: "select",
+			CreatedBy: Stack{Calls: []Call{
+				{
+					Func:          Func{Complete: "main", Name: "main"},
+					RemoteSrcPath: "foo/foo.go",
+					Line:          631,
+					SrcName:       "foo.go",
+				},
+			}},
+			SleepMin: 55,
+			SleepMax: 55,
+			Stack: Stack{
+				Calls: []Call{
 					{
-						Func:          Func{Complete: "main", Name: "main"},
+						Func: Func{
+							Complete:   "foo.Bar",
+							ImportPath: "foo",
+							DirName:    "foo",
+							Name:       "Bar",
+							IsExported: true,
+						},
 						RemoteSrcPath: "foo/foo.go",
-						Line:          631,
+						Line:          467,
 						SrcName:       "foo.go",
+						ImportPath:    "foo",
 					},
-				}},
-				SleepMin: 55,
-				SleepMax: 55,
-				Stack: Stack{
-					Calls: []Call{
-						{
-							Func: Func{
-								Complete:   "foo.Bar",
-								ImportPath: "foo",
-								DirName:    "foo",
-								Name:       "Bar",
-								IsExported: true,
-							},
-							RemoteSrcPath: "foo/foo.go",
-							Line:          467,
-							SrcName:       "foo.go",
-							ImportPath:    "foo",
-						},
-						{
-							Func:          Func{Complete: "foo.baz", ImportPath: "foo", DirName: "foo", Name: "baz"},
-							Args:          Args{Values: []Arg{{Value: 3}}},
-							RemoteSrcPath: "foo/foo.go",
-							Line:          643,
-							SrcName:       "foo.go",
-							ImportPath:    "foo",
-						},
+					{
+						Func:          Func{Complete: "foo.baz", ImportPath: "foo", DirName: "foo", Name: "baz"},
+						Args:          Args{Values: []Arg{{Value: 3}}},
+						RemoteSrcPath: "foo/foo.go",
+						Line:          643,
+						SrcName:       "foo.go",
+						ImportPath:    "foo",
 					},
 				},
 			},
@@ -285,76 +276,72 @@ func TestAggregateDeadlockPanic(t *testing.T) {
 			First: true,
 		},
 		{
-			Signature: Signature{
-				State: "select",
-				CreatedBy: Stack{Calls: []Call{
+			State: "select",
+			CreatedBy: Stack{Calls: []Call{
+				{
+					Func:          Func{Complete: "main", Name: "main"},
+					RemoteSrcPath: "foo/foo.go",
+					Line:          631,
+					SrcName:       "foo.go",
+				},
+			}},
+			SleepMin: 55,
+			SleepMax: 55,
+			Stack: Stack{
+				Calls: []Call{
 					{
-						Func:          Func{Complete: "main", Name: "main"},
+						Func: Func{
+							Complete:   "foo.Bar",
+							ImportPath: "foo",
+							DirName:    "foo",
+							Name:       "Bar",
+							IsExported: true,
+						},
 						RemoteSrcPath: "foo/foo.go",
-						Line:          631,
+						Line:          467,
 						SrcName:       "foo.go",
+						ImportPath:    "foo",
 					},
-				}},
-				SleepMin: 55,
-				SleepMax: 55,
-				Stack: Stack{
-					Calls: []Call{
-						{
-							Func: Func{
-								Complete:   "foo.Bar",
-								ImportPath: "foo",
-								DirName:    "foo",
-								Name:       "Bar",
-								IsExported: true,
-							},
-							RemoteSrcPath: "foo/foo.go",
-							Line:          467,
-							SrcName:       "foo.go",
-							ImportPath:    "foo",
-						},
-						{
-							Func:          Func{Complete: "foo.baz", ImportPath: "foo", DirName: "foo", Name: "baz"},
-							Args:          Args{Values: []Arg{{Value: 1}}},
-							RemoteSrcPath: "foo/foo.go",
-							Line:          643,
-							SrcName:       "foo.go",
-							ImportPath:    "foo",
-						},
+					{
+						Func:          Func{Complete: "foo.baz", ImportPath: "foo", DirName: "foo", Name: "baz"},
+						Args:          Args{Values: []Arg{{Value: 1}}},
+						RemoteSrcPath: "foo/foo.go",
+						Line:          643,
+						SrcName:       "foo.go",
+						ImportPath:    "foo",
 					},
 				},
 			},
 			IDs: []int{55},
 		},
 		{
-			Signature: Signature{
-				State: "select",
-				CreatedBy: Stack{
-					Calls: []Call{
-						{
-							Func:          Func{Complete: "bozo", Name: "bozo"},
-							RemoteSrcPath: "foo/foo.go",
-							Line:          420,
-							SrcName:       "foo.go",
-						},
+			State: "select",
+			CreatedBy: Stack{
+				Calls: []Call{
+					{
+						Func:          Func{Complete: "bozo", Name: "bozo"},
+						RemoteSrcPath: "foo/foo.go",
+						Line:          420,
+						SrcName:       "foo.go",
 					},
 				},
-				SleepMin: 55,
-				SleepMax: 55,
-				Stack: Stack{
-					Calls: []Call{
-						{
-							Func: Func{
-								Complete:   "foo.Bar",
-								ImportPath: "foo",
-								DirName:    "foo",
-								Name:       "Bar",
-								IsExported: true,
-							},
-							RemoteSrcPath: "foo/foo.go",
-							Line:          467,
-							SrcName:       "foo.go",
-							ImportPath:    "foo",
+			},
+			SleepMin: 55,
+			SleepMax: 55,
+			Stack: Stack{
+				Calls: []Call{
+					{
+						Func: Func{
+							Complete:   "foo.Bar",
+							ImportPath: "foo",
+							DirName:    "foo",
+							Name:       "Bar",
+							IsExported: true,
 						},
+						RemoteSrcPath: "foo/foo.go",
+						Line:          467,
+						SrcName:       "foo.go",
+						ImportPath:    "foo",
 					},
 				},
 			},
@@ -368,7 +355,7 @@ func TestAggregateDeadlockPanic(t *testing.T) {
 func BenchmarkAggregate(b *testing.B) {
 	b.ReportAllocs()
 	s, suffix, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), io.Discard, defaultOpts())
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		b.Fatal(err)
 	}
 	if s == nil {
@@ -378,7 +365,7 @@ func BenchmarkAggregate(b *testing.B) {
 		b.Fatalf("unexpected suffix: %q", string(suffix))
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		buckets := s.Aggregate(AnyPointer).Buckets
 		if len(buckets) < 5 {
 			b.Fatal("expected more buckets")

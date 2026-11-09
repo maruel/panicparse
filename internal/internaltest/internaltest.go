@@ -4,6 +4,7 @@
 
 // Compile and run panic fixtures and retrieve recorded goroutine snapshots.
 
+// Package internaltest builds the panic fixtures used by integration tests.
 package internaltest
 
 import (
@@ -60,9 +61,7 @@ func PanicOutputs() map[string][]byte {
 		}()
 
 		prace := build("panic", true)
-		if prace == "" {
-			// Race detector is not supported on this platform.
-		} else {
+		if prace != "" {
 			defer func() {
 				if err := os.Remove(prace); err != nil {
 					panic(err)
@@ -89,7 +88,7 @@ func PanicOutputs() map[string][]byte {
 				p = prace
 			}
 			if panicOutputs[cmd] = execRun(p, cmd); len(panicOutputs[cmd]) == 0 {
-				panic(fmt.Sprintf("no output for %s", cmd))
+				panic("no output for " + cmd)
 			}
 		}
 	})
@@ -170,7 +169,8 @@ func Compile(in, exe, cwd string, disableInlining, race bool) error {
 		args = append(args, "-race")
 	}
 	/* #nosec G204 */
-	c := exec.Command("go", append(args, in)...)
+	// The helper API has no caller context and waits for compilation.
+	c := exec.Command("go", append(args, in)...) //nolint:noctx // Synchronous fixture helper.
 	c.Dir = cwd
 	if out, err := c.CombinedOutput(); err != nil {
 		if race {
@@ -192,7 +192,8 @@ func Compile(in, exe, cwd string, disableInlining, race bool) error {
 // design.
 func execRun(cmd ...string) []byte {
 	/* #nosec G204 */
-	c := exec.Command(cmd[0], cmd[1:]...)
+	// The helper API has no caller context and waits for the fixture.
+	c := exec.Command(cmd[0], cmd[1:]...) //nolint:noctx // Synchronous fixture helper.
 	c.Env = append(os.Environ(), "GOTRACEBACK=all")
 	out, _ := c.CombinedOutput()
 	return out

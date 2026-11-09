@@ -56,7 +56,7 @@ func (f *Func) Init(raw string) error {
 	//  - foo  (C code)
 	//
 	// The function is optimized to reduce its memory usage.
-	endPkg := 0
+	var endPkg int
 	if lastSlash := strings.LastIndexByte(raw, '/'); lastSlash != -1 {
 		// Cut the path elements.
 		r := strings.IndexByte(raw[lastSlash+1:], '.')
@@ -83,8 +83,8 @@ func (f *Func) Init(raw string) error {
 		cut := f.Name[:idx]
 		// TODO(go1.20): switch to strings.CutSuffix
 		const inGoroutineSuffix = " in goroutine"
-		if strings.HasSuffix(cut, inGoroutineSuffix) {
-			f.Name = strings.TrimSuffix(cut, inGoroutineSuffix)
+		if before, ok := strings.CutSuffix(cut, inGoroutineSuffix); ok {
+			f.Name = before
 		}
 	}
 	f.DirName = f.ImportPath
@@ -174,6 +174,20 @@ const (
 	// code processing it.
 	pointerCeiling = uint64((^uint(0)) >> 1)
 )
+
+// SleepString returns a string "N-M minutes" if the goroutine(s) slept for a
+// long time.
+//
+// Returns an empty string otherwise.
+func (s *Signature) SleepString() string {
+	if s.SleepMax == 0 {
+		return ""
+	}
+	if s.SleepMin != s.SleepMax {
+		return fmt.Sprintf("%d~%d minutes", s.SleepMin, s.SleepMax)
+	}
+	return fmt.Sprintf("%d minutes", s.SleepMax)
+}
 
 // equal returns true only if both arguments are exactly equal.
 func (a *Arg) equal(r *Arg) bool {
@@ -281,14 +295,15 @@ func (a *Args) merge(r *Args) Args {
 	}
 	for i, l := range a.Values {
 		rv := &r.Values[i]
-		if l.IsAggregate {
+		switch {
+		case l.IsAggregate:
 			out.Values[i].IsAggregate = true
 			out.Values[i].Fields = l.Fields.merge(&rv.Fields)
-		} else if !l.equal(rv) {
+		case !l.equal(rv):
 			out.Values[i].Name = "*"
 			out.Values[i].Value = l.Value
 			out.Values[i].IsPtr = l.IsPtr
-		} else {
+		default:
 			out.Values[i] = l
 		}
 	}
@@ -711,19 +726,13 @@ func (s *Signature) similar(r *Signature, similar Similarity) bool {
 
 // merge merges two similar Signature, zapping out differences.
 func (s *Signature) merge(r *Signature) *Signature {
-	min := s.SleepMin
-	if r.SleepMin < min {
-		min = r.SleepMin
-	}
-	max := s.SleepMax
-	if r.SleepMax > max {
-		max = r.SleepMax
-	}
+	minSleep := min(s.SleepMin, r.SleepMin)
+	maxSleep := max(s.SleepMax, r.SleepMax)
 	return &Signature{
 		State:     s.State,     // Drop right side.
 		CreatedBy: s.CreatedBy, // Drop right side.
-		SleepMin:  min,
-		SleepMax:  max,
+		SleepMin:  minSleep,
+		SleepMax:  maxSleep,
 		Stack:     *s.Stack.merge(&r.Stack),
 		Locked:    s.Locked || r.Locked, // TODO(maruel): This is weirdo.
 	}
@@ -755,20 +764,6 @@ func (s *Signature) less(r *Signature) bool {
 	return false
 }
 
-// SleepString returns a string "N-M minutes" if the goroutine(s) slept for a
-// long time.
-//
-// Returns an empty string otherwise.
-func (s *Signature) SleepString() string {
-	if s.SleepMax == 0 {
-		return ""
-	}
-	if s.SleepMin != s.SleepMax {
-		return fmt.Sprintf("%d~%d minutes", s.SleepMin, s.SleepMax)
-	}
-	return fmt.Sprintf("%d minutes", s.SleepMax)
-}
-
 // updateLocations calls updateLocations on both CreatedBy and Stack and
 // returns true if they were both resolved.
 func (s *Signature) updateLocations(goroot, localgoroot string, localgomods, gopaths map[string]string) bool {
@@ -782,6 +777,7 @@ type Goroutine struct {
 	// Signature is the stack trace, internal bits, state, which call site
 	// created it, etc.
 	Signature
+
 	// ID is the goroutine id.
 	ID int
 	// First is the goroutine first printed, normally the one that crashed.

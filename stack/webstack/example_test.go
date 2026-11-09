@@ -64,7 +64,10 @@ func ExampleSnapshotHandler_complex() {
 		}
 
 		// Must be called before touching req.Form.
-		req.ParseForm()
+		if err := req.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		// Disables source scanning by default since it's heavy.
 		if req.FormValue("augment") == "" {
 			req.Form.Set("augment", "0")

@@ -24,7 +24,7 @@ import (
 //
 // Use footer to add custom HTML at the bottom of the page.
 func (a *Aggregated) ToHTML(w io.Writer, footer template.HTML) error {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Aggregated": a,
 		"Footer":     footer,
 		"Snapshot":   a.Snapshot,
@@ -36,7 +36,7 @@ func (a *Aggregated) ToHTML(w io.Writer, footer template.HTML) error {
 //
 // Use footer to add custom HTML at the bottom of the page.
 func (s *Snapshot) ToHTML(w io.Writer, footer template.HTML) error {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Footer":   footer,
 		"Snapshot": s,
 	}
@@ -45,7 +45,7 @@ func (s *Snapshot) ToHTML(w io.Writer, footer template.HTML) error {
 
 // Private stuff.
 
-func toHTML(w io.Writer, data map[string]interface{}) error {
+func toHTML(w io.Writer, data map[string]any) error {
 	m := template.FuncMap{
 		"funcClass": funcClass,
 		"minus":     minus,
@@ -93,7 +93,7 @@ func pkgURL(c *Call) template.URL {
 	if ip == "" {
 		return ""
 	}
-	url := template.URL("")
+	var url template.URL
 	if c.Location == Stdlib {
 		// This always links to the latest release, past releases are not online.
 		// That's somewhat unfortunate.
@@ -193,11 +193,11 @@ func getSrcBranchURL(c *Call) (template.URL, template.URL) {
 
 	if c.LocalSrcPath != "" {
 		/* #nosec G203 */
-		return template.URL("file:///" + escape(c.LocalSrcPath)), template.URL(tag)
+		return "file:///" + escape(c.LocalSrcPath), template.URL(tag)
 	}
 	if c.RemoteSrcPath != "" {
 		/* #nosec G203 */
-		return template.URL("file:///" + escape(c.RemoteSrcPath)), template.URL(tag)
+		return "file:///" + escape(c.RemoteSrcPath), template.URL(tag)
 	}
 	return "", ""
 }
@@ -210,26 +210,26 @@ func splitHost(s string) (string, string) {
 	return parts[0], parts[1]
 }
 
-// "v0.0.0-20200223170610-d5e6a3e2c0ae"
+// "v0.0.0-20200223170610-d5e6a3e2c0ae".
 var reVersion = regexp.MustCompile(`v\d+\.\d+\.\d+\-\d+\-([a-f0-9]+)`)
 
 func splitTag(s string) (string, string, template.URL) {
 	// Default to branch master for non-versioned dependencies. It's not
 	// optimal but it's better than nothing?
 	// TODO(maruel): Replace with HEAD.
-	i := strings.IndexByte(s, '@')
-	if i == -1 {
+	before, after, ok := strings.Cut(s, "@")
+	if !ok {
 		// No tag was found.
 		return s, "master", "master"
 	}
 	// We got a versioned go module.
-	tag := s[i+1:]
+	tag := after
 	srcTag := tag
 	if m := reVersion.FindStringSubmatch(tag); len(m) != 0 {
 		srcTag = m[1]
 	}
 	/* #nosec G203 */
-	return s[:i], url.QueryEscape(srcTag), template.URL(url.QueryEscape(tag))
+	return before, url.QueryEscape(srcTag), template.URL(url.QueryEscape(tag))
 }
 
 // symbol is the hashtag to use to refer to the symbol when looking at

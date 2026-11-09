@@ -63,6 +63,8 @@ func (pf pathFormat) formatCall(c *stack.Call) string {
 			return fmt.Sprintf("%s:%d", c.LocalSrcPath, c.Line)
 		}
 		return fmt.Sprintf("%s:%d", c.RemoteSrcPath, c.Line)
+	case basePath:
+		return fmt.Sprintf("%s:%d", c.SrcName, c.Line)
 	default:
 		return fmt.Sprintf("%s:%d", c.SrcName, c.Line)
 	}
@@ -109,6 +111,65 @@ func calcGoroutinesLengths(s *stack.Snapshot, pf pathFormat) (int, int) {
 		}
 	}
 	return srcLen, pkgLen
+}
+
+// StackLines prints one complete stack trace, without the header.
+func (p *Palette) StackLines(signature *stack.Signature, srcLen, pkgLen int, pf pathFormat) string {
+	// Populate indexed entries before optionally appending the elision marker.
+	out := make([]string, len(signature.Stack.Calls))
+	for i := range signature.Stack.Calls {
+		out[i] = p.callLine(&signature.Stack.Calls[i], srcLen, pkgLen, pf)
+	}
+	if signature.Stack.Elided {
+		//nolint:makezero // Existing entries were populated by index.
+		out = append(out, "    (...)")
+	}
+	return strings.Join(out, "\n") + "\n"
+}
+
+// GoroutineHeader prints the header of a goroutine.
+func (p *Palette) GoroutineHeader(g *stack.Goroutine, pf pathFormat, multipleGoroutines bool) string {
+	extra := ""
+	if s := g.SleepString(); s != "" {
+		extra += " [" + s + "]"
+	}
+	if g.Locked {
+		extra += " [locked]"
+	}
+	if c := pf.createdByString(&g.Signature); c != "" {
+		extra += p.CreatedBy + " [Created by " + c + "]"
+	}
+	if g.RaceAddr != 0 {
+		r := "read"
+		if g.RaceWrite {
+			r = "write"
+		}
+		extra += fmt.Sprintf("%s%s Race %s @ 0x%08x", p.EOLReset, p.Race, r, g.RaceAddr)
+	}
+	return fmt.Sprintf(
+		"%s%d: %s%s%s\n",
+		p.routineColor(g.First, multipleGoroutines), g.ID,
+		g.State, extra,
+		p.EOLReset)
+}
+
+// BucketHeader prints the header of a goroutine signature.
+func (p *Palette) BucketHeader(b *stack.Bucket, pf pathFormat, multipleBuckets bool) string {
+	extra := ""
+	if s := b.SleepString(); s != "" {
+		extra += " [" + s + "]"
+	}
+	if b.Locked {
+		extra += " [locked]"
+	}
+	if c := pf.createdByString(&b.Signature); c != "" {
+		extra += p.CreatedBy + " [Created by " + c + "]"
+	}
+	return fmt.Sprintf(
+		"%s%d: %s%s%s\n",
+		p.routineColor(b.First, multipleBuckets), len(b.IDs),
+		b.State, extra,
+		p.EOLReset)
 }
 
 // functionColor returns the color to be used for the function name based on
@@ -160,51 +221,6 @@ func (p *Palette) routineColor(first, multipleBuckets bool) string {
 	return p.Routine
 }
 
-// BucketHeader prints the header of a goroutine signature.
-func (p *Palette) BucketHeader(b *stack.Bucket, pf pathFormat, multipleBuckets bool) string {
-	extra := ""
-	if s := b.SleepString(); s != "" {
-		extra += " [" + s + "]"
-	}
-	if b.Locked {
-		extra += " [locked]"
-	}
-	if c := pf.createdByString(&b.Signature); c != "" {
-		extra += p.CreatedBy + " [Created by " + c + "]"
-	}
-	return fmt.Sprintf(
-		"%s%d: %s%s%s\n",
-		p.routineColor(b.First, multipleBuckets), len(b.IDs),
-		b.State, extra,
-		p.EOLReset)
-}
-
-// GoroutineHeader prints the header of a goroutine.
-func (p *Palette) GoroutineHeader(g *stack.Goroutine, pf pathFormat, multipleGoroutines bool) string {
-	extra := ""
-	if s := g.SleepString(); s != "" {
-		extra += " [" + s + "]"
-	}
-	if g.Locked {
-		extra += " [locked]"
-	}
-	if c := pf.createdByString(&g.Signature); c != "" {
-		extra += p.CreatedBy + " [Created by " + c + "]"
-	}
-	if g.RaceAddr != 0 {
-		r := "read"
-		if g.RaceWrite {
-			r = "write"
-		}
-		extra += fmt.Sprintf("%s%s Race %s @ 0x%08x", p.EOLReset, p.Race, r, g.RaceAddr)
-	}
-	return fmt.Sprintf(
-		"%s%d: %s%s%s\n",
-		p.routineColor(g.First, multipleGoroutines), g.ID,
-		g.State, extra,
-		p.EOLReset)
-}
-
 // callLine prints one stack line.
 func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, pf pathFormat) string {
 	return fmt.Sprintf(
@@ -214,16 +230,4 @@ func (p *Palette) callLine(line *stack.Call, srcLen, pkgLen int, pf pathFormat) 
 		p.functionColor(line), line.Func.Name,
 		p.Arguments, &line.Args,
 		p.EOLReset)
-}
-
-// StackLines prints one complete stack trace, without the header.
-func (p *Palette) StackLines(signature *stack.Signature, srcLen, pkgLen int, pf pathFormat) string {
-	out := make([]string, len(signature.Stack.Calls))
-	for i := range signature.Stack.Calls {
-		out[i] = p.callLine(&signature.Stack.Calls[i], srcLen, pkgLen, pf)
-	}
-	if signature.Stack.Elided {
-		out = append(out, "    (...)")
-	}
-	return strings.Join(out, "\n") + "\n"
 }

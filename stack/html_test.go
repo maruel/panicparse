@@ -8,6 +8,7 @@ package stack
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/build"
 	"html/template"
@@ -16,6 +17,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -185,7 +187,6 @@ func TestGetSrcBranchURL(t *testing.T) {
 		},
 	}
 	for i, line := range data {
-		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
 			url, branch := getSrcBranchURL(&line.c)
@@ -232,8 +233,8 @@ func TestSymbol(t *testing.T) {
 		},
 	}
 	for i, line := range data {
-		line := line
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Parallel()
 			if s := symbol(&line.in); s != line.want {
 				t.Fatalf("%q != %q", s, line.want)
 			}
@@ -268,7 +269,7 @@ func TestSnapshot_ToHTML(t *testing.T) {
 func BenchmarkAggregated_ToHTML(b *testing.B) {
 	b.ReportAllocs()
 	s, _, err := ScanSnapshot(bytes.NewReader(internaltest.StaticPanicwebOutput()), io.Discard, DefaultOpts())
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		b.Fatal(err)
 	}
 	if s == nil {
@@ -276,7 +277,7 @@ func BenchmarkAggregated_ToHTML(b *testing.B) {
 	}
 	a := s.Aggregate(AnyPointer)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if err := a.ToHTML(io.Discard, ""); err != nil {
 			b.Fatal(err)
 		}
@@ -309,54 +310,50 @@ func getBuckets() *Aggregated {
 		},
 		Buckets: []*Bucket{
 			{
-				Signature: Signature{
-					State: "chan receive",
-					Stack: Stack{
-						Calls: []Call{
-							newCall(
-								"main.func·001",
-								Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
-								"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
-								72),
-							{
-								Func:          newFunc("sliceInternal"),
-								Args:          Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
-								RemoteSrcPath: "/golang/src/sort/slices.go",
-								Line:          72,
-								Location:      Stdlib,
-							},
-							{
-								Func:          newFunc("Slice"),
-								Args:          Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
-								RemoteSrcPath: "/golang/src/sort/slices.go",
-								Line:          72,
-								Location:      Stdlib,
-							},
-							newCall(
-								"DoStuff",
-								Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
-								"/gopath/src/foo/bar.go",
-								72),
-							newCall(
-								"doStuffInternal",
-								Args{
-									Values: []Arg{{Value: 0x11000000}, {Value: 2}},
-									Elided: true,
-								},
-								"/gopath/src/foo/bar.go",
-								72),
+				State: "chan receive",
+				Stack: Stack{
+					Calls: []Call{
+						newCall(
+							"main.func·001",
+							Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
+							"/gopath/src/github.com/maruel/panicparse/stack/stack.go",
+							72),
+						{
+							Func:          newFunc("sliceInternal"),
+							Args:          Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
+							RemoteSrcPath: "/golang/src/sort/slices.go",
+							Line:          72,
+							Location:      Stdlib,
 						},
+						{
+							Func:          newFunc("Slice"),
+							Args:          Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
+							RemoteSrcPath: "/golang/src/sort/slices.go",
+							Line:          72,
+							Location:      Stdlib,
+						},
+						newCall(
+							"DoStuff",
+							Args{Values: []Arg{{Value: 0x11000000}, {Value: 2}}},
+							"/gopath/src/foo/bar.go",
+							72),
+						newCall(
+							"doStuffInternal",
+							Args{
+								Values: []Arg{{Value: 0x11000000}, {Value: 2}},
+								Elided: true,
+							},
+							"/gopath/src/foo/bar.go",
+							72),
 					},
 				},
 				IDs:   []int{1, 2},
 				First: true,
 			},
 			{
-				IDs: []int{3},
-				Signature: Signature{
-					State: "running",
-					Stack: Stack{Elided: true},
-				},
+				IDs:   []int{3},
+				State: "running",
+				Stack: Stack{Elided: true},
 			},
 		},
 	}

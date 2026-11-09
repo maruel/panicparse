@@ -39,7 +39,7 @@ func (c *cacheAST) augmentGoroutine(g *Goroutine) error {
 			continue
 		}
 		if err1 := c.loadFile(g.Stack.Calls[i].LocalSrcPath); err1 != nil {
-			//log.Printf("%s", err)
+			// log.Printf("%s", err)
 			err = err1
 		}
 		if p := c.parsed[call.LocalSrcPath]; p != nil {
@@ -113,7 +113,7 @@ type parsedFile struct {
 
 // getFuncAST gets the callee site function AST representation for the code
 // inside the function f at line l.
-func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl, err error) {
+func (p *parsedFile) getFuncAST(_ string, l int) (d *ast.FuncDecl, err error) {
 	if len(p.lineToByteOffset) <= l {
 		// The line number in the stack trace line does not exist in the file. That
 		// can only mean that the sources on disk do not match the sources used to
@@ -146,14 +146,14 @@ func (p *parsedFile) getFuncAST(f string, l int) (d *ast.FuncDecl, err error) {
 			// be edge cases, like:
 			//   a = A{Foo(), Bar()}
 			d = lastFunc
-			//p.processNode(call, n)
+			// p.processNode(call, n)
 			return false
 		} else if f, ok := n.(*ast.FuncDecl); ok {
 			lastFunc = f
 		}
 		return true
 	})
-	return
+	return d, err
 }
 
 func name(n ast.Node) string {
@@ -201,7 +201,7 @@ func fieldToType(f *ast.Field) (string, bool) {
 	case *ast.MapType:
 		return fmt.Sprintf("map[%s]%s", name(arg.Key), name(arg.Value)), false
 	case *ast.ChanType:
-		return fmt.Sprintf("chan %s", name(arg.Value)), false
+		return "chan " + name(arg.Value), false
 	default:
 		// TODO(maruel): Implement anything missing.
 		return "<unknown>", false
@@ -231,7 +231,7 @@ func extractArgumentsType(f *ast.FuncDecl) ([]string, bool) {
 		if mult == 0 {
 			mult = 1
 		}
-		for i := 0; i < mult; i++ {
+		for range mult {
 			types = append(types, t)
 		}
 	}
@@ -340,9 +340,10 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 			})
 			str = fmt.Sprintf("%s(%s, len=%s)", t, name, lenStr)
 		default:
-			if strings.HasPrefix(t, "*") {
+			switch {
+			case strings.HasPrefix(t, "*"):
 				str = fmt.Sprintf("%s(%s)", t, popName())
-			} else if strings.HasPrefix(t, "[]") {
+			case strings.HasPrefix(t, "[]"):
 				name := popName()
 				lenStr := popFmt(func(v uint64) string {
 					return strconv.FormatUint(v, 10)
@@ -351,13 +352,13 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 					return strconv.FormatUint(v, 10)
 				})
 				str = fmt.Sprintf("%s(%s len=%s cap=%s)", t, name, lenStr, capStr)
-			} else {
+			default:
 				if i < len(call.Args.Values) && call.Args.Values[i].IsAggregate {
 					// If top-level argument is an aggregate-type, include each
 					// of its sub-arguments.
 					v := &call.Args.Values[i].Fields
 					var fields []string
-					v.walk(func(arg *Arg) {
+					v.walk(func(_ *Arg) {
 						fields = append(fields, popName())
 					})
 					if v.Elided {

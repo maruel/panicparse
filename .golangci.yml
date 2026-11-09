@@ -10,21 +10,88 @@ run:
 linters:
   default: none
   enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - contextcheck
+    - copyloopvar
+    - dupl
+    - dupword
+    - durationcheck
+    - embeddedstructfieldcheck
+    - errcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - forcetypeassert
+    - funcorder
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gocritic
+    - godoclint
+    - godot
+    - gomoddirectives
+    - goprintffuncname
     - gosec
+    - gosmopolitan
     - govet
+    - grouper
+    - iface
+    - importas
+    - inamedparam
     - ineffassign
-    - misspell
+    - intrange
+    - iotamixing
+    - loggercheck
+    - makezero
+    - mirror
+    - modernize
+    - musttag
+    - nakedret
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - paralleltest
+    - perfsprint
+    - prealloc
+    - predeclared
+    - reassign
+    - recvcheck
+    - revive
+    - sloglint
+    - sqlclosecheck
     - staticcheck
+    - tparallel
+    - unconvert
+    - unparam
     - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - whitespace
   exclusions:
     rules:
+      # This fixture deliberately exercises Unicode names.
+      - path: ^cmd/panic/internal/utf8/utf8\.go$
+        linters: [asciicheck]
+      # These standalone examples intentionally omit error handling and context plumbing,
+      # and include fixed source line numbers in their expected stack output.
+      - path: ^stack/example_test\.go$
+        linters: [errcheck, errorlint, gocritic, noctx, revive, whitespace]
+      # Repeated identifiers are valid source in the parser regression fixture.
+      - path: ^stack/source_test\.go$
+        text: Duplicate words \(z,\)
+        linters: [dupword]
       # The standalone gosec CI command scanned production sources only.
       - path: _test\.go$
-        linters: [gosec]
-      # The restart resolves os.Executable and forwards argv without invoking a shell.
-      - path: ^cmd/panic/main\.go$
-        source: 'exec\.Command\(exe, os\.Args\[1:\]\.\.\.\)'
-        text: G(204|702)
         linters: [gosec]
   settings:
     staticcheck:

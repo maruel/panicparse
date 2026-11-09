@@ -104,6 +104,7 @@ func (s *Snapshot) Aggregate(similar Similarity) *Aggregated {
 type Bucket struct {
 	// Signature is the generalized signature for this bucket.
 	Signature
+
 	// IDs is the ID of each Goroutine with this Signature.
 	IDs []int
 	// First is true if this Bucket contains the first goroutine, e.g. the one

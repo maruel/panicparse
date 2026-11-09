@@ -8,11 +8,13 @@ package webstack
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 )
 
+//nolint:paralleltest // Concurrent handlers change the goroutines being captured.
 func TestSnapshotHandler(t *testing.T) {
 	data := []string{
 		"/debug",
@@ -24,10 +26,10 @@ func TestSnapshotHandler(t *testing.T) {
 		"/debug?similarity=anypointer",
 		"/debug?similarity=anyvalue",
 	}
+	//nolint:paralleltest // Snapshot contents depend on active goroutines.
 	for _, url := range data {
-		url := url
 		t.Run(url, func(t *testing.T) {
-			req := httptest.NewRequest("GET", url, nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 			w := httptest.NewRecorder()
 			SnapshotHandler(w, req)
 			if w.Code != 200 {
@@ -45,10 +47,9 @@ func TestSnapshotHandler_Err(t *testing.T) {
 		"/debug?similarity=alike",
 	}
 	for _, url := range data {
-		url := url
 		t.Run(url, func(t *testing.T) {
 			t.Parallel()
-			req := httptest.NewRequest("GET", url, nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 			w := httptest.NewRecorder()
 			SnapshotHandler(w, req)
 			if w.Code != 400 {
@@ -60,7 +61,7 @@ func TestSnapshotHandler_Err(t *testing.T) {
 
 func TestSnapshotHandler_Method_POST(t *testing.T) {
 	t.Parallel()
-	req := httptest.NewRequest("POST", "/debug", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/debug", nil)
 	w := httptest.NewRecorder()
 	SnapshotHandler(w, req)
 	if w.Code != 405 {
@@ -68,6 +69,7 @@ func TestSnapshotHandler_Method_POST(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // This test intentionally creates thousands of goroutines.
 func TestSnapshotHandler_LargeMemory(t *testing.T) {
 	// Try to create a stack frame over 1MiB in size when serialized to string.
 	// This is tricky since this is dependent on many factors out of our control.
@@ -81,20 +83,18 @@ func TestSnapshotHandler_LargeMemory(t *testing.T) {
 	// use more than 1MiB of call stack. We must not put it too high or it'll
 	// crash on Travis.
 	const parallel = 2500
-	for i := 0; i < parallel; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range parallel {
+		wg.Go(func() {
 			alive <- struct{}{}
 			dummy(ctx, &a, &a, &a, &a, &a, &a, &a, &a, &a)
-		}()
+		})
 	}
-	for i := 0; i < parallel; i++ {
+	for range parallel {
 		<-alive
 	}
 
 	// Normal.
-	req := httptest.NewRequest("GET", "/debug", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/debug", nil)
 	w := httptest.NewRecorder()
 	SnapshotHandler(w, req)
 	if w.Code != 200 {
@@ -102,7 +102,7 @@ func TestSnapshotHandler_LargeMemory(t *testing.T) {
 	}
 
 	// Cut off. That's 1<<20 + 1
-	req = httptest.NewRequest("GET", "/debug?maxmem=1048577", nil)
+	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/debug?maxmem=1048577", nil)
 	w = httptest.NewRecorder()
 	SnapshotHandler(w, req)
 	// It can result in a 500 because the cut off is arbitrary, making parsing to
@@ -119,9 +119,9 @@ func BenchmarkSnapshotHandle(b *testing.B) {
 	// TODO(maruel): We should hook runtime.Stack() to make it a deterministic
 	// output with internaltest.StaticPanicwebOutput().
 	b.ReportAllocs()
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/", nil)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		w := httptest.NewRecorder()
 		SnapshotHandler(w, req)
 		if w.Code != 200 {
@@ -130,6 +130,7 @@ func BenchmarkSnapshotHandle(b *testing.B) {
 	}
 }
 
+//nolint:revive,unparam // Arguments intentionally enlarge the captured stack frame.
 func dummy(ctx context.Context, a1, a2, a3, a4, a5, a6, a7, a8, a9 *int) {
 	<-ctx.Done()
 }

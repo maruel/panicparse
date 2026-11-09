@@ -41,11 +41,9 @@ func TestCalcBucketsLengths(t *testing.T) {
 	a := stack.Aggregated{
 		Buckets: []*stack.Bucket{
 			{
-				Signature: stack.Signature{
-					Stack: stack.Stack{
-						Calls: []stack.Call{
-							newCallLocal("main.func·001", stack.Args{}, "/home/user/go/src/foo/baz.go", 123),
-						},
+				Stack: stack.Stack{
+					Calls: []stack.Call{
+						newCallLocal("main.func·001", stack.Args{}, "/home/user/go/src/foo/baz.go", 123),
 					},
 				},
 				IDs:   []int{},
@@ -70,18 +68,16 @@ func TestCalcBucketsLengths(t *testing.T) {
 func TestBucketHeader(t *testing.T) {
 	t.Parallel()
 	b := stack.Bucket{
-		Signature: stack.Signature{
-			State: "chan receive",
-			CreatedBy: stack.Stack{
-				Calls: []stack.Call{
-					newCallLocal("main.mainImpl", stack.Args{}, "/home/user/go/src/github.com/foo/bar/baz.go", 74),
-				},
+		State: "chan receive",
+		CreatedBy: stack.Stack{
+			Calls: []stack.Call{
+				newCallLocal("main.mainImpl", stack.Args{}, "/home/user/go/src/github.com/foo/bar/baz.go", 74),
 			},
-			SleepMax: 6,
-			SleepMin: 2,
 		},
-		IDs:   []int{1, 2},
-		First: true,
+		SleepMax: 6,
+		SleepMin: 2,
+		IDs:      []int{1, 2},
+		First:    true,
 	}
 	// When printing, it prints the remote path, not the transposed local path.
 	compareString(t, "B2: chan receive [2~6 minutes]D [Created by main.mainImpl @ /home/user/go/src/github.com/foo/bar/baz.go:74]A\n", testPalette.BucketHeader(&b, fullPath, true))
@@ -92,14 +88,12 @@ func TestBucketHeader(t *testing.T) {
 	compareString(t, "C2: chan receive [2~6 minutes]D [Created by main.mainImpl @ baz.go:74]A\n", testPalette.BucketHeader(&b, basePath, false))
 
 	b = stack.Bucket{
-		Signature: stack.Signature{
-			State:    "b0rked",
-			SleepMax: 6,
-			SleepMin: 6,
-			Locked:   true,
-		},
-		IDs:   []int{},
-		First: true,
+		State:    "b0rked",
+		SleepMax: 6,
+		SleepMin: 6,
+		Locked:   true,
+		IDs:      []int{},
+		First:    true,
 	}
 	compareString(t, "C0: b0rked [6 minutes] [locked]A\n", testPalette.BucketHeader(&b, basePath, false))
 }
@@ -191,15 +185,16 @@ func newCallLocal(f string, a stack.Args, s string, l int) stack.Call {
 	const gopath = "/home/user/go/src/"
 	const gopathmod = "/home/user/go/pkg/mod/"
 	// Do the equivalent of Call.updateLocations().
-	if strings.HasPrefix(s, goroot) {
+	switch {
+	case strings.HasPrefix(s, goroot):
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(goroot):]
 		c.Location = stack.Stdlib
-	} else if strings.HasPrefix(s, gopath) {
+	case strings.HasPrefix(s, gopath):
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(gopath):]
 		c.Location = stack.GOPATH
-	} else if strings.HasPrefix(s, gopathmod) {
+	case strings.HasPrefix(s, gopathmod):
 		c.LocalSrcPath = s
 		c.RelSrcPath = s[len(gopathmod):]
 		c.Location = stack.GoPkg

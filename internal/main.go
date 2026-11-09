@@ -106,7 +106,7 @@ func writeGoroutinesToConsole(out io.Writer, p *Palette, s *stack.Snapshot, pf p
 }
 
 type toHTMLer interface {
-	ToHTML(io.Writer, template.HTML) error
+	ToHTML(w io.Writer, header template.HTML) error
 }
 
 func toHTML(h toHTMLer, p string, needsEnv bool) error {
@@ -126,7 +126,7 @@ func toHTML(h toHTMLer, p string, needsEnv bool) error {
 	return err
 }
 
-func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, html string, filter, match *regexp.Regexp, c *stack.Snapshot, first bool) error {
+func processInner(out io.Writer, p *Palette, s stack.Similarity, pf pathFormat, html string, filter, match *regexp.Regexp, c *stack.Snapshot, _ bool) error {
 	log.Printf("GOROOT=%s", c.RemoteGOROOT)
 	log.Printf("GOPATH=%s", c.RemoteGOPATHs)
 	needsEnv := len(c.Goroutines) == 1 && showBanner()
@@ -175,7 +175,7 @@ func process(in io.Reader, out io.Writer, p *Palette, s stack.Similarity, pf pat
 				err = err1
 			}
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		// Parts of the input will be lost.
@@ -216,27 +216,27 @@ func Main() error {
 		} else {
 			out = colorable.NewColorableStderr()
 		}
-		fmt.Fprintf(out, "Usage of %s:\n", os.Args[0])
+		_, _ = fmt.Fprintf(out, "Usage of %s:\n", os.Args[0])
 		flag.CommandLine.SetOutput(out)
 		flag.CommandLine.PrintDefaults()
-		fmt.Fprintf(out, "\nLegend:\n")
-		fmt.Fprintf(out, "  Type             Exported    Private\n")
-		fmt.Fprintf(out, "  main             %smain.Foo()%s  %smain.foo()%s\n",
+		_, _ = fmt.Fprintf(out, "\nLegend:\n")
+		_, _ = fmt.Fprintf(out, "  Type             Exported    Private\n")
+		_, _ = fmt.Fprintf(out, "  main             %smain.Foo()%s  %smain.foo()%s\n",
 			p.funcColor(stack.LocationUnknown, true, false), p.EOLReset,
 			p.funcColor(stack.LocationUnknown, true, true), p.EOLReset)
-		fmt.Fprintf(out, "  <unknown>        %spkg.Foo()%s   %spkg.foo()%s\n",
+		_, _ = fmt.Fprintf(out, "  <unknown>        %spkg.Foo()%s   %spkg.foo()%s\n",
 			p.funcColor(stack.LocationUnknown, false, false), p.EOLReset,
 			p.funcColor(stack.LocationUnknown, false, true), p.EOLReset)
-		fmt.Fprintf(out, "  go.mod           %spkg.Foo()%s   %spkg.foo()%s\n",
+		_, _ = fmt.Fprintf(out, "  go.mod           %spkg.Foo()%s   %spkg.foo()%s\n",
 			p.funcColor(stack.GoMod, false, false), p.EOLReset,
 			p.funcColor(stack.GoMod, false, true), p.EOLReset)
-		fmt.Fprintf(out, "  $GOPATH/src      %spkg.Foo()%s   %spkg.foo()%s\n",
+		_, _ = fmt.Fprintf(out, "  $GOPATH/src      %spkg.Foo()%s   %spkg.foo()%s\n",
 			p.funcColor(stack.GOPATH, false, false), p.EOLReset,
 			p.funcColor(stack.GOPATH, false, true), p.EOLReset)
-		fmt.Fprintf(out, "  $GOPATH/pkg/mod  %spkg.Foo()%s   %spkg.foo()%s\n",
+		_, _ = fmt.Fprintf(out, "  $GOPATH/pkg/mod  %spkg.Foo()%s   %spkg.foo()%s\n",
 			p.funcColor(stack.GoPkg, false, false), p.EOLReset,
 			p.funcColor(stack.GoPkg, false, true), p.EOLReset)
-		fmt.Fprintf(out, "  $GOROOT/src      %spkg.Foo()%s   %spkg.Foo()%s\n",
+		_, _ = fmt.Fprintf(out, "  $GOROOT/src      %spkg.Foo()%s   %spkg.Foo()%s\n",
 			p.funcColor(stack.Stdlib, false, false), p.EOLReset,
 			p.funcColor(stack.Stdlib, false, true), p.EOLReset)
 	}
@@ -297,7 +297,11 @@ func Main() error {
 			return fmt.Errorf("did you mean to specify a valid stack dump file name? %w", err)
 		}
 		/* #nosec G307 */
-		defer in.Close()
+		defer func() {
+			if err := in.Close(); err != nil {
+				log.Printf("close input: %v", err)
+			}
+		}()
 
 	default:
 		return errors.New("pipe from stdin or specify a single file")

@@ -10,6 +10,7 @@ package webstack
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"runtime"
@@ -44,7 +45,7 @@ import (
 // similarity: (default: "anypointer") Can be one of stack.Similarity value in
 // lowercase: "exactflags", "exactlines", "anypointer" or "anyvalue".
 func SnapshotHandler(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "GET" {
+	if req.Method != http.MethodGet {
 		http.Error(w, "invalid method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -112,15 +113,12 @@ func snapshot(maxmem int, opts *stack.Opts) (*stack.Snapshot, error) {
 		if len(buf) >= maxmem {
 			break
 		}
-		l := len(buf) * 2
-		if l > maxmem {
-			l = maxmem
-		}
+		l := min(len(buf)*2, maxmem)
 		buf = make([]byte, l)
 	}
 	s, _, err := stack.ScanSnapshot(bytes.NewReader(buf), io.Discard, opts)
 	// That's expected.
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		err = nil
 	}
 	return s, err

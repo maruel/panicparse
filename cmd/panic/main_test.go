@@ -19,9 +19,9 @@ func TestMain(t *testing.T) {
 	t.Parallel()
 	if !testing.Verbose() {
 		stdErr = io.Discard
-		defer func() {
+		t.Cleanup(func() {
 			stdErr = os.Stderr
-		}()
+		})
 	}
 	for name, l := range types {
 		if name == "simple" {
@@ -44,7 +44,6 @@ func TestMain(t *testing.T) {
 			continue
 		}
 
-		l := l
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			defer func() {
@@ -59,6 +58,7 @@ func TestMain(t *testing.T) {
 
 // TestRerunWithFastCrash verifies restart uses the executable rather than argv[0].
 func TestRerunWithFastCrash(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("PANICPARSE_REEXEC_TEST") == "1" {
 		if os.Getenv("GORACE") == "log_path=stderr halt_on_error=1" {
 			fmt.Fprintln(os.Stderr, "trusted restart")
@@ -72,7 +72,7 @@ func TestRerunWithFastCrash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(exe, "-test.run=^TestRerunWithFastCrash$")
+	cmd := exec.CommandContext(t.Context(), exe, "-test.run=^TestRerunWithFastCrash$")
 	cmd.Env = append(os.Environ(), "PANICPARSE_REEXEC_TEST=1", "GORACE=")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

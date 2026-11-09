@@ -43,7 +43,7 @@ func TestProcess(t *testing.T) {
 			palette: testPalette,
 			simil:   stack.AnyPointer,
 			path:    basePath,
-			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:73 GmainR()A\n\n",
+			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:75 GmainR()A\n\n",
 		},
 		{
 			name:    "FullPath",
@@ -51,14 +51,14 @@ func TestProcess(t *testing.T) {
 			simil:   stack.AnyValue,
 			path:    fullPath,
 			// "/" is used even on Windows.
-			want: fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:73 GmainR()A\n\n", strings.Replace(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/", -1)),
+			want: fmt.Sprintf("GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain F%s:75 GmainR()A\n\n", strings.ReplaceAll(filepath.Join(filepath.Dir(d), "cmd", "panic", "main.go"), "\\", "/")),
 		},
 		{
 			name:    "NoColor",
 			palette: &Palette{},
 			simil:   stack.AnyValue,
 			path:    basePath,
-			want:    "GOTRACEBACK=all\npanic: simple\n\n1: running\n    main main.go:73 main()\n\n",
+			want:    "GOTRACEBACK=all\npanic: simple\n\n1: running\n    main main.go:75 main()\n\n",
 		},
 		{
 			name:    "Match",
@@ -74,11 +74,10 @@ func TestProcess(t *testing.T) {
 			simil:   stack.AnyValue,
 			path:    basePath,
 			filter:  regexp.MustCompile(`notpresent`),
-			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:73 GmainR()A\n\n",
+			want:    "GOTRACEBACK=all\npanic: simple\n\nC1: runningA\n    Emain Fmain.go:75 GmainR()A\n\n",
 		},
 	}
 	for i, line := range data {
-		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
 			out := bytes.Buffer{}
@@ -109,14 +108,14 @@ func TestProcessTwoSnapshots(t *testing.T) {
 		"GOTRACEBACK=all\n" +
 		"panic: simple\n\n" +
 		"1: running\n" +
-		"    main main.go:73 main()\n\n" +
+		"    main main.go:75 main()\n\n" +
 		"Ye\n" +
 		"GOTRACEBACK=all\n" +
 		"panic: 42\n\n" +
 		"1: running\n" +
-		"    main main.go:92  panicint(0x2a)\n" +
-		"    main main.go:319 init.func9()\n" +
-		"    main main.go:75  main()\n\n" +
+		"    main main.go:94  panicint(0x2a)\n" +
+		"    main main.go:321 init.func9()\n" +
+		"    main main.go:77  main()\n\n" +
 		"Yo\n")
 	compareString(t, want, out.String())
 }
@@ -144,6 +143,8 @@ func TestMain(m *testing.M) {
 		log.SetOutput(io.Discard)
 	}
 	// Set the environment variable so the stack doesn't include the info header.
-	os.Setenv("GOTRACEBACK", "all")
+	if err := os.Setenv("GOTRACEBACK", "all"); err != nil {
+		log.Fatal(err)
+	}
 	os.Exit(m.Run())
 }

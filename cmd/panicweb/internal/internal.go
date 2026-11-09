@@ -19,7 +19,8 @@ var Unblock = make(chan struct{})
 // goroutine.
 func GetAsync(url string) {
 	/* #nosec G107 */
-	resp, err := http.Get(url)
+	// The response body is transferred to and closed by the goroutine below.
+	resp, err := http.Get(url) //nolint:bodyclose,noctx // Ownership moves to the goroutine; this fixture has no context.
 	if err != nil {
 		log.Fatalf("get %s: %v", url, err)
 	}
@@ -34,22 +35,22 @@ func GetAsync(url string) {
 }
 
 // URL1Handler is a http.HandlerFunc that hangs.
-func URL1Handler(w http.ResponseWriter, req *http.Request) {
+func URL1Handler(w http.ResponseWriter, _ *http.Request) {
 	// Respond the HTTP header to unblock the http.Get() function.
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", "100000")
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	b := [4096]byte{}
 	_, _ = w.Write(b[:])
 	<-Unblock
 }
 
 // URL2Handler is a http.HandlerFunc that hangs.
-func URL2Handler(w http.ResponseWriter, req *http.Request) {
+func URL2Handler(w http.ResponseWriter, _ *http.Request) {
 	// Respond the HTTP header to unblock the http.Get() function.
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Length", "100000")
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	b := [4096]byte{}
 	_, _ = w.Write(b[:])
 	<-Unblock

@@ -208,7 +208,6 @@ func TestCallPkg(t *testing.T) {
 		},
 	}
 	for i, line := range data {
-		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
 			c := newCall(line.f, Args{}, line.s, 153)
@@ -338,7 +337,7 @@ var (
 )
 
 func init() {
-	goroot = strings.Replace(build.Default.GOROOT, "\\", "/", -1)
+	goroot = strings.ReplaceAll(build.Default.GOROOT, "\\", "/")
 	gopaths = map[string]string{}
 	for i, p := range getGOPATHs() {
 		gopaths[p] = p
@@ -353,7 +352,7 @@ func init() {
 		panic(err)
 	}
 	// Our internal functions work with '/' as path separator.
-	pwd = strings.Replace(pwd, "\\", "/", -1)
+	pwd = strings.ReplaceAll(pwd, "\\", "/")
 	gomods = map[string]string{}
 	gmc := gomodCache{}
 	if prefix, path := gmc.isGoModule(splitPath(pwd)); prefix != "" {

@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -25,6 +26,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -57,7 +59,7 @@ func main() {
 	if !*allowremote {
 		addr = "localhost" + addr
 	}
-	ln, err := net.Listen("tcp", addr)
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen on localhost: %v", err)
 	}
@@ -104,7 +106,7 @@ func main() {
 	} else {
 		http.HandleFunc("/panicparse", webstack.SnapshotHandler)
 	}
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(rootPage)
 	})
@@ -112,7 +114,7 @@ func main() {
 		Handler:           http.DefaultServeMux,
 		ReadHeaderTimeout: 2 * time.Second,
 	}
-	go srv.Serve(ln)
+	go srv.Serve(ln) //nolint:errcheck // Preserve the server goroutine's stack signature.
 
 	// Start many clients.
 	a := ln.Addr()
@@ -120,14 +122,14 @@ func main() {
 	if *allowremote {
 		if h, err := os.Hostname(); err == nil {
 			if t, ok := a.(*net.TCPAddr); ok {
-				url = fmt.Sprintf("http://%s:%d/", h, t.Port)
+				url = "http://" + net.JoinHostPort(h, strconv.Itoa(t.Port)) + "/"
 			}
 		}
 	}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		internal.GetAsync(url + "url1")
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		internal.GetAsync(url + "url2")
 	}
 
@@ -143,7 +145,7 @@ func main() {
 	// that is both versioned and can be hacked to call back user code.
 	w := writeHang{hung: make(chan struct{}), unblock: make(chan struct{})}
 	v := colorable.NewNonColorable(&w)
-	go v.Write([]byte("foo bar"))
+	go v.Write([]byte("foo bar")) //nolint:errcheck // Preserve the writer goroutine's stack signature.
 	<-w.hung
 
 	if *sleep {
@@ -159,7 +161,7 @@ type writeHang struct {
 	unblock chan struct{}
 }
 
-func (w *writeHang) Write(b []byte) (int, error) {
+func (w *writeHang) Write(_ []byte) (int, error) {
 	runtime.LockOSThread()
 	w.hung <- struct{}{}
 	<-w.unblock

@@ -29,7 +29,7 @@ import (
 // goarchList is a list of GOARCH values.
 type goarchList []string
 
-var allPlatforms goarchList = nil
+var allPlatforms goarchList
 
 func TestAugment(t *testing.T) {
 	t.Parallel()
@@ -1350,8 +1350,6 @@ func TestAugment(t *testing.T) {
 	}
 
 	for i, line := range data {
-		i := i
-		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
 			t.Parallel()
 			for _, arch := range line.archBlock {
@@ -1372,22 +1370,14 @@ func TestAugment(t *testing.T) {
 			input := strings.Join(lines, "\n")
 
 			// Create one temporary directory by subtest.
-			root, err := os.MkdirTemp("", "stack")
-			if err != nil {
-				t.Fatalf("failed to create temporary directory: %v", err)
-			}
-			defer func() {
-				if err2 := os.RemoveAll(root); err2 != nil {
-					t.Fatalf("failed to remove temporary directory %q: %v", root, err2)
-				}
-			}()
+			root := t.TempDir()
 			main := filepath.Join(root, "main.go")
 			if err := os.WriteFile(main, []byte(input), 0500); err != nil {
 				t.Fatalf("failed to write %q: %v", main, err)
 			}
 
 			if runtime.GOOS == "windows" {
-				root = strings.Replace(root, pathSeparator, "/", -1)
+				root = strings.ReplaceAll(root, pathSeparator, "/")
 			}
 			const prefix = "/root"
 			for j, c := range line.want.Calls {
@@ -1443,7 +1433,7 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 		t.Errorf("augment() returned %v", err)
 	}
 	got := s.Goroutines[0].Signature.Stack
-	zapPointers(t, &want, &got)
+	zapPointers(&want, &got)
 
 	// With a non-pointer method, elided argument can be shown. It's only for
 	// test case "non-pointer method".
@@ -1467,15 +1457,7 @@ func testAugmentCommon(t *testing.T, content []byte, mayBeInlined bool, want Sta
 
 func TestAugmentErr(t *testing.T) {
 	t.Parallel()
-	root, err := os.MkdirTemp("", "stack")
-	if err != nil {
-		t.Fatalf("failed to create temporary directory: %v", err)
-	}
-	defer func() {
-		if err2 := os.RemoveAll(root); err2 != nil {
-			t.Fatalf("failed to remove temporary directory %q: %v", root, err2)
-		}
-	}()
+	root := t.TempDir()
 
 	tree := map[string]string{
 		"bad.go":       "bad content",
@@ -1558,17 +1540,17 @@ func TestAugmentErr(t *testing.T) {
 	}
 
 	for i, line := range data {
-		line := line
 		t.Run(fmt.Sprintf("%d-%s", i, line.name), func(t *testing.T) {
+			t.Parallel()
 			l := line.line
 			if l == 0 {
 				l = 1
 			}
 			s := Snapshot{
 				Goroutines: []*Goroutine{
-					{Signature: Signature{Stack: Stack{Calls: []Call{
+					{Stack: Stack{Calls: []Call{
 						{LocalSrcPath: filepath.Join(root, line.src), Args: line.args, Line: l},
-					}}}},
+					}}},
 				}}
 			if err := s.augment(); (line.errRe == "") != (err == nil) {
 				t.Fatalf("want: %q; got:  %q", line.errRe, err)
@@ -1584,6 +1566,7 @@ func TestAugmentErr(t *testing.T) {
 }
 
 func TestLineToByteOffsets(t *testing.T) {
+	t.Parallel()
 	src := "\n\n\n"
 	want := []int{0, 0, 1, 2, 3}
 	if diff := cmp.Diff(want, lineToByteOffsets([]byte(src))); diff != "" {
@@ -1623,7 +1606,7 @@ func getCrash(t *testing.T, main string, disableInline bool) []byte {
 		// Disable both optimization (-N) and inlining (-l).
 		args = append(args, "-gcflags", "-N -l")
 	}
-	cmd := exec.Command("go", append(args, main)...)
+	cmd := exec.CommandContext(t.Context(), "go", append(args, main)...)
 	// Use the Go 1.4 compatible format.
 	cmd.Env = overrideEnv(os.Environ(), "GOTRACEBACK", "1")
 	out, err := cmd.CombinedOutput()
@@ -1635,7 +1618,7 @@ func getCrash(t *testing.T, main string, disableInline bool) []byte {
 }
 
 // zapPointers zaps out pointers in got.
-func zapPointers(t *testing.T, want, got *Stack) {
+func zapPointers(want, got *Stack) {
 	for i := range got.Calls {
 		if i >= len(want.Calls) {
 			// When using GOTRACEBACK=2, it'll include runtime.main() and
@@ -1645,22 +1628,22 @@ func zapPointers(t *testing.T, want, got *Stack) {
 			break
 		}
 		gotArgs := got.Calls[i].Args
-		ptrsToReplace := zapPointersInArgs(t, want.Calls[i].Args, gotArgs)
+		ptrsToReplace := zapPointersInArgs(want.Calls[i].Args, gotArgs)
 		for _, ptr := range ptrsToReplace {
 			for k := range gotArgs.Processed {
-				gotArgs.Processed[k] = strings.Replace(gotArgs.Processed[k], ptr, pointerStr, -1)
+				gotArgs.Processed[k] = strings.ReplaceAll(gotArgs.Processed[k], ptr, pointerStr)
 			}
 		}
 	}
 }
 
-func zapPointersInArgs(t *testing.T, want, got Args) (ptrs []string) {
+func zapPointersInArgs(want, got Args) (ptrs []string) {
 	for j := range got.Values {
 		if j >= len(want.Values) {
 			break
 		}
 		if want.Values[j].IsAggregate && got.Values[j].IsAggregate {
-			ptrs = append(ptrs, zapPointersInArgs(t, want.Values[j].Fields, got.Values[j].Fields)...)
+			ptrs = append(ptrs, zapPointersInArgs(want.Values[j].Fields, got.Values[j].Fields)...)
 		} else if want.Values[j].IsPtr && got.Values[j].IsPtr {
 			// Record the existing pointer value and then replace.
 			ptrs = append(ptrs, fmt.Sprintf("0x%x", got.Values[j].Value))
@@ -1672,6 +1655,7 @@ func zapPointersInArgs(t *testing.T, want, got Args) (ptrs []string) {
 
 // TestAugmentCall covers signed stack words and unused high bits of narrow values.
 func TestAugmentCall(t *testing.T) {
+	t.Parallel()
 	wantInt := "1311768467015204864"
 	if strconv.IntSize == 32 {
 		wantInt = "-2147483648"
@@ -1697,12 +1681,17 @@ func TestAugmentCall(t *testing.T) {
 	}
 	for i, line := range data {
 		t.Run(fmt.Sprintf("%s/%d", line.typ, i), func(t *testing.T) {
+			t.Parallel()
 			f, err := parser.ParseFile(token.NewFileSet(), "args.go", "package main; func f(v "+line.typ+") {}", 0)
 			if err != nil {
 				t.Fatal(err)
 			}
 			call := Call{Args: Args{Values: []Arg{{Value: line.word}}}}
-			augmentCall(&call, f.Decls[0].(*ast.FuncDecl))
+			decl, ok := f.Decls[0].(*ast.FuncDecl)
+			if !ok {
+				t.Fatal("expected function declaration")
+			}
+			augmentCall(&call, decl)
 			if diff := cmp.Diff([]string{line.want}, call.Args.Processed); diff != "" {
 				t.Fatalf("decoded argument (-want +got):\n%s", diff)
 			}

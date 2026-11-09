@@ -28,6 +28,8 @@ package main
 // below. That's it!
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -40,7 +42,7 @@ import (
 
 	"github.com/maruel/panicparse/v2/cmd/panic/internal"
 	correct "github.com/maruel/panicparse/v2/cmd/panic/internal/incorrect"
-	ùtf8 "github.com/maruel/panicparse/v2/cmd/panic/internal/utf8"
+	ùtf8 "github.com/maruel/panicparse/v2/cmd/panic/internal/utf8" //nolint:asciicheck // The fixture tests non-ASCII identifiers.
 )
 
 func main() {
@@ -75,7 +77,7 @@ func main() {
 				f.f()
 				os.Exit(3)
 			}
-			fmt.Fprintf(stdErr, "unknown panic style %q\n", n)
+			_, _ = fmt.Fprintf(stdErr, "unknown panic style %q\n", n)
 			os.Exit(1)
 		}
 	}
@@ -104,7 +106,7 @@ func panicslicestr(a []string) {
 	panic(a)
 }
 
-func panicArgsElided(a, b, c, d, e, f, g, h, i, j, k int) {
+func panicArgsElided(a, _, _, _, _, _, _, _, _, _, _ int) {
 	panic(a)
 }
 
@@ -120,24 +122,24 @@ func panicRaceDisabled(name string) {
 	help := "'panic %s' can only be used when built with the race detector.\n" +
 		"To build, use:\n" +
 		"  go install -race github.com/maruel/panicparse/v2/cmd/panic\n"
-	fmt.Fprintf(stdErr, help, name)
+	_, _ = fmt.Fprintf(stdErr, help, name)
 }
 
 func rerunWithFastCrash() {
 	if os.Getenv("GORACE") != "log_path=stderr halt_on_error=1" {
 		exe, err := os.Executable()
 		if err != nil {
-			fmt.Fprintln(stdErr, err)
+			_, _ = fmt.Fprintln(stdErr, err)
 			os.Exit(1)
 		}
-		c := exec.Command(exe, os.Args[1:]...)
+		c := exec.CommandContext(context.Background(), exe, os.Args[1:]...) // #nosec G204 G702 -- re-executes this binary without a shell.
 		c.Env = append(os.Environ(), "GORACE=log_path=stderr halt_on_error=1")
 		c.Stderr = os.Stderr
 		if err := c.Run(); err != nil {
-			if e, ok := err.(*exec.ExitError); ok {
+			if e, ok := errors.AsType[*exec.ExitError](err); ok {
 				os.Exit(e.ExitCode())
 			}
-			fmt.Fprintln(stdErr, err)
+			_, _ = fmt.Fprintln(stdErr, err)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -177,7 +179,7 @@ func panicRace() {
 }
 
 //go:noinline
-func panicChanStruct(x chan struct{}) {
+func panicChanStruct(_ chan struct{}) {
 	panic("test")
 }
 
@@ -285,7 +287,7 @@ var types = map[string]struct {
 		"start 100 goroutines before panicking",
 		func() {
 			var wg sync.WaitGroup
-			for i := 0; i < 100; i++ {
+			for range 100 {
 				wg.Add(1)
 				go func() {
 					wg.Done()
@@ -301,9 +303,9 @@ var types = map[string]struct {
 		"start 100 goroutines with different pointers before panicking",
 		func() {
 			var wg sync.WaitGroup
-			for i := 0; i < 100; i++ {
+			for range 100 {
 				wg.Add(1)
-				go func(b *int) {
+				go func(_ *int) {
 					wg.Done()
 					time.Sleep(time.Minute)
 				}(new(int))
@@ -466,7 +468,7 @@ Select the way to panic:
 	}
 	sort.Strings(names)
 	for _, n := range names {
-		fmt.Fprintf(stdErr, "- %-*s  %s\n", m, n, types[n].desc)
+		_, _ = fmt.Fprintf(stdErr, "- %-*s  %s\n", m, n, types[n].desc)
 	}
 }
 
