@@ -1699,6 +1699,105 @@ func TestAugmentCall(t *testing.T) {
 	}
 }
 
+func TestAugmentEmptyStructArguments(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		params string
+		args   []Arg
+		want   []string
+	}{
+		{
+			name: "empty struct", params: "v struct{}",
+			args: []Arg{{IsAggregate: true}},
+			want: []string{"struct{}{}"},
+		},
+		{
+			name: "empty structs beside an integer", params: "a struct{}, n int, b struct{}",
+			args: []Arg{{IsAggregate: true}, {Value: 42}, {IsAggregate: true}},
+			want: []string{"struct{}{}", "42", "struct{}{}"},
+		},
+		{
+			name: "legacy empty struct", params: "v struct{}",
+			want: []string{"struct{}{}"},
+		},
+		{
+			name: "legacy empty structs beside an integer", params: "a struct{}, n int, b struct{}",
+			args: []Arg{{Value: 42}},
+			want: []string{"struct{}{}", "42", "struct{}{}"},
+		},
+		{
+			name: "channel beside an integer", params: "c chan struct{}, n int",
+			args: []Arg{{Value: 0}, {Value: 42}},
+			want: []string{"chan struct{}(0x0)", "42"},
+		},
+		{
+			name: "legacy scalar words", params: "s string",
+			args: []Arg{{Value: 0x1234}, {Value: 3}},
+			want: []string{"string(0x1234, len=3)"},
+		},
+		{
+			name: "non-empty anonymous struct", params: "s struct{ N int }",
+			args: []Arg{{IsAggregate: true, Fields: Args{Values: []Arg{{Value: 42}}}}},
+			want: []string{"<unknown>{0x2a}"},
+		},
+		{
+			name: "elided aggregate", params: "s struct{ N int }",
+			args: []Arg{{IsAggregate: true, Fields: Args{Elided: true}}},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			f, err := parser.ParseFile(token.NewFileSet(), "args.go", "package main; func f("+test.params+") {}", 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decl, ok := f.Decls[0].(*ast.FuncDecl)
+			if !ok {
+				t.Fatal("expected function declaration")
+			}
+			call := Call{Args: Args{Values: test.args}}
+			augmentCall(&call, decl)
+			if diff := cmp.Diff(test.want, call.Args.Processed); diff != "" {
+				t.Fatalf("decoded arguments (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestAugmentEmptyStructPanic(t *testing.T) {
+	t.Parallel()
+	main := filepath.Join(t.TempDir(), "main.go")
+	const src = `package main
+
+func fail(a struct{}, c chan struct{}, n int, b struct{}) {
+	panic("ooh")
+}
+
+func main() {
+	fail(struct{}{}, nil, 42, struct{}{})
+}
+`
+	if err := os.WriteFile(main, []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := getCrash(t, main, true)
+	s, _, err := ScanSnapshot(bytes.NewReader(content), &bytes.Buffer{}, defaultOpts())
+	if err != nil || s == nil {
+		t.Fatalf("parse empty struct panic: %v\n%s", err, content)
+	}
+	if !s.guessPaths() {
+		t.Fatal("could not resolve panic source")
+	}
+	if err := s.augment(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"struct{}{}", "chan struct{}(0x0)", "42", "struct{}{}"}
+	if diff := cmp.Diff(want, s.Goroutines[0].Stack.Calls[0].Args.Processed); diff != "" {
+		t.Fatalf("decoded panic arguments (-want +got):\n%s", diff)
+	}
+}
+
 func TestAugmentGenericMethod(t *testing.T) {
 	t.Parallel()
 	main := filepath.Join(t.TempDir(), "main.go")
