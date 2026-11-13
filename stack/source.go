@@ -170,6 +170,11 @@ func name(n ast.Node) string {
 		return t.Value
 	case *ast.Ellipsis:
 		return "..."
+	case *ast.StructType:
+		if t.Fields != nil && len(t.Fields.List) == 0 {
+			return "struct{}"
+		}
+		return "<unknown>"
 	default:
 		return "<unknown>"
 	}
@@ -202,6 +207,8 @@ func fieldToType(f *ast.Field) (string, bool) {
 		return fmt.Sprintf("map[%s]%s", name(arg.Key), name(arg.Value)), false
 	case *ast.ChanType:
 		return "chan " + name(arg.Value), false
+	case *ast.StructType:
+		return name(arg), false
 	default:
 		// TODO(maruel): Implement anything missing.
 		return "<unknown>", false
@@ -278,7 +285,11 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 	}
 
 	types, extra := extractArgumentsType(f)
-	for i := 0; len(flatArgs) != 0; i++ {
+	regularArgs := len(types)
+	if extra {
+		regularArgs--
+	}
+	for i := 0; len(flatArgs) != 0 || (i < regularArgs && types[i] == "struct{}"); i++ {
 		var t string
 		if i >= len(types) {
 			if !extra {
@@ -289,6 +300,11 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 			t = types[len(types)-1]
 		} else {
 			t = types[i]
+		}
+		// Empty structs have a value but do not occupy any stack words.
+		if t == "struct{}" && i < regularArgs {
+			call.Args.Processed = append(call.Args.Processed, "struct{}{}")
+			continue
 		}
 		var str string
 		switch t {
@@ -341,7 +357,7 @@ func augmentCall(call *Call, f *ast.FuncDecl) {
 			str = fmt.Sprintf("%s(%s, len=%s)", t, name, lenStr)
 		default:
 			switch {
-			case strings.HasPrefix(t, "*"):
+			case strings.HasPrefix(t, "*"), strings.HasPrefix(t, "chan "):
 				str = fmt.Sprintf("%s(%s)", t, popName())
 			case strings.HasPrefix(t, "[]"):
 				name := popName()
